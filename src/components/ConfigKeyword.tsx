@@ -125,8 +125,7 @@ export const ConfigKeyword = () => {
 
   const handleAccountChange = ({id, new_value, new_text}) => {
     // Request we update the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.UPDATE_KEYWORD_ACC, {id, new_value});
+    axios.post('http://localhost:3001/api/' + channels.UPDATE_KEYWORD_ACC, {id, new_value});
   };
 
   const handleEnvelopeChange = ({id, new_value, new_text}) => {
