@@ -1379,6 +1379,35 @@ app.post('/api/'+channels.SET_VISIBILITY, async (req, res) => {
   await adjust_balance(txID, isVisible ? 'add' : 'rem');
 });
 
+app.post('/api/'+channels.GET_KEYWORDS, async (req, res) => {
+  console.log(channels.GET_KEYWORDS);
+  if (db) {
+    db.select(
+      'keyword.id',
+      'keyword.envelopeID',
+      'description',
+      'category',
+      'envelope',
+      'account',
+      'last_used'
+    )
+      .from('keyword')
+      .leftJoin('envelope', function () {
+        this.on('keyword.envelopeID', '=', 'envelope.id');
+      })
+      .leftJoin('category', function () {
+        this.on('category.id', '=', 'envelope.categoryID');
+      })
+      .then((data) => {
+        res.json(data);
+      })
+      .catch((err) => console.log(err));
+  }
+});
+
+
+
+
 app.post('/api/'+channels.IMPORT_OFX, async (req, res) => {
   const { ofxString } = req.body;
   //console.log(channels.IMPORT_OFX, ofxString);

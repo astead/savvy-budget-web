@@ -65,22 +65,11 @@ export const ConfigKeyword = () => {
     };
   }
 
-  const load_keywords = () => {
+  const load_keywords = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_KEYWORDS);
-
-    // Receive the data
-    ipcRenderer.on(channels.LIST_KEYWORDS, (arg) => {
-      const tmpArr = sort_keyword_array(arg)
-      setKeywordData(tmpArr);
-      ipcRenderer.removeAllListeners(channels.LIST_KEYWORDS);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_KEYWORDS);
-    };
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_KEYWORDS);
+    const tmpArr = sort_keyword_array(response.data);
+    setKeywordData(tmpArr);
   }
 
   const sort_keyword_array = (arr) => {
