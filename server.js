@@ -172,6 +172,32 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
 });
 
 
+app.post('/api/'+channels.PLAID_GET_KEYS, (req, res) => {
+  console.log(channels.PLAID_GET_KEYS);
+  if (db) {
+    db.select('client_id', 'secret', 'environment', 'token', 'token_expiration')
+      .from('plaid')
+      .then((data) => {
+        PLAID_CLIENT_ID = data[0].client_id.trim();
+        PLAID_SECRET = data[0].secret.trim();
+        PLAID_ENV = data[0].environment.trim();
+
+        client.configuration.baseOptions.headers['PLAID-CLIENT-ID'] =
+          PLAID_CLIENT_ID;
+        client.configuration.baseOptions.headers['PLAID-SECRET'] = PLAID_SECRET;
+        client.configuration.basePath = PlaidEnvironments[PLAID_ENV];
+
+        if (data[0].token) {
+          client.linkTokenCreate(configs);
+        }
+
+        res.json(data);
+      })
+      .catch((err) => console.log(err));
+  }
+});
+
+
 
 // Get the categories and envelopes
 app.post('/api/'+channels.GET_CAT_ENV, (req, res) => {

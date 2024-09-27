@@ -71,37 +71,29 @@ export const ConfigPlaid = () => {
     lastTx: number;
   }
 
-  const getPLAIDInfo = () => {
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.PLAID_GET_KEYS);
-
+  const getPLAIDInfo = async () => {
+    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_GET_KEYS);
+    
     // Receive the data
-    ipcRenderer.on(channels.PLAID_LIST_KEYS, (data) => {
-      if (data?.length) {
-        setClient(data[0].client_id);
-        setClientTemp(data[0].client_id);
-        setSecret(data[0].secret);
-        setSecretTemp(data[0].secret);
-        setEnvironment(data[0].environment);
-        setEnvironmentTemp(data[0].environment);
+    let data = response.data;
+    if (data?.length) {
+      setClient(data[0].client_id);
+      setClientTemp(data[0].client_id);
+      setSecret(data[0].secret);
+      setSecretTemp(data[0].secret);
+      setEnvironment(data[0].environment);
+      setEnvironmentTemp(data[0].environment);
 
-        if (data[0].token) {
-          setToken(data[0].token);
-          setTokenExpiration(data[0].token_expiration);
-          getAccountList();
-        } else {
-          createLinkToken();
-        }
-        
-        setLoading(false);
+      if (data[0].token) {
+        setToken(data[0].token);
+        setTokenExpiration(data[0].token_expiration);
+        getAccountList();
+      } else {
+        createLinkToken();
       }
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_KEYS);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_KEYS);
-    };
+      
+      setLoading(false);
+    }
   };
 
 
