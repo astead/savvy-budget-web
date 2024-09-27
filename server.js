@@ -1499,6 +1499,15 @@ app.post('/api/'+channels.DEL_KEYWORD, async (req, res) => {
     .catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.UPDATE_KEYWORD, async (req, res) => {
+  const { id, new_value } = req.body;
+  console.log(channels.UPDATE_KEYWORD, { id, new_value });
+  db('keyword')
+    .update({ description: new_value })
+    .where({ id: id })
+    .catch((err) => console.log(err));
+});
+
 
 
 

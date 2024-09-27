@@ -192,8 +192,7 @@ export const ConfigKeyword = () => {
                   defaultValue={description} 
                   onSave={({name, value, previousValue}) => {
                     // Request we rename the keyword in the DB
-                    const ipcRenderer = (window as any).ipcRenderer;
-                    ipcRenderer.send(channels.UPDATE_KEYWORD, { id, new_value: value });
+                    axios.post('http://localhost:3001/api/' + channels.UPDATE_KEYWORD, { id, new_value: value });
                   }}
                   style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
                   className={"editableText"}
