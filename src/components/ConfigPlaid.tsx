@@ -182,45 +182,25 @@ export const ConfigPlaid = () => {
     }
   };
 
-  const force_get_transactions = (acc : PLAIDAccount, start_date, end_date) => {
-    setUploading(true);
+  const force_get_transactions = async (acc : PLAIDAccount, start_date, end_date) => {
     handleClose();
 
     // Get transactions
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.PLAID_FORCE_TRANSACTIONS, 
+    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_FORCE_TRANSACTIONS, 
       { access_token: acc.access_token,
         start_date: start_date,
         end_date: end_date
       }
     );
 
-    // Listen for progress updates
-    ipcRenderer.on(channels.UPLOAD_PROGRESS, (data) => {
-      setProgress(data);
-      if (data >= 100) {
-        ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
-        setUploading(false);
-        
-        // Get new latest transaction dates
-        getAccountList();
-      }
-    });
+    getAccountList();
 
     // TODO: This is never being sent, why do we have this?
-    ipcRenderer.on(channels.PLAID_DONE_FORCE_TRANSACTIONS, (data) => {
-      if (data.error_message?.length) {
-        console.log(data);
-        setLink_Error("Error: " + data.error_message);
-      }
-      ipcRenderer.removeAllListeners(channels.PLAID_DONE_FORCE_TRANSACTIONS);
-    });
-      
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_TRANSACTIONS);
-    };
+    let data = response.data;
+    if (data.error_message?.length) {
+      console.log(data);
+      setLink_Error("Error: " + data.error_message);
+    }
   };
 
   const onSuccess: PlaidLinkOnSuccess = (public_token, metadata) => {

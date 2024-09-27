@@ -562,6 +562,109 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
 });
 
+// TODO: this can probably be consolidated with the above function
+//       pulling out common tasks to a helper function.
+app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
+  const { access_token, start_date, end_date } = req.body;
+  console.log('Try getting plaid account transactions ');
+
+  let added = [];
+
+  console.log('Making the call ');
+  let response = null;
+  try {
+    response = await client.transactionsGet({
+      access_token: access_token,
+      start_date: start_date,
+      end_date: end_date,
+    });
+  } catch (e) {
+    console.log('Error: ', e.response.data.error_message);
+    res.json(e.response.data);
+    return;
+  }
+  let transactions = response.data.transactions;
+  const total_transactions = response.data.total_transactions;
+
+  // Add this page of results
+  added = added.concat(transactions);
+
+  while (transactions.length < total_transactions) {
+    const paginatedRequest = {
+      access_token: access_token,
+      start_date: start_date,
+      end_date: end_date,
+      options: {
+        offset: transactions.length,
+      },
+    };
+
+    const paginatedResponse = await client.transactionsGet(paginatedRequest);
+    added = added.concat(paginatedResponse.data.transactions);
+  }
+
+  console.log(added);
+  console.log(
+    'Done getting the data, now processing: ',
+    added.length,
+    ' transaction(s)'
+  );
+
+  //let total_records = added.length;
+  //let cur_record = 0;
+
+  // Apply added
+  const accountArr = [];
+  for (const [i, a] of added.entries()) {
+    let account_str = a.account_id;
+    let accountID = '';
+    if (accountArr?.length) {
+      const found = accountArr.find((e) => e.name === account_str);
+      if (found) {
+        accountID = found.id;
+      } else {
+        accountID = await lookup_plaid_account(account_str);
+        accountArr.push({ name: account_str, id: accountID });
+      }
+    } else {
+      accountID = await lookup_plaid_account(account_str);
+      accountArr.push({ name: account_str, id: accountID });
+    }
+
+    let envID = await lookup_keyword(accountID, a.name, a.date);
+
+    // Check if this is a duplicate
+    let isDuplicate = await lookup_if_duplicate(
+      accountID,
+      a.transaction_id,
+      a.date,
+      -1 * a.amount,
+      a.name
+    );
+
+    if (isDuplicate !== 1) {
+      await basic_insert_transaction_node(
+        accountID,
+        -1 * a.amount,
+        a.date,
+        a.name,
+        a.transaction_id,
+        envID
+      );
+    }
+
+    /*
+    cur_record++;
+    event.sender.send(
+      channels.UPLOAD_PROGRESS,
+      (cur_record * 100) / total_records
+    );
+    */
+  }
+
+  //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+});
+
 
 // Helper functions used only by the server
 
