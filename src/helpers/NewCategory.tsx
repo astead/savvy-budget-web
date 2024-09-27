@@ -2,28 +2,18 @@ import React, { useState } from 'react';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faPlus } from "@fortawesome/free-solid-svg-icons"
 import { channels } from '../shared/constants.js';
+import axios from 'axios';
 
 export const NewCategory = ({ callback }) => {
   const [newCategory, setNewCategory] = useState('');
   const [error, setError] = useState('');
   
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (newCategory) {
       // Request we add the new category
-      const ipcRenderer = (window as any).ipcRenderer;
-      ipcRenderer.send(channels.ADD_CATEGORY, { name: newCategory });
-    
-      // Wait till we are done
-      ipcRenderer.on(channels.DONE_ADD_CATEGORY, () => {
-        callback();
-        //console.log(callback);
-        ipcRenderer.removeAllListeners(channels.DONE_ADD_CATEGORY);
-      });
+      await axios.post('http://localhost:3001/api/' + channels.ADD_CATEGORY, { name: newCategory });
       
-      // Clean the listener after the component is dismounted
-      return () => {
-        ipcRenderer.removeAllListeners(channels.DONE_ADD_CATEGORY);
-      };
+      callback();
     } else {
       setError("Please enter a new category name.");
     }

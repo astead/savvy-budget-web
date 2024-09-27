@@ -784,6 +784,18 @@ app.post('/api/'+channels.ADD_ENVELOPE, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.ADD_CATEGORY, async (req, res) => {
+  const { name } = req.body;
+  console.log(channels.ADD_CATEGORY, name);
+
+  await db('category')
+    .insert({ category: name })
+    .then()
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 
