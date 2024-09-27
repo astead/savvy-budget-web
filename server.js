@@ -1262,6 +1262,35 @@ app.post('/api/'+channels.ADD_TX, async (req, res) => {
   await update_env_balance(data.txEnvID, data.txAmt);
 });
 
+app.post('/api/'+channels.GET_ENV_LIST, async (req, res) => {
+  const { onlyActive } = req.body;
+  console.log(channels.GET_ENV_LIST);
+
+  if (db) {
+    let query = db
+      .select(
+        'envelope.id as envID',
+        'category.category as category',
+        'envelope.envelope as envelope'
+      )
+      .from('envelope')
+      .leftJoin('category', function () {
+        this.on('category.id', '=', 'envelope.categoryID');
+      })
+      .orderBy('category.category', 'envelope.envelope');
+
+    if (onlyActive === 1) {
+      query.where('envelope.isActive', true);
+    }
+
+    query
+      .then((data) => {
+        res.json(data);
+      })
+      .catch((err) => console.log(err));
+  }
+});
+
 
 // Helper functions used only by the server
 

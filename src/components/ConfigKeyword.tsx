@@ -5,6 +5,7 @@ import * as dayjs from 'dayjs';
 import { channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { EditText } from 'react-edit-text';
+import axios from 'axios';
 
 /*
   TODO:
@@ -28,26 +29,17 @@ export const ConfigKeyword = () => {
   const [envList, setEnvList] = useState<any[]>([]);
   const [accList, setAccList] = useState<any[]>([]);
  
-  const load_envelope_list = () => {
+  const load_envelope_list = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_ENV_LIST, {includeInactive: 1});
-
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ENV_LIST, { includeInactive: 1 });
+    
     // Receive the data
-    ipcRenderer.on(channels.LIST_ENV_LIST, (arg) => {
-      setEnvList([...arg.map((i) => {
-        return {
-          id: i.envID,
-          text: i.category + (i.category?.length && i.envelope?.length?" : ":"") + i.envelope,
-        }
-      })]);
-      ipcRenderer.removeAllListeners(channels.LIST_ENV_LIST);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_ENV_LIST);
-    };
+    setEnvList([...response.data.map((i) => {
+      return {
+        id: i.envID,
+        text: i.category + (i.category?.length && i.envelope?.length?" : ":"") + i.envelope,
+      }
+    })]);
   }
 
   const load_account_list = () => {
