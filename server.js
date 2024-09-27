@@ -1419,6 +1419,31 @@ app.post('/api/'+channels.GET_ACCOUNT_NAMES, async (req, res) => {
   }
 });
 
+app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
+  console.log(channels.GET_ACCOUNTS);
+  if (db) {
+    const find_date = dayjs(new Date()).format('YYYY-MM-DD');
+    let query = db.select('account.id', 'account.refNumber', 'account', 'isActive')
+      .max({ lastTx: 'txDate' })
+      .count({ numTx: 'txDate' })
+      .from('account')
+      .leftJoin('transaction', function () {
+        this.on('account.id', '=', 'transaction.accountID')
+          .on('transaction.isBudget', '=', 0)
+          .on('transaction.isDuplicate', '=', 0);
+        // PostgreSQL specific
+        this.on(db.raw(`?::date - "txDate" >= 0`, [find_date]));
+        this.on(db.raw(`"transaction"."isVisible" = true`));
+      })
+      .orderBy('account.id')
+      .groupBy('account.id', 'account.refNumber', 'account', 'isActive');
+    query.then((data) => {
+      res.json(data);
+    }).catch((err) => console.log(err));
+  }
+});
+
+
 
 
 

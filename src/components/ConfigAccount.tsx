@@ -4,6 +4,7 @@ import { faEyeSlash, faTrash } from "@fortawesome/free-solid-svg-icons";
 import * as dayjs from 'dayjs';
 import { EditText } from 'react-edit-text';
 import { channels } from '../shared/constants.js';
+import axios from 'axios';
 
 /*
   TODO:
@@ -14,21 +15,10 @@ export const ConfigAccount = () => {
 
   const [accountData, setAccountData] = useState<any[]>([]);
 
-  const load_accounts = () => {
+  const load_accounts = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_ACCOUNTS);
-
-    // Receive the data
-    ipcRenderer.on(channels.LIST_ACCOUNTS, (arg) => {
-      setAccountData(arg);
-      ipcRenderer.removeAllListeners(channels.LIST_ACCOUNTS);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_ACCOUNTS);
-    };
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNTS);
+    setAccountData(response.data);
   }
 
   const handleAccountDelete = (id) => {

@@ -188,28 +188,25 @@ export const Transactions: React.FC = () => {
 
   const load_account_list = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_ACCOUNTS);
-
+    const acct_response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNTS);
+    
     // Receive the data
-    ipcRenderer.on(channels.LIST_ACCOUNTS, (arg) => {
-      const tmpFiltered = arg.filter((item) => {
-        return (arg.find((i) => {
-          return (i.account === item.account);
-        }).id === item.id);
-      });
-      
-      let firstID = -1;
-      setNewTxAccList([...(tmpFiltered.map((i, index) => {
-        if (index === 0) {
-          firstID = i.id;
-        }
-        return { id: i.id, text: i.account }
-      }))]);
-      setNewTxAccID(firstID);
-      setNewTxAccListLoaded(true);
-      ipcRenderer.removeAllListeners(channels.LIST_ACCOUNTS);
+    let acct_list = acct_response.data;
+    const tmpFiltered = acct_list.filter((item) => {
+      return (acct_list.find((i) => {
+        return (i.account === item.account);
+      }).id === item.id);
     });
+    
+    let firstID = -1;
+    setNewTxAccList([...(tmpFiltered.map((i, index) => {
+      if (index === 0) {
+        firstID = i.id;
+      }
+      return { id: i.id, text: i.account }
+    }))]);
+    setNewTxAccID(firstID);
+    setNewTxAccListLoaded(true);
     
     // Signal we want to get data
     const acct_name_response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNT_NAMES);
@@ -222,12 +219,6 @@ export const Transactions: React.FC = () => {
     }))]);
     setFilterAccListLoaded(true);
     setAccLoaded(true);
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_ACCOUNT_NAMES);
-      ipcRenderer.removeAllListeners(channels.LIST_ACCOUNTS);
-    };
   }
 
   function nthIndex(str, pat, n){
