@@ -280,21 +280,11 @@ export const Envelopes: React.FC = () => {
     load_CurrBalance();
   }
 
-  const handleUpdateBudget = ({index, id, date, value}) => {
+  const handleUpdateBudget = async ({index, id, date, value}) => {
     // Request we update the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.UPDATE_BUDGET, { newEnvelopeID: id, newtxDate: date, newtxAmt: value });
-    
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_UPDATE_BUDGET, () => {
-      handleBudgetItemChange(index, value);
-      ipcRenderer.removeAllListeners(channels.DONE_UPDATE_BUDGET);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_UPDATE_BUDGET);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.UPDATE_BUDGET, 
+      { newEnvelopeID: id, newtxDate: date, newtxAmt: value });
+    handleBudgetItemChange(index, value);
   }
 
   const handleBudgetItemChange = (index, value) => {
