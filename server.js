@@ -1297,6 +1297,19 @@ app.post('/api/'+channels.UPDATE_TX_ENV, async (req, res) => {
   await update_tx_env(txID, envID);
 });
 
+app.post('/api/'+channels.UPDATE_TX_DESC, async (req, res) => {
+  const { txID, new_value } = req.body;
+  console.log(channels.UPDATE_TX_DESC, txID, new_value);
+
+  db('transaction')
+    .where({ id: txID })
+    .update({ description: new_value })
+    .then()
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 

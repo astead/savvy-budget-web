@@ -293,8 +293,7 @@ export const TransactionTable = ({data, envList, callback}) => {
                   defaultValue={item.description}
                   onSave={({name, value, previousValue}) => {
                     // Request we rename the account in the DB
-                    const ipcRenderer = (window as any).ipcRenderer;
-                    ipcRenderer.send(channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value });
+                    axios.post('http://localhost:3001/api/' + channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value });
                   }}
                   style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
                   className={"editableText"}
