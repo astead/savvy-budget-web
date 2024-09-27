@@ -1291,6 +1291,12 @@ app.post('/api/'+channels.GET_ENV_LIST, async (req, res) => {
   }
 });
 
+app.post('/api/'+channels.UPDATE_TX_ENV, async (req, res) => {
+  const { txID, envID } = req.body;
+  console.log(channels.UPDATE_TX_ENV, txID, envID);
+  await update_tx_env(txID, envID);
+});
+
 
 // Helper functions used only by the server
 

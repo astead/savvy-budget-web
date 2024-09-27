@@ -153,21 +153,10 @@ export const TransactionTable = ({data, envList, callback}) => {
     callback();
   }; 
   
-  const handleTxEnvChange = ({id, new_value, new_text}) => {
+  const handleTxEnvChange = async ({id, new_value, new_text}) => {
     // Request we update the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.UPDATE_TX_ENV, { txID: id, envID: new_value });
-    
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_UPDATE_TX_ENV, () => {
-      callback();      
-      ipcRenderer.removeAllListeners(channels.DONE_UPDATE_TX_ENV);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_UPDATE_TX_ENV);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.UPDATE_TX_ENV, { txID: id, envID: new_value });
+    callback();      
   };
 
   const toggleDuplicate = ({txID, isDuplicate}) => {
