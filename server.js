@@ -1236,6 +1236,32 @@ app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
   }
 });
 
+app.post('/api/'+channels.ADD_TX, async (req, res) => {
+  const { data } = req.body;
+  console.log(channels.ADD_TX);
+
+  // Prepare the data node
+  const myNode = {
+    envelopeID: data.txEnvID,
+    txAmt: data.txAmt,
+    txDate: data.txDate,
+    description: data.txDesc,
+    refNumber: '',
+    isBudget: 0,
+    origTxID: 0,
+    isDuplicate: 0,
+    isSplit: 0,
+    accountID: data.txAccID,
+    isVisible: true,
+  };
+
+  // Insert the node
+  await db('transaction').insert(myNode);
+
+  // Update the envelope balance
+  await update_env_balance(data.txEnvID, data.txAmt);
+});
+
 
 // Helper functions used only by the server
 

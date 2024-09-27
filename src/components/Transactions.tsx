@@ -283,7 +283,7 @@ export const Transactions: React.FC = () => {
     setFilterAmount(filterAmountTemp);
   }; 
 
-  function add_new_transaction() {
+  const add_new_transaction = async () => {
     let errorMsg = "";
     if (newTxAmount?.length === 0) {
       errorMsg += "You must enter an amount.  ";
@@ -300,25 +300,16 @@ export const Transactions: React.FC = () => {
       return;
     }
     
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.ADD_TX, {
-      txDate: newTxDate?.format('YYYY-MM-DD'),
-      txAmt: newTxAmount,
-      txEnvID: newTxEnvID,
-      txAccID: newTxAccID,
-      txDesc: newTxDesc
-    });
+    await axios.post('http://localhost:3001/api/' + channels.ADD_TX, 
+      {
+        txDate: newTxDate?.format('YYYY-MM-DD'),
+        txAmt: newTxAmount,
+        txEnvID: newTxEnvID,
+        txAccID: newTxAccID,
+        txDesc: newTxDesc
+      });
 
-    // Listen for progress updates
-    ipcRenderer.on(channels.DONE_ADD_TX, () => {
-      ipcRenderer.removeAllListeners(channels.DONE_ADD_TX);
-      load_transactions();      
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_ADD_TX);
-    };
+    load_transactions();      
   }
 
   const handleExport = async () => {
