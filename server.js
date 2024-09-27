@@ -873,6 +873,21 @@ app.post('/api/'+channels.REN_CATEGORY, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.REN_ENVELOPE, async (req, res) => {
+  const { id, name } = req.body;
+  console.log(channels.REN_ENVELOPE, id, name);
+
+  db('envelope')
+    .where({ id: id })
+    .update({ envelope: name })
+    .then(() => {
+      console.log('Renamed envelope: ' + name);
+    })
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 

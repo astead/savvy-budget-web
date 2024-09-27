@@ -214,8 +214,7 @@ export const ConfigCatEnv = () => {
                                     defaultValue={env.envelope}
                                     onSave={({name, value, previousValue}) => {
                                       // Request we rename the envelope in the DB
-                                      const ipcRenderer = (window as any).ipcRenderer;
-                                      ipcRenderer.send(channels.REN_ENVELOPE, { id: env.envID, name: value });
+                                      axios.post('http://localhost:3001/api/' + channels.REN_ENVELOPE, { id: env.envID, name: value });
                                     }}
                                     style={{}}
                                     className={"cat"}
