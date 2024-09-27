@@ -562,6 +562,9 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
 });
 
+
+// Helper functions used only by the server
+
 async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {
   return await db('transaction')
     .select('id', 'txAmt')
