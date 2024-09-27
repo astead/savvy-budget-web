@@ -136,9 +136,7 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const remove_login = (acc : PLAIDAccount) => {
-    const ipcRenderer = (window as any).ipcRenderer;
-    
+  const remove_login = async (acc : PLAIDAccount) => {
     if (token) {
       if (acc.access_token.includes('production') && !token.includes('production')) {
         setLink_Error('You are trying to remove a production login but you have development link token.');
@@ -148,18 +146,11 @@ export const ConfigPlaid = () => {
         setLink_Error('You are trying to remove a development login but you have production link token.');
         return;
       }
-      ipcRenderer.send(channels.PLAID_REMOVE_LOGIN, 
-        { access_token: acc.access_token }
-      );
+      
+      await axios.post('http://localhost:3001/api/' + channels.PLAID_REMOVE_LOGIN, 
+        { access_token: acc.access_token });
 
-      ipcRenderer.on(channels.PLAID_DONE_REMOVE_LOGIN, () => {
-        getAccountList();
-      });
-        
-      // Clean the listener after the component is dismounted
-      return () => {
-        ipcRenderer.removeAllListeners(channels.PLAID_DONE_UPDATE_LOGIN);
-      };
+      getAccountList();
     } else {
       setLink_Error('You need a link token to remove a plaid account login.');
     }
