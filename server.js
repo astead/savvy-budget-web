@@ -1455,6 +1455,308 @@ app.post('/api/'+channels.IMPORT_OFX, async (req, res) => {
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
 });
 
+app.post('/api/'+channels.IMPORT_CSV, async (req, res) => {
+  const { account_string, ofxString } = req.body;
+  let accountID = '';
+  let totalNodes = 0;
+
+  // Find the financial institution ID
+  console.log('Account string: ', account_string);
+
+  const nodes = ofxString.split('\n');
+
+  if (account_string.toLowerCase().startsWith('sofi-')) {
+    accountID = await lookup_account(account_string);
+    totalNodes = nodes.length;
+    for (const [i, tx] of nodes.entries()) {
+      if (i > 0 && tx.trim().length > 0) {
+        const tx_values = tx.split(',');
+
+        await insert_transaction_node(
+          accountID,
+          tx_values[3],
+          tx_values[0],
+          tx_values[1],
+          ''
+        );
+        //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
+      }
+    }
+  }
+  if (account_string.toLowerCase() === 'venmo') {
+    accountID = await lookup_account(account_string);
+    totalNodes = nodes.length;
+    for (const [i, tx] of nodes.entries()) {
+      if (i > 3 && tx[0] === ',') {
+        const tx_values = tx.split(',');
+
+        if (tx_values?.length && tx_values[1]?.length) {
+          let refNumber = tx_values[1];
+          let txDate = tx_values[2].substr(0, 10);
+          let description = tx_values[5];
+          let j = 5;
+          if (description[0] === '"') {
+            while (!tx_values[j].endsWith('"')) {
+              j++;
+              description += ',' + tx_values[j];
+            }
+            description = description.replace(/\"/g, '');
+          }
+          let txFrom = tx_values[j + 1];
+          let txTo = tx_values[j + 2];
+          let txAmt_str = tx_values[j + 3]
+            .replace(/\"/g, '')
+            .replace(/\+/g, '')
+            .replace(/\$/g, '')
+            .replace(/\ /g, '')
+            .trim();
+          let txAmt = parseFloat(txAmt_str);
+
+          description = (txAmt > 0 ? txFrom : txTo) + ' : ' + description;
+
+          insert_transaction_node(
+            accountID,
+            txAmt,
+            txDate,
+            description,
+            refNumber
+          );
+          //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
+        }
+      }
+    }
+  }
+  if (account_string.toLowerCase() === 'paypal') {
+    accountID = await lookup_account(account_string);
+    totalNodes = nodes.length;
+    for (const [i, tx] of nodes.entries()) {
+      if (i > 0) {
+        const tx_values = tx.split(',');
+
+        if (tx_values?.length) {
+          let j = 0;
+          let item_iter = 0;
+          let txDate = '';
+          let description = '';
+          let description2 = '';
+          let txAmt = '';
+          let refNum = '';
+          while (j < tx_values?.length) {
+            let item_str = tx_values[j];
+            if (item_str[0] === '"') {
+              while (j < tx_values?.length - 1 && !item_str.endsWith('"')) {
+                j++;
+                item_str += ',' + tx_values[j];
+              }
+              item_str = item_str.replace(/\"/g, '');
+            }
+
+            switch (item_iter) {
+              case 0:
+                txDate = item_str.trim();
+                break;
+              case 3:
+                description = item_str.trim();
+                break;
+              case 4:
+                description2 = item_str.trim();
+                break;
+              case 7:
+                txAmt = item_str.trim().replace(/,/g, '');
+                break;
+              case 12:
+                refNum = item_str.trim();
+                break;
+              default:
+            }
+
+            j++;
+            item_iter++;
+          }
+
+          if (!description?.length && description2?.length) {
+            description = description2;
+          }
+
+          await insert_transaction_node(
+            accountID,
+            txAmt,
+            txDate,
+            description,
+            refNum
+          );
+          //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
+        }
+      }
+    }
+  }
+  if (account_string.toLowerCase() === 'mint') {
+    const accountArr = [];
+    const envelopeArr = [];
+    const uncategorizedID = await lookup_uncategorized();
+
+    totalNodes = nodes.length;
+    for (const [i, tx] of nodes.entries()) {
+      if (tx?.length) {
+        const tx_values = tx.split(',');
+
+        if (tx_values?.length) {
+          // Date
+          let txDate = dayjs(
+            new Date(tx_values[0].replace(/\"/g, '').trim())
+          ).format('YYYY-MM-DD');
+
+          if (txDate !== 'Invalid date') {
+            // Description
+            let j = 1;
+            let description = tx_values[j];
+            if (description?.startsWith('"')) {
+              while (!tx_values[j]?.endsWith('"')) {
+                j++;
+                description += ',' + tx_values[j];
+              }
+              description = description.replace(/\"/g, '');
+            }
+
+            // Original Description
+            // We don't do anything with this, but need to account
+            // for commas.
+            j += 1;
+            if (tx_values[j]?.startsWith('"')) {
+              while (!tx_values[j]?.endsWith('"')) {
+                j++;
+              }
+            }
+
+            // Amount
+            j += 1;
+            let txAmt = tx_values[j];
+            if (txAmt?.startsWith('"')) {
+              while (!tx_values[j]?.endsWith('"')) {
+                j++;
+                txAmt += tx_values[j];
+              }
+              txAmt = parseFloat(txAmt.replace(/\"/g, ''));
+            }
+
+            // Transaction type (debit or credit)
+            j += 1;
+            if (tx_values[j] && tx_values[j].replace(/\"/g, '') === 'debit') {
+              txAmt = txAmt * -1;
+            }
+
+            // Category/envelope
+            j += 1;
+            let envelope_str = tx_values[j];
+            if (envelope_str?.startsWith('"')) {
+              while (!tx_values[j]?.endsWith('"')) {
+                j++;
+                envelope_str += ',' + tx_values[j];
+              }
+              envelope_str = envelope_str.replace(/\"/g, '').trim();
+            }
+            let envelopeID = '';
+            if (envelopeArr?.length) {
+              const found = envelopeArr.find((e) => e.name === envelope_str);
+              if (found) {
+                envelopeID = found.id;
+              } else {
+                envelopeID = await lookup_envelope(
+                  envelope_str,
+                  uncategorizedID
+                );
+                envelopeArr.push({ name: envelope_str, id: envelopeID });
+              }
+            } else {
+              envelopeID = await lookup_envelope(
+                envelope_str,
+                uncategorizedID
+              );
+              envelopeArr.push({ name: envelope_str, id: envelopeID });
+            }
+
+            // Account
+            j += 1;
+            let account_str = tx_values[j];
+            if (account_str?.startsWith('"')) {
+              while (!tx_values[j]?.endsWith('"')) {
+                j++;
+                account_str += ',' + tx_values[j];
+              }
+              account_str = account_str.replace(/\"/g, '').trim();
+            }
+            let accountID = '';
+            if (accountArr?.length) {
+              const found = accountArr.find((e) => e.name === account_str);
+              if (found) {
+                accountID = found.id;
+              } else {
+                accountID = await lookup_account(account_str);
+                accountArr.push({ name: account_str, id: accountID });
+              }
+            } else {
+              accountID = await lookup_account(account_str);
+              accountArr.push({ name: account_str, id: accountID });
+            }
+
+            await basic_insert_transaction_node(
+              accountID,
+              txAmt,
+              txDate,
+              description,
+              '',
+              envelopeID
+            );
+          }
+          //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
+        }
+      }
+    }
+  }
+  if (account_string.toLowerCase() === 'mint tab') {
+    const accountArr = [];
+
+    for (const [i, tx] of nodes.entries()) {
+      const tx_values = tx.trim().split('\t');
+
+      if (tx?.length && tx_values?.length) {
+        let envID = tx_values[0].trim();
+        let txAmt = tx_values[1].trim();
+        let txDate = tx_values[2].trim();
+        let description = tx_values[3].trim();
+        let account_str = tx_values[4].trim();
+
+        let accountID = '';
+        if (accountArr?.length) {
+          const found = accountArr.find((e) => e.name === account_str);
+          if (found) {
+            accountID = found.id;
+          } else {
+            accountID = await lookup_account(account_str);
+            accountArr.push({ name: account_str, id: accountID });
+          }
+        } else {
+          accountID = await lookup_account(account_str);
+          accountArr.push({ name: account_str, id: accountID });
+        }
+
+        await basic_insert_transaction_node(
+          accountID,
+          txAmt,
+          txDate,
+          description,
+          '',
+          envID
+        );
+      }
+    }
+    console.log('');
+  }
+  //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+});
+
+
+
 // Helper functions used only by the server
 
 async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {

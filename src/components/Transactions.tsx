@@ -79,8 +79,8 @@ export const Transactions: React.FC = () => {
   
   // Import filename
   const [filename, setFilename] = useState('');
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = React.useState(0);
+  const [uploading, ] = useState(false);
+  const [progress, ] = React.useState(0);
 
   // Export 
   const [exporting, setExporting] = useState(false);
@@ -342,7 +342,7 @@ export const Transactions: React.FC = () => {
     const ipcRenderer = (window as any).ipcRenderer;
     const fs = ipcRenderer.require('fs')
     
-    fs.readFile(filename, 'utf8', function(err, ofxString) {
+    fs.readFile(filename, 'utf8', async (err, ofxString) => {
       if (err) {
         console.log(err.message);
       } else {
@@ -385,28 +385,11 @@ export const Transactions: React.FC = () => {
               account_string = "Mint";
             }
           }
-          setProgress(0);
-          setUploading(true);
-          ipcRenderer.send(channels.IMPORT_CSV, { account_string: account_string, ofxString: ofxString });
-          
-          // Listen for progress updates
-          ipcRenderer.on(channels.UPLOAD_PROGRESS, (data) => {
-            setProgress(data);
-            
-            if (data >= 100) {
-              ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
-              setUploading(false);
-              load_transactions();
-            }
-          });
-          
-          // Clean the listener after the component is dismounted
-          return () => {
-            ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
-          };
+          await axios.post('http://localhost:3001/api/' + channels.IMPORT_CSV, { account_string: account_string, ofxString: ofxString });
+          load_transactions();
         }
         if (filename.toLowerCase().endsWith("txt")) {
-          ipcRenderer.send(channels.IMPORT_CSV, { account_string: "mint tab", ofxString: ofxString });
+          await axios.post('http://localhost:3001/api/' + channels.IMPORT_CSV, { account_string: "mint tab", ofxString: ofxString });
         }
       }
     });
