@@ -1323,6 +1323,32 @@ app.post('/api/'+channels.UPDATE_TX_DATE, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.SAVE_KEYWORD, async (req, res) => {
+  const { acc, envID, description } = req.body;
+  console.log(channels.SAVE_KEYWORD, acc, envID, description);
+
+  db.from('keyword')
+    .delete()
+    .where({ description: description })
+    .then(() => {
+      const node = {
+        account: acc,
+        envelopeID: envID,
+        description: description,
+      };
+
+      db('keyword')
+        .insert(node)
+        .then()
+        .catch((err) => {
+          console.log('Error: ' + err);
+        });
+    })
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 

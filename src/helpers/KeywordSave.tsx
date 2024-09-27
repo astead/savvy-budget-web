@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import 'react-edit-text/dist/index.css';
 import { channels } from '../shared/constants.js';
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
-import { faBookmark } from "@fortawesome/free-solid-svg-icons"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBookmark } from "@fortawesome/free-solid-svg-icons";
+import axios from 'axios';
 
 export const KeywordSave = ({txID, acc, envID, description, keywordEnvID}) => {
   //const [my_txID, ] = useState(txID);
@@ -14,9 +15,8 @@ export const KeywordSave = ({txID, acc, envID, description, keywordEnvID}) => {
     // Don't allow setting a keyword if one already matches.
     if (keywordEnvID === null) {
       // Request we update the DB
-      const ipcRenderer = (window as any).ipcRenderer;
-      ipcRenderer.send(channels.SAVE_KEYWORD, { acc: acc, envID: my_envID, description: my_description });
-
+      axios.post('http://localhost:3001/api/' + channels.SAVE_KEYWORD, { acc: acc, envID: my_envID, description: my_description });
+      
       // Rather than wait for the DB and re-query
       // let's just set this to our own env ID
       setKeywordEnvID(my_envID);
