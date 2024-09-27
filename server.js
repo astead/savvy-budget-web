@@ -1120,6 +1120,122 @@ app.post('/api/'+channels.GET_MONTHLY_AVG, (req, res) => {
   .catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
+  const {
+    filterStartDate,
+    filterEndDate,
+    filterCatID,
+    filterEnvID,
+    filterAccID,
+    filterDesc,
+    filterAmount,
+  } = req.body;
+  console.log(
+    channels.GET_TX_DATA,
+    filterStartDate,
+    filterEndDate,
+    filterCatID,
+    filterEnvID,
+    filterAccID,
+    filterDesc,
+    filterAmount
+  );
+
+  if (db) {
+    let query = db
+      .select(
+        'transaction.id as txID',
+        'envelope.categoryID as catID',
+        'transaction.envelopeID as envID',
+        'category.category as category',
+        'envelope.envelope as envelope',
+        'transaction.accountID as accountID',
+        'account.account as account',
+        'transaction.txDate as txDate',
+        'transaction.txAmt as txAmt',
+        'transaction.description as description',
+        'keyword.envelopeID as keywordEnvID',
+        'transaction.isDuplicate as isDuplicate',
+        'transaction.isVisible as isVisible',
+        'transaction.isSplit as isSplit'
+      )
+      .from('transaction')
+      .leftJoin('envelope', function () {
+        this.on('envelope.id', '=', 'transaction.envelopeID');
+      })
+      .leftJoin('category', function () {
+        this.on('category.id', '=', 'envelope.categoryID');
+      })
+      .leftJoin('account', function () {
+        this.on('account.id', '=', 'transaction.accountID');
+      })
+      .leftJoin('keyword', function () {
+        //this.on('keyword.description', '=', 'transaction.description');
+        /*
+        TODO: This is pulling in multiple instances on multiple keyword matches
+        Right now that could happen on a keyword rename.
+        Keyword insert is disabled if a keyword already matches.
+        */
+        this.on(
+          'transaction.description',
+          'like',
+          'keyword.description'
+        ).andOn(function () {
+          this.onVal('keyword.account', '=', 'All').orOn(
+            'keyword.account',
+            'account.account'
+          );
+        });
+      })
+      .where({ isBudget: 0 })
+      .orderBy('transaction.txDate', 'desc');
+
+    if (parseInt(filterEnvID) > -2) {
+      query = query.andWhere('transaction.envelopeID', filterEnvID);
+    } else {
+      if (parseInt(filterEnvID) > -3) {
+        query = query.andWhere(function () {
+          this.where('transaction.envelopeID', -1)
+          .orWhere('envelope.isActive', false);
+        });
+      }
+    }
+    if (parseInt(filterCatID) > -1) {
+      query = query.andWhere('envelope.categoryID', filterCatID);
+    }
+    if (filterAccID !== -1 && filterAccID !== '-1' && filterAccID !== 'All') {
+      query = query.andWhere('account.account', filterAccID);
+    }
+    if (filterDesc?.length) {
+      filterDesc = '%' + filterDesc + '%';
+      query = query.andWhereRaw(
+        `'transaction'.description LIKE ?`,
+        filterDesc
+      );
+    }
+    if (filterStartDate) {
+      // PostgreSQL specific
+      query = query.andWhereRaw(`"transaction"."txDate" >= ?::date`, [filterStartDate]);
+    }
+    if (filterEndDate) {
+      // PostgreSQL specific
+      query = query.andWhereRaw(`"transaction"."txDate" <= ?::date`, [filterEndDate]);
+    }
+    if (filterAmount?.length) {
+      query = query.andWhereRaw(
+        `'transaction'.txAmt = ?`,
+        parseFloat(filterAmount)
+      );
+    }
+
+    query
+      .then((data) => {
+        res.json(data);
+      })
+      .catch((err) => console.log(err));
+  }
+});
+
 
 // Helper functions used only by the server
 

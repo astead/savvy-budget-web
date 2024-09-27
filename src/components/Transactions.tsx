@@ -18,6 +18,7 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { TransactionTable } from './TransactionTable.tsx';
 import { EditText } from 'react-edit-text';
+import axios from 'axios';
 
 /*
   TODO:
@@ -108,10 +109,9 @@ export const Transactions: React.FC = () => {
     );
   }  
 
-  function load_transactions() {
+  const load_transactions = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_TX_DATA, 
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_TX_DATA, 
       { filterStartDate : filterStartDate?.format('YYYY-MM-DD'),
         filterEndDate: filterEndDate?.format('YYYY-MM-DD'),
         filterCatID: filterCatID,
@@ -119,19 +119,10 @@ export const Transactions: React.FC = () => {
         filterAccID: filterAccID,
         filterDesc: filterDesc,
         filterAmount: filterAmount });
-
-    // Receive the data
-    ipcRenderer.on(channels.LIST_TX_DATA, (arg) => {
-      const tmpData = [...arg]; 
-      setTxData(tmpData);
-      
-      ipcRenderer.removeAllListeners(channels.LIST_TX_DATA);
-    });
     
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_TX_DATA);
-    };
+    // Receive the data
+    const tmpData = [...response.data]; 
+    setTxData(tmpData);
   }
 
   const load_envelope_list = () => {
