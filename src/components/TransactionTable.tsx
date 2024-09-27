@@ -115,23 +115,13 @@ export const TransactionTable = ({data, envList, callback}) => {
     setIsChecked([...isChecked]);
   }
 
-  const delete_checked_transactions = () => {
+  const delete_checked_transactions = async () => {
     let filtered_nodes = isChecked.filter((item) => item.isChecked);
     // Signal we want to del data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.DEL_TX_LIST, {del_tx_list: filtered_nodes});
+    await axios.post('http://localhost:3001/api/' + channels.DEL_TX_LIST, { del_tx_list: filtered_nodes });
     
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_DEL_TX_LIST, () => {
-      setIsAllChecked(false);
-      callback();      
-      ipcRenderer.removeAllListeners(channels.DONE_DEL_TX_LIST);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_DEL_TX_LIST);
-    };
+    setIsAllChecked(false);
+    callback();
   } 
   
   const handleChangeAll = async ({id, new_value}) => {

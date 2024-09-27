@@ -674,6 +674,21 @@ app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
   }
 );
 
+app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
+  const { del_tx_list } = req.body;
+  console.log(channels.DEL_TX_LIST);
+  if (db) {
+    console.log(del_tx_list);
+    for (let t of del_tx_list) {
+      if (t.isChecked) {
+        console.log('deleting: ' + t.txID);
+        await remove_transaction(t.txID);
+      }
+    }
+  }
+  console.log('Sending we are done.');
+});
+
 
 // Helper functions used only by the server
 
