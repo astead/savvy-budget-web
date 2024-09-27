@@ -143,7 +143,7 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
             '-' +
             account.mask,
           plaid_id: account.id,
-          isActive: dbPath === 'cloud' ? true : 1,
+          isActive: true,
         })
         .then(() => {
           db('plaid_account')
@@ -776,7 +776,7 @@ app.post('/api/'+channels.ADD_ENVELOPE, async (req, res) => {
       categoryID: categoryID,
       envelope: 'New Envelope',
       balance: 0,
-      isActive: dbPath === 'cloud' ? true : 1,
+      isActive: true,
     })
     .then()
     .catch((err) => {
@@ -995,7 +995,7 @@ app.post('/api/'+channels.GET_BUDGET_ENV, (req, res) => {
       .leftJoin('category', function () {
         this.on('category.id', '=', 'envelope.categoryID');
       })
-      .where('envelope.isActive', dbPath === 'cloud' ? true : 1)
+      .where('envelope.isActive', true)
       .orderBy('category.id')
       .then((data) => {
         res.json(data);
@@ -1051,7 +1051,7 @@ async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {
             isBudget: 1,
             txAmt: newtxAmt,
             isDuplicate: 0,
-            isVisible: dbPath === 'cloud' ? true : 1,
+            isVisible: true,
           })
           .then(async () => {
             await db.raw(
@@ -1178,7 +1178,7 @@ async function lookup_account(account) {
             .insert({ 
               account: 'New Account', 
               refNumber: account, 
-              isActive: dbPath === 'cloud' ? true : 1 })
+              isActive: true })
             .then((result) => {
               if (result?.length) {
                 accountID = result[0];
@@ -1216,7 +1216,7 @@ async function lookup_plaid_account(account) {
               account: 'New Account',
               refNumber: account,
               plaid_id: account,
-              isActive: dbPath === 'cloud' ? true : 1,
+              isActive: true,
             })
             .then((result) => {
               if (result?.length) {
@@ -1255,7 +1255,7 @@ async function lookup_envelope(envelope, defaultCategoryID) {
               envelope: envelope,
               categoryID: defaultCategoryID,
               balance: 0,
-              isActive: dbPath === 'cloud' ? true : 1,
+              isActive: true,
             })
             .then((result) => {
               if (result?.length) {
@@ -1338,14 +1338,9 @@ async function lookup_if_duplicate(
       .andWhereRaw(`accountID = ?`, accountID)
       .andWhereRaw(`refNumber = ?`, refNumber);
       
-      if (dbPath === 'cloud') {
-        // PostgreSQL
-        query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
-      } else {
-        // SQLite
-        query = query.andWhereRaw(`julianday(?) - julianday(txDate) = 0`, [txDate]);
-      }
-
+    // PostgreSQL specific
+    query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
+      
     await query.then((data) => {
         if (data?.length) {
           isDuplicate = 1;
@@ -1358,15 +1353,9 @@ async function lookup_if_duplicate(
       .where({ txAmt: txAmt })
       .andWhereRaw(`accountID = ?`, accountID)
       .andWhere({ description: description });
+    // PostgreSQL specific
+    query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
       
-      if (dbPath === 'cloud') {
-        // PostgreSQL
-        query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
-      } else {
-        // SQLite
-        query = query.andWhereRaw(`julianday(?) - julianday(txDate) = 0`, [txDate]);
-      }
-
     await query.then((data) => {
         if (data?.length) {
           isDuplicate = 1;
@@ -1468,7 +1457,7 @@ async function basic_insert_transaction_node(
     isDuplicate: 0,
     isSplit: 0,
     accountID: accountID,
-    isVisible: dbPath === 'cloud' ? true : 1,
+    isVisible: true,
   };
 
   // Insert the node
@@ -1577,7 +1566,7 @@ async function insert_transaction_node(
     isDuplicate: isDuplicate,
     isSplit: 0,
     accountID: accountID,
-    isVisible: dbPath === 'cloud' ? true : 1,
+    isVisible: true,
   };
 
   // Insert the node
