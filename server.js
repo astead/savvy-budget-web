@@ -796,6 +796,26 @@ app.post('/api/'+channels.ADD_CATEGORY, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.DEL_CATEGORY, async (req, res) => {
+  const { id } = req.body;
+  console.log(channels.DEL_CATEGORY, id);
+
+  // Move any sub-envelopes to Uncategorized
+  const uncategorizedID = await lookup_uncategorized();
+
+  await db('envelope')
+    .where('categoryID', id)
+    .update('categoryID', uncategorizedID)
+    .then(async () => {
+      await db('category')
+        .where({ id: id })
+        .del()
+        .then()
+        .catch((err) => console.log('Error: ' + err));
+    })
+    .catch((err) => console.log('Error: ' + err));
+});
+
 
 // Helper functions used only by the server
 

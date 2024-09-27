@@ -67,7 +67,7 @@ export const ConfigCatEnv = () => {
     }
   }
 
-  const handleCategoryDelete = (id, name) => {
+  const handleCategoryDelete = async (id, name) => {
     // Don't allow deleting of Income or Uncategorized
     if (name === 'Income') {
       return;
@@ -77,19 +77,8 @@ export const ConfigCatEnv = () => {
     }
 
     // Request we delete the category in the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.DEL_CATEGORY, { id });
-    
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_DEL_CATEGORY, () => {
-      load_cats_and_envs();
-      ipcRenderer.removeAllListeners(channels.DONE_DEL_CATEGORY);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_DEL_CATEGORY);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.DEL_CATEGORY, { id });
+    load_cats_and_envs();
   };
 
   const handleNewCategory = () => {
