@@ -689,6 +689,84 @@ app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
   console.log('Sending we are done.');
 });
 
+app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
+  const { txID, split_tx_list } = req.body;
+  console.log(channels.SPLIT_TX, ' num split: ', split_tx_list?.length);
+  if (db) {
+    // Lets use a transaction for this
+    await db
+      .transaction(async (trx) => {
+        // Get some info on the original
+        await trx
+          .select(
+            'id',
+            'envelopeID',
+            'txAmt',
+            'accountID',
+            'refNumber',
+            'origTxID',
+            'isVisible',
+            'isDuplicate'
+          )
+          .from('transaction')
+          .where({ id: txID })
+          .then(async (data) => {
+            if (data?.length) {
+              // Delete the original
+              await trx('transaction')
+                .delete()
+                .where({ id: txID })
+                .then(async () => {
+                  // Update the original budget
+                  await trx
+                    .raw(
+                      `UPDATE "envelope" SET balance = balance - ` +
+                        data[0].txAmt +
+                        ` WHERE id = ` +
+                        data[0].envelopeID
+                    )
+                    .then(async () => {
+                      // Loop through each new split
+                      for (let item of split_tx_list) {
+                        // Insert the new transaction
+                        await trx('transaction')
+                          .insert({
+                            envelopeID: item.txEnvID,
+                            txAmt: item.txAmt,
+                            txDate: item.txDate,
+                            description: item.txDesc,
+                            refNumber: data[0].refNumber,
+                            isBudget: 0,
+                            origTxID: data[0].origTxID
+                              ? data[0].origTxID
+                              : txID,
+                            isDuplicate: data[0].isDuplicate,
+                            isSplit: 1,
+                            accountID: data[0].accountID,
+                            isVisible: data[0].isVisible,
+                          })
+                          .then(async () => {
+                            // Adjust that envelope balance
+                            await trx.raw(
+                              `UPDATE "envelope" SET balance = balance + ` +
+                                item.txAmt +
+                                ` WHERE id = ` +
+                                item.txEnvID
+                            );
+                          });
+                      }
+                    });
+                });
+            }
+          })
+          .then(trx.commit);
+      })
+      .catch(function (error) {
+        console.error(error);
+      });
+  }
+});
+
 
 // Helper functions used only by the server
 

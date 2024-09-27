@@ -10,6 +10,7 @@ import { InputText } from '../helpers/InputText.tsx';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import axios from 'axios';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -42,13 +43,12 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
   const [splitData, setSplitData] = useState<SplitNode[]>([]);
   const [error, setError] = useState("");
 
-  const handleSaveNewValue = () => {
+  const handleSaveNewValue = async () => {
     // Request we update the DB
     if (splitData.reduce((a, item) => a + item.txAmt, 0).toFixed(2) === txAmt.toFixed(2)) {
 
-      const ipcRenderer = (window as any).ipcRenderer;
-      ipcRenderer.send(channels.SPLIT_TX, {txID: txID, split_tx_list: splitData});
-
+      await axios.post('http://localhost:3001/api/' + channels.SPLIT_TX, { txID: txID, split_tx_list: splitData });
+      
       setOpen(false);
       callback();
 
