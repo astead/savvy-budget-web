@@ -171,34 +171,24 @@ export const Envelopes: React.FC = () => {
     setLoadedPrevActual(true);     
   };
 
-  const load_CurrBalance = () => {
+  const load_CurrBalance = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_CURR_BALANCE);
-
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_CURR_BALANCE);
+    
     // Receive the data
-    ipcRenderer.on(channels.LIST_CURR_BALANCE, (arg) => {
-      
-      const tmpData = [...budgetData] as BudgetNodeData[]; 
-    
-      for (let i=0; i < arg.length; i++) {
-        for (let j=0; j < tmpData.length; j++) {
-          if (arg[i].id === tmpData[j].envID) {
-            tmpData[j] = Object.assign(tmpData[j], { currBalance: arg[i].balance });
-          }
+    let data = response.data;
+    const tmpData = [...budgetData] as BudgetNodeData[]; 
+  
+    for (let i=0; i < data.length; i++) {
+      for (let j=0; j < tmpData.length; j++) {
+        if (data[i].id === tmpData[j].envID) {
+          tmpData[j] = Object.assign(tmpData[j], { currBalance: data[i].balance });
         }
-      };
-    
-      setBudgetData(tmpData as BudgetNodeData[]); 
-      setLoadedCurrBalance(true);     
-
-      ipcRenderer.removeAllListeners(channels.LIST_CURR_BALANCE);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_CURR_BALANCE);
+      }
     };
+    
+    setBudgetData(tmpData as BudgetNodeData[]); 
+    setLoadedCurrBalance(true);     
   };
 
   const load_CurrBudget = async () => {

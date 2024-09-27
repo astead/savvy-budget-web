@@ -1084,6 +1084,18 @@ app.post('/api/'+channels.GET_CUR_ACTUAL, (req, res) => {
   }).catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.GET_CURR_BALANCE, (req, res) => {
+  console.log(channels.GET_CURR_BALANCE);
+
+  db.select('id', 'balance')
+    .from('envelope')
+    .orderBy('id')
+    .then((data) => {
+      res.json(data);
+    })
+    .catch((err) => console.log(err));
+});
+
 
 // Helper functions used only by the server
 
