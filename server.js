@@ -949,6 +949,38 @@ app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
   ).then();
 });
 
+// Get the categories and envelopes
+app.post('/api/'+channels.GET_CAT_ENV, (req, res) => {
+  const { onlyActive } = req.body;
+  console.log(channels.GET_CAT_ENV + " ENTER");
+  if (db) {
+    let query = db
+      .select(
+        'category.id as catID',
+        'category.category',
+        'envelope.id as envID',
+        'envelope.envelope',
+        'envelope.balance as currBalance',
+        'envelope.isActive'
+      )
+      .from('category')
+      .leftJoin('envelope', function () {
+        this.on('category.id', '=', 'envelope.categoryID');
+      })
+      .orderBy('category.id');
+
+    if (onlyActive === 1) {
+      query.where('envelope.isActive', 1);
+    }
+
+    query
+      .then((data) => {
+        res.json(data);
+      })
+      .catch((err) => console.log(err));
+  }  
+});
+
 
 // Helper functions used only by the server
 
@@ -1522,39 +1554,6 @@ const get_db_ver = async () => {
   //console.log('returning version: ', ver);
   return ver;
 };
-
-
-// Get the categories and envelopes
-app.post('/api/'+channels.GET_CAT_ENV, (req, res) => {
-  const { onlyActive } = req.body;
-  console.log(channels.GET_CAT_ENV + " ENTER");
-  if (db) {
-    let query = db
-      .select(
-        'category.id as catID',
-        'category.category',
-        'envelope.id as envID',
-        'envelope.envelope',
-        'envelope.balance as currBalance',
-        'envelope.isActive'
-      )
-      .from('category')
-      .leftJoin('envelope', function () {
-        this.on('category.id', '=', 'envelope.categoryID');
-      })
-      .orderBy('category.id');
-
-    if (onlyActive === 1) {
-      query.where('envelope.isActive', 1);
-    }
-
-    query
-      .then((data) => {
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
-  }  
-});
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
