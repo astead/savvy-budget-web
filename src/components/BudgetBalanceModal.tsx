@@ -38,10 +38,9 @@ export const BudgetBalanceModal = ({balanceAmt, category, envelope, envID, trans
     callback();
   };
 
-  const handleSaveTransfer = () => {
+  const handleSaveTransfer = async () => {
     // Request we update the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID });
+    await axios.post('http://localhost:3001/api/' + channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID });
     setOpen(false);
     callback();
   };

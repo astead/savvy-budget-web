@@ -930,6 +930,25 @@ app.post('/api/'+channels.UPDATE_BALANCE, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
+  const { transferAmt, fromID, toID } = req.body;
+  console.log(channels.MOVE_BALANCE, transferAmt, fromID, toID);
+
+  db.raw(
+    `update 'envelope' set balance = balance - ` +
+      transferAmt +
+      ` where id = ` +
+      fromID
+  ).then();
+
+  db.raw(
+    `update 'envelope' set balance = balance + ` +
+      transferAmt +
+      ` where id = ` +
+      toID
+  ).then();
+});
+
 
 // Helper functions used only by the server
 
