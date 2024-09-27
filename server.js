@@ -981,6 +981,29 @@ app.post('/api/'+channels.GET_CAT_ENV, (req, res) => {
   }  
 });
 
+app.post('/api/'+channels.GET_BUDGET_ENV, (req, res) => {
+  console.log(channels.GET_BUDGET_ENV);
+  if (db) {
+    db.select(
+      'category.id as catID',
+      'category.category',
+      'envelope.id as envID',
+      'envelope.envelope',
+      'envelope.balance as currBalance'
+    )
+      .from('envelope')
+      .leftJoin('category', function () {
+        this.on('category.id', '=', 'envelope.categoryID');
+      })
+      .where('envelope.isActive', dbPath === 'cloud' ? true : 1)
+      .orderBy('category.id')
+      .then((data) => {
+        res.json(data);
+      })
+      .catch((err) => console.log(err));
+  }
+});
+
 
 // Helper functions used only by the server
 

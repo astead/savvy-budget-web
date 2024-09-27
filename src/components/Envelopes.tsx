@@ -390,36 +390,28 @@ export const Envelopes: React.FC = () => {
     };
   };
   
-  const load_initialEnvelopes = () => {
+  const load_initialEnvelopes = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_BUDGET_ENV);
-
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_BUDGET_ENV);
+  
     // Receive the data
-    ipcRenderer.on(channels.LIST_BUDGET_ENV, (arg) => {
-      if (arg?.length) {
-        const defaultValues = {
-          prevBudget: 0,
-          prevActual: 0,
-          currBalance: 0,
-          currBudget: 0,
-          monthlyAvg: 0,
-          currActual: 0,
-        };
+    let data = response.data;
+    if (data?.length) {
+      const defaultValues = {
+        prevBudget: 0,
+        prevActual: 0,
+        currBalance: 0,
+        currBudget: 0,
+        monthlyAvg: 0,
+        currActual: 0,
+      };
 
-        for (let i=0; i < arg.length; i++) {
-          arg[i] = {...arg[i], ...defaultValues} as BudgetNodeData;
-        };
-        const sortedData = Object.values(arg).sort(compare) as BudgetNodeData[];
-        setBudgetData(sortedData as BudgetNodeData[]);
-      }
-      ipcRenderer.removeAllListeners(channels.LIST_BUDGET_ENV);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_BUDGET_ENV);
-    };
+      for (let i=0; i < data.length; i++) {
+        data[i] = {...data[i], ...defaultValues} as BudgetNodeData;
+      };
+      const sortedData = Object.values(data).sort(compare) as BudgetNodeData[];
+      setBudgetData(sortedData as BudgetNodeData[]);
+    }
   }
 
   const set_color = (target, actual) => {
