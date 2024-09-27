@@ -767,6 +767,23 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
   }
 });
 
+app.post('/api/'+channels.ADD_ENVELOPE, async (req, res) => {
+  const { categoryID } = req.body;
+  console.log(channels.ADD_ENVELOPE, categoryID);
+
+  await db('envelope')
+    .insert({
+      categoryID: categoryID,
+      envelope: 'New Envelope',
+      balance: 0,
+      isActive: dbPath === 'cloud' ? true : 1,
+    })
+    .then()
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 
