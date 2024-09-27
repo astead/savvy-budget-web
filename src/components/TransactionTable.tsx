@@ -281,8 +281,7 @@ export const TransactionTable = ({data, envList, callback}) => {
                   in_ID={item.txID.toString()}
                   in_value={dayjs(item.txDate).format('M/D/YYYY')}
                   callback={({id, value}) => {
-                    const ipcRenderer = (window as any).ipcRenderer;
-                    ipcRenderer.send(channels.UPDATE_TX_DATE, { txID: item.txID, new_value: value });
+                    axios.post('http://localhost:3001/api/' + channels.UPDATE_TX_DATE, { txID: item.txID, new_value: value });
                   }}
                 />
               </td>
