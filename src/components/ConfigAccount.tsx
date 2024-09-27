@@ -39,21 +39,10 @@ export const ConfigAccount = () => {
   };
 
 
-  const handleAccountVisibility = (id, isActive) => {
+  const handleAccountVisibility = async (id, isActive) => {
     // Request we delete the account in the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.VIS_ACCOUNT, {id, value: (isActive===0?1:0)});
-
-    // Receive the data
-    ipcRenderer.on(channels.DONE_VIS_ACCOUNT, (arg) => {
-      load_accounts();
-      ipcRenderer.removeAllListeners(channels.DONE_VIS_ACCOUNT);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_VIS_ACCOUNT);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.VIS_ACCOUNT, { id, value: ( isActive===0 ? true : false ) });
+    load_accounts();
   };
 
   useEffect(() => {
