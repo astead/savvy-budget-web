@@ -845,6 +845,19 @@ app.post('/api/'+channels.DEL_ENVELOPE, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.HIDE_ENVELOPE, async (req, res) => {
+  const { id } = req.body;
+  console.log(channels.HIDE_ENVELOPE, id);
+
+  await db('envelope')
+    .where({ id: id })
+    .update({ isActive: false })
+    .then()
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 

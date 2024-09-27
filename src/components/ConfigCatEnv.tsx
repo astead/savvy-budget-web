@@ -95,21 +95,10 @@ export const ConfigCatEnv = () => {
     load_cats_and_envs();
   };
 
-  const handleEnvelopeHide = (id) => {
+  const handleEnvelopeHide = async (id) => {
     // Request we delete the category in the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.HIDE_ENVELOPE, { id });
-    
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_HIDE_ENVELOPE, () => {
-      load_cats_and_envs();
-      ipcRenderer.removeAllListeners(channels.DONE_HIDE_ENVELOPE);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_HIDE_ENVELOPE);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.HIDE_ENVELOPE, { id });
+    load_cats_and_envs();
   };
 
   const handleOnDragEnd = (result) => {
