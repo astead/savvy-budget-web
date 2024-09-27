@@ -131,34 +131,24 @@ export const Envelopes: React.FC = () => {
     };
   };
 
-  const load_PrevBudget = () => {
+  const load_PrevBudget = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_PREV_BUDGET, { find_date: dayjs(new Date(year, month-1)).format('YYYY-MM-DD') });
-
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_PREV_BUDGET, { find_date: dayjs(new Date(year, month-1)).format('YYYY-MM-DD') });
+    
     // Receive the data
-    ipcRenderer.on(channels.LIST_PREV_BUDGET, (arg) => {
-
-      const tmpData = [...budgetData] as BudgetNodeData[]; 
-    
-      for (let i=0; i < arg.length; i++) {
-        for (let j=0; j < tmpData.length; j++) {
-          if (arg[i].envelopeID === tmpData[j].envID) {
-            tmpData[j] = Object.assign(tmpData[j], { prevBudget: arg[i].txAmt });
-          }
+    let data = response.data;
+    const tmpData = [...budgetData] as BudgetNodeData[]; 
+  
+    for (let i=0; i < data.length; i++) {
+      for (let j=0; j < tmpData.length; j++) {
+        if (data[i].envelopeID === tmpData[j].envID) {
+          tmpData[j] = Object.assign(tmpData[j], { prevBudget: data[i].txAmt });
         }
-      };
-    
-      setBudgetData(tmpData as BudgetNodeData[]); 
-      setLoadedPrevBudget(true);     
-
-      ipcRenderer.removeAllListeners(channels.LIST_PREV_BUDGET);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_PREV_BUDGET);
+      }
     };
+  
+    setBudgetData(tmpData as BudgetNodeData[]); 
+    setLoadedPrevBudget(true);     
   };
 
   const load_PrevActual = () => {
