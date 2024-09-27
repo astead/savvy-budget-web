@@ -111,9 +111,8 @@ export const ConfigCatEnv = () => {
     if (oldCatID !== newCatID) {
       
       // Request we move the envelope in the DB
-      const ipcRenderer = (window as any).ipcRenderer;
-      ipcRenderer.send(channels.MOV_ENVELOPE,  { id: envID, newCatID: newCatID } );
-
+      axios.post('http://localhost:3001/api/' + channels.MOV_ENVELOPE, { id: envID, newCatID: newCatID });
+      
       // Move these around in the arrays (or for pull from DB after this is done)
       const oldCatNode = catData.find((i) => i.catID === oldCatID);
       const newCatNode = catData.find((i) => i.catID === newCatID);

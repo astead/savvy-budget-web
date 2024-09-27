@@ -888,6 +888,21 @@ app.post('/api/'+channels.REN_ENVELOPE, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.MOV_ENVELOPE, async (req, res) => {
+  const { id, newCatID } = req.body;
+  console.log(channels.MOV_ENVELOPE, id, newCatID);
+
+  db('envelope')
+    .where({ id: id })
+    .update({ categoryID: newCatID })
+    .then(() => {
+      console.log('Moved envelope to: ' + newCatID);
+    })
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 
