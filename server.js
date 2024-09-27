@@ -1058,6 +1058,32 @@ app.post('/api/'+channels.GET_PREV_ACTUAL, (req, res) => {
   }).catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.GET_CUR_ACTUAL, (req, res) => {
+  const { find_date } = req.body;
+  console.log(channels.GET_CUR_ACTUAL);
+
+  const month = dayjs(new Date(find_date)).format('MM');
+  const year = dayjs(new Date(find_date)).format('YYYY');
+
+  let query = db.select('envelopeID')
+    .sum({ totalAmt: 'txAmt' })
+    .from('transaction')
+    .where({ isBudget: 0 })
+    .andWhere({ isDuplicate: 0 })
+    .andWhere({ isVisible: true })
+    .groupBy('envelopeID')
+    .orderBy('envelopeID');
+
+  // PostgreSQL specific
+  query = query
+    .andWhereRaw(`EXTRACT(MONTH FROM "txDate") = ?`, [month])
+    .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
+  
+  query.then((data) => {
+    res.json(data);
+  }).catch((err) => console.log(err));
+});
+
 
 // Helper functions used only by the server
 

@@ -280,41 +280,31 @@ export const Envelopes: React.FC = () => {
     setCurTotalBudgetSpending(myTotalBudgetSpending);
   }
 
-  const load_CurrActual = () => {
+  const load_CurrActual = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_CUR_ACTUAL, { find_date: dayjs(new Date(year, month+1)).format('YYYY-MM-DD') });
-
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_CUR_ACTUAL, { find_date: dayjs(new Date(year, month+1)).format('YYYY-MM-DD') });
+    
     // Receive the data
-    ipcRenderer.on(channels.LIST_CUR_ACTUAL, (arg) => {
-      
-      let myTotalCurr = 0;
-      const tmpData = [...budgetData] as BudgetNodeData[]; 
-    
-      for (let i=0; i < arg.length; i++) {
-        let found = false;
-        for (let j=0; j < tmpData.length; j++) {
-          if (arg[i].envelopeID === tmpData[j].envID) {
-            found = true;
-            tmpData[j] = Object.assign(tmpData[j], { currActual: arg[i].totalAmt });
-          }
+    let data = response.data;  
+    let myTotalCurr = 0;
+    const tmpData = [...budgetData] as BudgetNodeData[]; 
+  
+    for (let i=0; i < data.length; i++) {
+      let found = false;
+      for (let j=0; j < tmpData.length; j++) {
+        if (data[i].envelopeID === tmpData[j].envID) {
+          found = true;
+          tmpData[j] = Object.assign(tmpData[j], { currActual: data[i].totalAmt });
         }
-        if (!found) {
-          myTotalCurr += arg[i].totalAmt;
-        }
-      };
-    
-      setCurTotalActualUndefined(myTotalCurr);
-      setBudgetData(tmpData as BudgetNodeData[]); 
-      setLoadedCurrActual(true);     
-
-      ipcRenderer.removeAllListeners(channels.LIST_CUR_ACTUAL);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_CUR_ACTUAL);
+      }
+      if (!found) {
+        myTotalCurr += data[i].totalAmt;
+      }
     };
+  
+    setCurTotalActualUndefined(myTotalCurr);
+    setBudgetData(tmpData as BudgetNodeData[]); 
+    setLoadedCurrActual(true);     
   };
 
   const load_MonthlyAvg = () => {
