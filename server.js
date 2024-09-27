@@ -1364,6 +1364,21 @@ app.post('/api/'+channels.SET_DUPLICATE, async (req, res) => {
   await adjust_balance(txID, isDuplicate ? 'rem' : 'add');
 });
 
+app.post('/api/'+channels.SET_VISIBILITY, async (req, res) => {
+  const { txID, isVisible } = req.body;
+  console.log(channels.SET_VISIBILITY, txID, isVisible);
+
+  await db('transaction')
+    .update({ isVisible: isVisible })
+    .where({ id: txID })
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+
+  // Need to adjust envelope balance
+  await adjust_balance(txID, isVisible ? 'add' : 'rem');
+});
+
 
 // Helper functions used only by the server
 

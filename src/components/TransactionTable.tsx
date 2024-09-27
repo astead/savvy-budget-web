@@ -165,21 +165,10 @@ export const TransactionTable = ({data, envList, callback}) => {
     callback();
   };
 
-  const toggleVisibility = ({txID, isVisible}) => {
+  const toggleVisibility = async ({txID, isVisible}) => {
     // Request we update the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.SET_VISIBILITY, { txID: txID, isVisible: isVisible });
-    
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_SET_VISIBILITY, () => {
-      callback();      
-      ipcRenderer.removeAllListeners(channels.DONE_SET_VISIBILITY);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_SET_VISIBILITY);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.SET_VISIBILITY, { txID: txID, isVisible: isVisible });
+    callback();
   };
 
   useEffect(() => {
