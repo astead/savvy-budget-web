@@ -42,27 +42,14 @@ export const ConfigKeyword = () => {
     })]);
   }
 
-  const load_account_list = () => {
-    
+  const load_account_list = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_ACCOUNT_NAMES);
-
-    // Receive the data
-    ipcRenderer.on(channels.LIST_ACCOUNT_NAMES, (arg) => {
-      setAccList([{
-        id: "All", text: "All"
-      }, ...(arg.map((i) => {
-        return { id: i.account, text: i.account }
-      }))]);
-
-      ipcRenderer.removeAllListeners(channels.LIST_ACCOUNT_NAMES);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_ACCOUNT_NAMES);
-    };
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNT_NAMES);
+    setAccList([{
+      id: "All", text: "All"
+    }, ...(response.data.map((i) => {
+      return { id: i.account, text: i.account }
+    }))]);
   }
 
   const load_keywords = async () => {

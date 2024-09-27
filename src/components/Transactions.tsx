@@ -186,7 +186,7 @@ export const Transactions: React.FC = () => {
     };
   }
 
-  const load_account_list = () => {
+  const load_account_list = async () => {
     // Signal we want to get data
     const ipcRenderer = (window as any).ipcRenderer;
     ipcRenderer.send(channels.GET_ACCOUNTS);
@@ -212,20 +212,16 @@ export const Transactions: React.FC = () => {
     });
     
     // Signal we want to get data
-    ipcRenderer.send(channels.GET_ACCOUNT_NAMES);
+    const acct_name_response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNT_NAMES);
 
     // Receive the data
-    ipcRenderer.on(channels.LIST_ACCOUNT_NAMES, (arg) => {
-      setFilterAccList([{
-        id: "All", text: "All"
-      }, ...(arg.map((i) => {
-        return { id: i.account, text: i.account }
-      }))]);
-      setFilterAccListLoaded(true);
-      setAccLoaded(true);
-
-      ipcRenderer.removeAllListeners(channels.LIST_ACCOUNT_NAMES);
-    });
+    setFilterAccList([{
+      id: "All", text: "All"
+    }, ...(acct_name_response.data.map((i) => {
+      return { id: i.account, text: i.account }
+    }))]);
+    setFilterAccListLoaded(true);
+    setAccLoaded(true);
     
     // Clean the listener after the component is dismounted
     return () => {

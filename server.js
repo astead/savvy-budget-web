@@ -1405,6 +1405,20 @@ app.post('/api/'+channels.GET_KEYWORDS, async (req, res) => {
   }
 });
 
+app.post('/api/'+channels.GET_ACCOUNT_NAMES, async (req, res) => {
+  console.log(channels.GET_ACCOUNT_NAMES);
+  if (db) {
+    db.select('account')
+      .from('account')
+      .orderBy('account')
+      .groupBy('account')
+      .then((data) => {
+        res.json(data);
+      })
+      .catch((err) => console.log(err));
+  }
+});
+
 
 
 
