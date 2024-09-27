@@ -255,6 +255,46 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   }
 });
 
+app.post('/api/'+channels.PLAID_SET_KEYS, async (req, res) => {
+  const { client_id, secret, environment } = req.body;
+  console.log(channels.PLAID_SET_KEYS);
+
+  PLAID_CLIENT_ID = client_id.trim();
+  PLAID_SECRET = secret.trim();
+  PLAID_ENV = environment.trim();
+
+  client.configuration.baseOptions.headers['PLAID-CLIENT-ID'] =
+    PLAID_CLIENT_ID;
+  client.configuration.baseOptions.headers['PLAID-SECRET'] = PLAID_SECRET;
+  client.configuration.basePath = PlaidEnvironments[PLAID_ENV];
+
+  if (db) {
+    db.select('client_id')
+      .from('plaid')
+      .then((rows) => {
+        if (rows?.length) {
+          db('plaid')
+            .update('client_id', client_id)
+            .update('secret', secret)
+            .update('environment', environment)
+            .update('token', '')
+            .then()
+            .catch((err) => console.log(err));
+        } else {
+          db('plaid')
+            .insert({
+              client_id: client_id,
+              secret: secret,
+              environment: environment,
+            })
+            .then()
+            .catch((err) => console.log(err));
+        }
+      })
+      .catch((err) => console.log(err));
+  }
+});
+
 
 
 // Get the categories and envelopes

@@ -304,10 +304,8 @@ export const ConfigPlaid = () => {
   };
 
   const update_PLAID_keys = () => {
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.PLAID_SET_KEYS, 
-      { client_id: clientTemp, secret: secretTemp, environment: environmentTemp }
-    );
+    axios.post('http://localhost:3001/api/' + channels.PLAID_SET_KEYS, 
+      { client_id: clientTemp, secret: secretTemp, environment: environmentTemp });
     setToken(null);
   };
 
