@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { channels } from '../shared/constants.js';
 import { styled } from '@mui/material/styles';
-import ArrowForwardIosSharpIcon from '@mui/icons-material/ArrowForwardIosSharp';
 import MuiAccordion, { AccordionProps } from '@mui/material/Accordion';
-import Accordion from '@mui/material/Accordion';
-import AccordionActions from '@mui/material/AccordionActions';
-import AccordionDetails from '@mui/material/AccordionDetails';
 import MuiAccordionSummary, { AccordionSummaryProps } from '@mui/material/AccordionSummary';
 import MuiAccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -13,7 +9,6 @@ import Radio from '@mui/material/Radio';
 import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormControl from '@mui/material/FormControl';
-import FormLabel from '@mui/material/FormLabel';
 
 
 /* 
@@ -80,10 +75,10 @@ export const ConfigDB = () => {
       if (newExpanded) {
         setSelectedValue(panel);
       }
-    };
-    const handleRadioChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      setSelectedValue(event.target.value);
-    };
+  };
+  const handleRadioChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedValue(event.target.value);
+  };
 
   const check_database_file = (my_databaseFile) => {
     //console.log("Checking DB file: ", my_databaseFile);
