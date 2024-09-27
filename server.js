@@ -1443,6 +1443,15 @@ app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
   }
 });
 
+app.post('/api/'+channels.UPDATE_KEYWORD_ENV, async (req, res) => {
+  const { id, new_value } = req.body;
+  console.log(channels.GET_KEYWORDS, { id, new_value });
+  db('keyword')
+    .update({ envelopeID: new_value })
+    .where({ id: id })
+    .catch((err) => console.log(err));
+});
+
 
 
 
