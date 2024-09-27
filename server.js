@@ -56,7 +56,124 @@ const set_db = async () => {
 
 set_db();
 
-// Example endpoint
+// PLAID stuff
+const {
+  Configuration,
+  PlaidApi,
+  Products,
+  PlaidEnvironments,
+} = require('plaid');
+const { LogExit } = require('concurrently');
+
+const APP_PORT = process.env.APP_PORT || 8000;
+let PLAID_CLIENT_ID = '';
+let PLAID_SECRET = '';
+let PLAID_ENV = '';
+
+// PLAID_PRODUCTS is a comma-separated list of products to use when initializing
+// Link. Note that this list must contain 'assets' in order for the app to be
+// able to create and retrieve asset reports.
+const PLAID_PRODUCTS = [Products.Transactions];
+
+// PLAID_COUNTRY_CODES is a comma-separated list of countries for which users
+// will be able to select institutions from.
+const PLAID_COUNTRY_CODES = (process.env.PLAID_COUNTRY_CODES || 'US').split(
+  ','
+);
+
+// Initialize the Plaid client
+// Find your API keys in the Dashboard (https://dashboard.plaid.com/account/keys)
+
+const configuration = new Configuration({
+  basePath: PlaidEnvironments[PLAID_ENV],
+  baseOptions: {
+    headers: {
+      'PLAID-CLIENT-ID': PLAID_CLIENT_ID,
+      'PLAID-SECRET': PLAID_SECRET,
+      'Plaid-Version': '2020-09-14',
+    },
+  },
+});
+
+// Used for most PLAID operations
+const client = new PlaidApi(configuration);
+
+// Used to create the link token
+const configs = {
+  user: {
+    // This should correspond to a unique id for the current user.
+    client_user_id: '2',
+  },
+  client_name: 'Savvy Budget',
+  products: PLAID_PRODUCTS,
+  country_codes: PLAID_COUNTRY_CODES,
+  language: 'en',
+  redirect_uri: 'https://localhost:3000',
+};
+
+app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
+  const { public_token, metadata } = req.body;
+  console.log('Try getting plaid access token');
+
+  try {
+    const response = await client.itemPublicTokenExchange({
+      public_token: public_token,
+    });
+
+    // These values should be saved to a persistent database and
+    // associated with the currently signed-in user
+    const access_token = response.data.access_token;
+    const itemID = response.data.item_id;
+    console.log('itemPublicTokenExchange return:', response.data);
+
+    metadata.accounts.forEach((account, index) => {
+      db('account')
+        .insert({
+          account:
+            metadata.institution.name +
+            '-' +
+            account.name +
+            '-' +
+            account.mask,
+          refNumber:
+            metadata.institution.name +
+            '-' +
+            account.name +
+            '-' +
+            account.mask,
+          plaid_id: account.id,
+          isActive: dbPath === 'cloud' ? true : 1,
+        })
+        .then(() => {
+          db('plaid_account')
+            .insert({
+              institution: metadata.institution.name,
+              account_id: account.id,
+              mask: account.mask,
+              account_name: account.name,
+              account_subtype: account.subtype,
+              account_type: account.type,
+              verification_status: account.verification_status,
+              item_id: itemID,
+              access_token: access_token,
+              cursor: null,
+            })
+            .then(() => {
+              console.log('Added PLAID account ');
+            })
+            .catch((err) => console.log('Error: ' + err));
+        })
+        .catch((err) => console.log('Error: ' + err));
+    });
+  } catch (error) {
+    // handle error
+    console.log('Error: ', error);
+  }
+});
+
+
+
+// Get the categories and envelopes
 app.post('/api/'+channels.GET_CAT_ENV, (req, res) => {
   const { onlyActive } = req.body;
   console.log(channels.GET_CAT_ENV + " ENTER");

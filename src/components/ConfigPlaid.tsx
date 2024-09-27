@@ -10,6 +10,7 @@ import LinearProgressWithLabel from '@mui/material/LinearProgress';
 import { PlaidLinkOptions, usePlaidLink, 
   PlaidLinkOnSuccess,
   PlaidLinkOnExit } from 'react-plaid-link';
+import axios from 'axios';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -294,6 +295,8 @@ export const ConfigPlaid = () => {
 
     const ipcRenderer = (window as any).ipcRenderer;
     ipcRenderer.send(channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata});
+
+    const response = axios.post('http://localhost:3001/api/' + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata});
   };
 
   const onExit: PlaidLinkOnExit = (error, metadata) => {
