@@ -903,6 +903,14 @@ app.post('/api/'+channels.MOV_ENVELOPE, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.COPY_BUDGET, async (req, res) => {
+  const { newtxDate, budget_values } = req.body;
+  console.log(channels.COPY_BUDGET, newtxDate, budget_values);
+  for (let item of budget_values) {
+    await set_or_update_budget_item(item.envID, newtxDate, item.value);
+  }
+});
+
 
 // Helper functions used only by the server
 

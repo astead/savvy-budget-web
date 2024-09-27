@@ -8,6 +8,7 @@ import BudgetBalanceModal from './BudgetBalanceModal.tsx';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import InputText from '../helpers/InputText.tsx';
+import axios from 'axios';
 
 /*
   TODO:
@@ -261,28 +262,18 @@ export const Envelopes: React.FC = () => {
     };
   };
 
-  const forward_copy_budget = () => {
+  const forward_copy_budget = async () => {
     const prev_budget_values = budgetData.map((item) => {
       return {envID: item.envID, value: item.prevBudget};
     });
 
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.COPY_BUDGET, 
+    await axios.post('http://localhost:3001/api/' + channels.COPY_BUDGET, 
       { newtxDate: dayjs(new Date(year, month)).format('YYYY-MM-DD'),
-        budget_values: prev_budget_values}
+        budget_values: prev_budget_values }
     );
     
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_COPY_BUDGET, () => {
-      load_CurrBudget();
-      load_CurrBalance();
-      ipcRenderer.removeAllListeners(channels.DONE_COPY_BUDGET);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_COPY_BUDGET);
-    };
+    load_CurrBudget();
+    load_CurrBalance();
   }
 
   const handleBalanceChangeTransfer = () => {
