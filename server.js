@@ -394,6 +394,576 @@ async function remove_plaid_account_link(account_id) {
     .where({ plaid_id: account_id });
 }
 
+async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {
+  return await db('transaction')
+    .select('id', 'txAmt')
+    .where('envelopeID', newEnvelopeID)
+    .andWhere('txDate', newtxDate)
+    .andWhere('isBudget', 1)
+    .then(async function (rows) {
+      if (rows.length === 0) {
+        // no matching records found
+        return await db('transaction')
+          .insert({
+            envelopeID: newEnvelopeID,
+            txDate: newtxDate,
+            isBudget: 1,
+            txAmt: newtxAmt,
+            isDuplicate: 0,
+            isVisible: dbPath === 'cloud' ? true : 1,
+          })
+          .then(async () => {
+            await db.raw(
+              `UPDATE "envelope" SET balance = balance + ` +
+                newtxAmt +
+                ` WHERE id = ` +
+                newEnvelopeID
+            );
+          })
+          .catch((err) => {
+            console.log('Error inserting budget: ' + err);
+          });
+      } else {
+        // Already exist
+        await db
+          .raw(
+            `UPDATE "envelope" SET balance = balance + ` +
+              (newtxAmt - rows[0].txAmt) +
+              ` WHERE id = ` +
+              newEnvelopeID
+          )
+          .then(async () => {
+            await db('transaction')
+              .update({ txAmt: newtxAmt })
+              .where('id', rows[0].id)
+              .then(() => {
+                console.log('Updated budget amt.');
+              })
+              .catch((err) => {
+                console.log('Error updating budget: ' + err);
+              });
+          })
+          .catch((err) => {
+            console.log('Error updating budget: ' + err);
+          });
+      }
+    })
+    .catch((err) => {
+      console.log('Error checking if budget exists: ' + err);
+    });
+}
+
+async function update_tx_env(txID, envID) {
+  await db
+    .select('id', 'txAmt', 'envelopeID')
+    .from('transaction')
+    .where({ id: txID })
+    .then(async (rows) => {
+      if (rows?.length) {
+        if (rows[0].envelopeID > 0) {
+          await db
+            .raw(
+              `update 'envelope' set balance = balance - ` +
+                rows[0].txAmt +
+                ` where id = ` +
+                rows[0].envelopeID
+            )
+            .then()
+            .catch((err) => {
+              console.log('Error: ' + err);
+            });
+        }
+
+        await db
+          .raw(
+            `update 'envelope' set balance = balance + ` +
+              rows[0].txAmt +
+              ` where id = ` +
+              envID
+          )
+          .then()
+          .catch((err) => {
+            console.log('Error: ' + err);
+          });
+      }
+    })
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+
+  await db('transaction')
+    .where({ id: txID })
+    .update({ envelopeID: envID })
+    .then(() => {
+      console.log('Changed tx envelope to: ' + envID);
+    })
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+}
+
+async function adjust_balance(txID, add_or_remove) {
+  await db
+    .select('envelopeID', 'txAmt')
+    .from('transaction')
+    .where({ id: txID })
+    .then(async (data) => {
+      if (data?.length) {
+        await update_env_balance(
+          data[0].envelopeID,
+          add_or_remove === 'add' ? data[0].txAmt : -1 * data[0].txAmt
+        );
+      }
+    });
+}
+
+async function lookup_account(account) {
+  let accountID = -1;
+
+  // Lookup if we've already use this one
+  if (account?.length) {
+    await db
+      .select('id', 'account', 'refNumber')
+      .from('account')
+      .orderBy('account')
+      .where({ refNumber: account })
+      .then(async (data) => {
+        if (data?.length) {
+          // If we have, use this ID
+          accountID = data[0].id;
+        } else {
+          // If we haven't, lets store this one
+          await db('account')
+            .insert({ 
+              account: 'New Account', 
+              refNumber: account, 
+              isActive: dbPath === 'cloud' ? true : 1 })
+            .then((result) => {
+              if (result?.length) {
+                accountID = result[0];
+              }
+            })
+            .catch((err) => {
+              console.log('Error: ' + err);
+            });
+        }
+      })
+      .catch((err) => console.log(err));
+  }
+
+  return accountID;
+}
+
+async function lookup_plaid_account(account) {
+  let accountID = -1;
+
+  // Lookup if we've already use this one
+  if (account?.length) {
+    await db
+      .select('id', 'account', 'refNumber')
+      .from('account')
+      .orderBy('account')
+      .where({ plaid_id: account })
+      .then(async (data) => {
+        if (data?.length) {
+          // If we have, use this ID
+          accountID = data[0].id;
+        } else {
+          // If we haven't, lets store this one
+          await db('account')
+            .insert({
+              account: 'New Account',
+              refNumber: account,
+              plaid_id: account,
+              isActive: dbPath === 'cloud' ? true : 1,
+            })
+            .then((result) => {
+              if (result?.length) {
+                accountID = result[0];
+              }
+            })
+            .catch((err) => {
+              console.log('Error: ' + err);
+            });
+        }
+      })
+      .catch((err) => console.log(err));
+  }
+
+  return accountID;
+}
+
+async function lookup_envelope(envelope, defaultCategoryID) {
+  let envelopeID = -1;
+
+  // Lookup if we've already use this one
+  if (envelope?.length) {
+    await db
+      .select('id', 'envelope')
+      .from('envelope')
+      .orderBy('id')
+      .where({ envelope: envelope })
+      .then(async (data) => {
+        if (data?.length) {
+          // If we have, use this ID
+          envelopeID = data[0].id;
+        } else {
+          // If we haven't, lets store this one
+          await db('envelope')
+            .insert({
+              envelope: envelope,
+              categoryID: defaultCategoryID,
+              balance: 0,
+              isActive: dbPath === 'cloud' ? true : 1,
+            })
+            .then((result) => {
+              if (result?.length) {
+                envelopeID = result[0];
+              }
+            })
+            .catch((err) => {
+              console.log('Error: ' + err);
+            });
+        }
+      })
+      .catch((err) => console.log(err));
+  }
+
+  return envelopeID;
+}
+
+async function lookup_uncategorized() {
+  let categoryID = -1;
+
+  await db
+    .select('id')
+    .from('category')
+    .where('category', 'Uncategorized')
+    .then((rows) => {
+      if (rows?.length > 0) {
+        console.log('Uncategorized category ID is: ', rows[0].id);
+        categoryID = rows[0].id;
+      }
+    })
+    .catch((err) => console.log(err));
+
+  return categoryID;
+}
+
+async function lookup_keyword(accountID, description, txDate) {
+  let envID = -1;
+
+  if (description?.length) {
+    let query = db('keyword')
+      .select('id', 'envelopeID')
+      .whereRaw(`? LIKE description`, description);
+
+    query = query.andWhere(function () {
+      this.where('account', 'All').orWhere({
+        account: db('account').select('account').where('id', accountID),
+      });
+    });
+
+    await query.then((data) => {
+      if (data?.length) {
+        envID = data[0].envelopeID;
+
+        // Let's record that we used this keyword
+        db('keyword')
+          .update({ last_used: txDate })
+          .where('id', data[0].id)
+          .catch((err) => console.log(err));
+      }
+    });
+  }
+  return envID;
+}
+
+async function lookup_if_duplicate(
+  accountID,
+  refNumber,
+  txDate,
+  txAmt,
+  description
+) {
+  let isDuplicate = 0;
+
+  // Check if it is a duplicate?
+  if (refNumber?.length) {
+    //console.log('Checking by refNumber');
+
+    let query = db('transaction')
+      .select('id')
+      .andWhereRaw(`accountID = ?`, accountID)
+      .andWhereRaw(`refNumber = ?`, refNumber);
+      
+      if (dbPath === 'cloud') {
+        // PostgreSQL
+        query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
+      } else {
+        // SQLite
+        query = query.andWhereRaw(`julianday(?) - julianday(txDate) = 0`, [txDate]);
+      }
+
+    await query.then((data) => {
+        if (data?.length) {
+          isDuplicate = 1;
+        }
+      });
+  } else {
+    //console.log('Checking by other stuff');
+    let query = db('transaction')
+      .select('id')
+      .where({ txAmt: txAmt })
+      .andWhereRaw(`accountID = ?`, accountID)
+      .andWhere({ description: description });
+      
+      if (dbPath === 'cloud') {
+        // PostgreSQL
+        query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
+      } else {
+        // SQLite
+        query = query.andWhereRaw(`julianday(?) - julianday(txDate) = 0`, [txDate]);
+      }
+
+    await query.then((data) => {
+        if (data?.length) {
+          isDuplicate = 1;
+        }
+      });
+  }
+
+  return isDuplicate;
+}
+
+async function update_env_balance(envID, amt) {
+  await db
+    .raw(
+      `UPDATE "envelope" SET balance = balance + ` +
+        amt +
+        ` WHERE id = ` +
+        envID
+    )
+    .then();
+}
+
+async function update_transaction_id(
+  access_token,
+  old_transaction_id, 
+  new_transaction_id,
+  txAmt,
+  txDate,
+  description
+) {
+  let my_txDate = dayjs(new Date(txDate + 'T00:00:00')).format('YYYY-MM-DD');
+
+  await db.select(
+    'transaction.id as id'
+  )
+    .from('plaid_account')
+    .join('account', 'account.plaid_id', 'plaid_account.account_id')
+    .join('transaction', 'transaction.accountID', 'account.id')
+    .where({ access_token: access_token })
+    .andWhere('transaction.refNumber', '=', old_transaction_id)
+    .then(async (data) => {
+      if (data?.length) {
+        console.log(
+          'Updating transaction id: ',
+          data[0].id,
+          ' -> ',
+          new_transaction_id
+        );
+        await db('transaction')
+        .where({ id: data[0].id })
+        .update({ 
+          refNumber: new_transaction_id,
+          txAmt: txAmt,
+          txDate: my_txDate,
+          description: description
+        })
+        .then(() =>
+          {
+            console.log('Successully updated former pending transaction refNumber. ');
+          }
+        )
+        .catch((err) => {
+          console.log('Error: ' + err);
+        });
+                
+      } else {
+        console.log(
+          'We were supposed to be updating a transactions ref Number, but we couldnt find refNumber: ',
+          refNumber,
+          ' and access_token: ',
+          access_token
+        );
+      }
+    })
+    .catch((err) => console.log(err));
+
+  process.stdout.write('.');
+  
+};
+
+async function basic_insert_transaction_node(
+  accountID,
+  txAmt,
+  txDate,
+  description,
+  refNumber,
+  envID
+) {
+  let my_txDate = dayjs(new Date(txDate + 'T00:00:00')).format('YYYY-MM-DD');
+
+  // Prepare the data node
+  const myNode = {
+    envelopeID: envID,
+    txAmt: txAmt,
+    txDate: my_txDate,
+    description: description,
+    refNumber: refNumber,
+    isBudget: 0,
+    origTxID: 0,
+    isDuplicate: 0,
+    isSplit: 0,
+    accountID: accountID,
+    isVisible: dbPath === 'cloud' ? true : 1,
+  };
+
+  // Insert the node
+  await db('transaction').insert(myNode);
+
+  // Update the envelope balance
+  if (envID !== -1) {
+    await update_env_balance(envID, txAmt);
+  }
+
+  process.stdout.write('.');
+}
+
+async function remove_transaction(txID) {
+  await db
+    .select('id', 'envelopeID', 'txAmt', 'isDuplicate', 'isVisible')
+    .from('transaction')
+    .where({ id: txID })
+    .then(async (data) => {
+      if (data?.length) {
+        await db('transaction').delete().where({ id: data[0].id });
+        if (data[0].isVisible && !data[0].isDuplicate) {
+          await update_env_balance(data[0].envelopeID, -1 * data[0].txAmt);
+        }
+      }
+    })
+    .catch((err) => console.log(err));
+}
+
+async function basic_remove_transaction_node(access_token, refNumber) {
+  db.select(
+    'transaction.id as id',
+    'transaction.envelopeID as envelopeID',
+    'transaction.txAmt as txAmt'
+  )
+    .from('plaid_account')
+    .join('account', 'account.plaid_id', 'plaid_account.account_id')
+    .join('transaction', 'transaction.accountID', 'account.id')
+    .where({ access_token: access_token })
+    .andWhere('transaction.refNumber', '=', refNumber)
+    .then(async (data) => {
+      if (data?.length) {
+        console.log(
+          'Deleting transaction id: ',
+          data[0].id,
+          ' amt: ',
+          data[0].txAmt,
+          ' envID: ',
+          data[0].envelopeID
+        );
+        await db('transaction').delete().where({ id: data[0].id });
+        await update_env_balance(data[0].envelopeID, -1 * data[0].txAmt);
+      } else {
+        console.log(
+          'No TX to delete, looking for refNumber: ',
+          refNumber,
+          ' and access_token: ',
+          access_token
+        );
+      }
+    })
+    .catch((err) => console.log(err));
+
+  process.stdout.write('.');
+}
+
+//console.log(channels.IMPORT_OFX, ofxString);
+async function insert_transaction_node(
+  accountID,
+  txAmt,
+  txDate,
+  description,
+  refNumber
+) {
+  let isDuplicate = 0;
+
+  let my_txDate = dayjs(new Date(txDate + 'T00:00:00')).format('YYYY-MM-DD');
+  if (my_txDate === 'Invalid Date') {
+    return;
+  }
+  if (txAmt === null || txAmt === '') {
+    return;
+  }
+
+  // Check if this matches a keyword
+  let envID = await lookup_keyword(accountID, description, my_txDate);
+
+  // Check if this is a duplicate
+  isDuplicate = await lookup_if_duplicate(
+    accountID,
+    refNumber,
+    my_txDate,
+    txAmt,
+    description
+  );
+
+  // Prepare the data node
+  const myNode = {
+    envelopeID: envID,
+    txAmt: txAmt,
+    txDate: my_txDate,
+    description: description,
+    refNumber: refNumber,
+    isBudget: 0,
+    origTxID: 0,
+    isDuplicate: isDuplicate,
+    isSplit: 0,
+    accountID: accountID,
+    isVisible: dbPath === 'cloud' ? true : 1,
+  };
+
+  // Insert the node
+  await db('transaction').insert(myNode);
+
+  // Update the envelope balance
+  if (envID !== -1 && isDuplicate !== 1) {
+    await update_env_balance(envID, txAmt);
+  }
+}
+
+const get_db_ver = async () => {
+  //console.log('get_db_ver');
+  let ver = null;
+  if (db) {
+    await db('version')
+      .select('version')
+      .then((data) => {
+        ver = data[0].version;
+      })
+      .catch((err) => {
+        console.log('Error getting DB version.');
+      });
+  }
+  //console.log('returning version: ', ver);
+  return ver;
+};
 
 
 // Get the categories and envelopes
