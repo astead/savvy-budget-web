@@ -132,26 +132,17 @@ export const ConfigPlaid = () => {
     };
   };
 
-  const update_login = (acc : PLAIDAccount) => {
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.PLAID_UPDATE_LOGIN, 
-      { access_token: acc.access_token }
-    );
+  const update_login = async (acc : PLAIDAccount) => {
+    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_UPDATE_LOGIN, { access_token: acc.access_token });
+    
+    let { link_token, error } = response.data;
 
-    ipcRenderer.on(channels.PLAID_DONE_UPDATE_LOGIN, ({ link_token, error }) => {
-      if (link_token) {
-        get_updated_login(link_token);
-      }
-      if (error) {
-        setLink_Error(error);
-      }
-      ipcRenderer.removeAllListeners(channels.PLAID_DONE_UPDATE_LOGIN);
-    });
-      
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.PLAID_DONE_UPDATE_LOGIN);
-    };
+    if (link_token) {
+      get_updated_login(link_token);
+    }
+    if (error) {
+      setLink_Error(error);
+    }
   }
 
   const remove_login = (acc : PLAIDAccount) => {

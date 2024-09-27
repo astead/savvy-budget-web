@@ -224,6 +224,37 @@ app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
   }
 });
 
+app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
+  const { access_token } = req.body;
+  console.log('Switching to update mode');
+  if (PLAID_CLIENT_ID?.length) {
+    try {
+      const linkTokenResponse = await client.linkTokenCreate({
+        ...configs,
+        access_token: access_token,
+      });
+
+      // Use the link_token to initialize Link
+      //console.log(linkTokenResponse);
+      res.json({
+        link_token: linkTokenResponse.data.link_token,
+        error: '',
+      });
+    } catch (error) {
+      console.log(error);
+      res.json({
+        link_token: '',
+        error: error,
+      });
+    }
+  } else {
+    res.json({
+      link_token: '',
+      error: 'PLAID_CLIENT_ID not set.',
+    });
+  }
+});
+
 
 
 // Get the categories and envelopes
