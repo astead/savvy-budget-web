@@ -858,6 +858,21 @@ app.post('/api/'+channels.HIDE_ENVELOPE, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.REN_CATEGORY, async (req, res) => {
+  const { id, name } = req.body;
+  console.log(channels.REN_CATEGORY, id, name);
+
+  await db('category')
+    .where({ id: id })
+    .update({ category: name })
+    .then(() => {
+      console.log('Renamed category: ' + name);
+    })
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 

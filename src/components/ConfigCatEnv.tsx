@@ -125,7 +125,7 @@ export const ConfigCatEnv = () => {
     }
   };
 
-  const handleCatOnSave = (id, value) => {
+  const handleCatOnSave = async (id, value) => {
     let tmpName = value;
 
     if (tmpName === 'Income') {
@@ -136,20 +136,10 @@ export const ConfigCatEnv = () => {
     }
 
     // Request we rename the category in the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.REN_CATEGORY, { id: id, name: tmpName });
+    await axios.post('http://localhost:3001/api/' + channels.REN_CATEGORY, { id: id, name: tmpName });
     
     if (tmpName !== value) {
-      // Wait till we are done
-      ipcRenderer.on(channels.DONE_REN_CATEGORY, () => {
-        load_cats_and_envs();
-        ipcRenderer.removeAllListeners(channels.DONE_REN_CATEGORY);
-      });
-      
-      // Clean the listener after the component is dismounted
-      return () => {
-        ipcRenderer.removeAllListeners(channels.DONE_REN_CATEGORY);
-      };
+      load_cats_and_envs();
     }
   }
 
