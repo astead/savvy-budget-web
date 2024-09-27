@@ -269,7 +269,7 @@ export const ConfigPlaid = () => {
     const ipcRenderer = (window as any).ipcRenderer;
     ipcRenderer.send(channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata});
 
-    const response = axios.post('http://localhost:3001/api/' + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata});
+    axios.post('http://localhost:3001/api/' + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata});
   };
 
   const onExit: PlaidLinkOnExit = (error, metadata) => {
