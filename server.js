@@ -1379,6 +1379,81 @@ app.post('/api/'+channels.SET_VISIBILITY, async (req, res) => {
   await adjust_balance(txID, isVisible ? 'add' : 'rem');
 });
 
+app.post('/api/'+channels.IMPORT_OFX, async (req, res) => {
+  const { ofxString } = req.body;
+  //console.log(channels.IMPORT_OFX, ofxString);
+
+  let accountID = '';
+  let accountID_str = '';
+  let ver = '';
+
+  // Find the financial institution ID
+  const tmpStr = ofxString;
+  if (tmpStr.includes('<ACCTID>')) {
+    const i = tmpStr.indexOf('<ACCTID>') + 8;
+    const j = tmpStr.indexOf('\n', i);
+    const k = tmpStr.indexOf('</ACCTID>', i);
+
+    accountID_str = tmpStr
+      .substr(i, ((j < k && j !== -1) || k === -1 ? j : k) - i)
+      .trim();
+  }
+  accountID = await lookup_account(accountID_str);
+
+  // What version of OFX is this?
+  // Seems like the OFX library only supports 102,
+  //  maybe all the 100's.
+  const tmpStr2 = ofxString;
+  if (tmpStr2.includes('VERSION')) {
+    const i = tmpStr.indexOf('VERSION') + 7;
+    const j = tmpStr.indexOf('SECURITY', i);
+    ver = tmpStr
+      .substr(i, j - i)
+      .replace(/"/g, '')
+      .replace(/:/g, '')
+      .replace(/=/g, '')
+      .trim();
+  }
+
+  if (ver[0] === '1') {
+    const ofx = new Ofx(ofxString);
+    const trans = await ofx.getBankTransferList();
+    //let total_records = trans.length;
+
+    trans.forEach(async (tx, i) => {
+      insert_transaction_node(
+        accountID,
+        tx.TRNAMT,
+        tx.DTPOSTED.date,
+        tx.NAME,
+        tx.FITID
+      );
+      //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / total_records);
+    });
+  }
+  if (ver[0] === '2') {
+    const xml = new XMLParser().parse(ofxString);
+    const trans = await xml.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS.CCSTMTRS
+      .BANKTRANLIST.STMTTRN;
+    let total_records = trans.length;
+
+    trans.forEach(async (tx, i) => {
+      insert_transaction_node(
+        accountID,
+        tx.TRNAMT,
+        tx.DTPOSTED.substr(0, 4) +
+          '-' +
+          tx.DTPOSTED.substr(4, 2) +
+          '-' +
+          tx.DTPOSTED.substr(6, 2),
+        tx.NAME,
+        tx.FITID
+      );
+      //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / total_records);
+    });
+  }
+  //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+});
 
 // Helper functions used only by the server
 

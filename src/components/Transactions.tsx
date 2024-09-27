@@ -348,20 +348,19 @@ export const Transactions: React.FC = () => {
       } else {
         // Insert this transaction
         if (filename.toLowerCase().endsWith("qfx")) {
-          setProgress(0);
-          setUploading(true);
-          ipcRenderer.send(channels.IMPORT_OFX, { ofxString });
+          //setProgress(0);
+          //setUploading(true);
+          axios.post('http://localhost:3001/api/' + channels.IMPORT_OFX, { ofxString });
           
           // Listen for progress updates
-          ipcRenderer.on(channels.UPLOAD_PROGRESS, (data) => {
-            setProgress(data);
+            //setProgress(data);
             
-            if (data >= 100) {
-              ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
-              setUploading(false);
-              load_transactions();
-            }
-          });
+            //if (data >= 100) {
+              //ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
+              //setUploading(false);
+            load_transactions();
+            //}
+          //});
         }
         if (filename.toLowerCase().endsWith("csv")) {
           let account_string = '';
