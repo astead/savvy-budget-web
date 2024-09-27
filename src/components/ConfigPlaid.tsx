@@ -116,20 +116,11 @@ export const ConfigPlaid = () => {
   };
 
 
-  const getAccountList = () => {
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.PLAID_GET_ACCOUNTS);
-
+  const getAccountList = async () => {
+    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_GET_ACCOUNTS);
+    
     // Receive the data
-    ipcRenderer.on(channels.PLAID_LIST_ACCOUNTS, (data) => {
-      setPLAIDAccounts(data as PLAIDAccount[]);
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_ACCOUNTS);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_ACCOUNTS);
-    };
+    setPLAIDAccounts(response.data as PLAIDAccount[]);
   };
 
   const update_login = async (acc : PLAIDAccount) => {

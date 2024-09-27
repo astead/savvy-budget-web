@@ -6,6 +6,7 @@ const port = 3001; // Use a different port than React
 const knex = require('knex');
 require('module-alias/register');
 const { channels } = require('@shared/constants.js');
+const dayjs = require('dayjs');
 
 app.use(cors());
 app.use(express.json());
@@ -290,6 +291,57 @@ app.post('/api/'+channels.PLAID_SET_KEYS, async (req, res) => {
             .then()
             .catch((err) => console.log(err));
         }
+      })
+      .catch((err) => console.log(err));
+  }
+});
+
+app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
+  console.log(channels.PLAID_GET_ACCOUNTS);
+  if (db) {
+    const find_date = dayjs(new Date()).format('YYYY-MM-DD');
+    let query = db
+      .select(
+        'plaid_account.id',
+        'plaid_account.institution',
+        'plaid_account.account_id',
+        'plaid_account.mask',
+        'plaid_account.account_name',
+        'plaid_account.account_subtype',
+        'plaid_account.account_type',
+        'plaid_account.verification_status',
+        'plaid_account.item_id',
+        'plaid_account.access_token',
+        'plaid_account.cursor'
+      )
+      .max({ lastTx: 'txDate' })
+      .from('plaid_account')
+      .join('account', 'plaid_account.account_id', 'account.plaid_id')
+      .leftJoin('transaction', function () {
+        this.on('account.id', '=', 'transaction.accountID')
+          .on('transaction.isBudget', '=', 0)
+          .on('transaction.isDuplicate', '=', 0);
+          // PostgreSQL specific
+          this.on(db.raw(`?::date - "txDate" >= 0`, [find_date]));
+          this.on(db.raw(`"transaction"."isVisible" = true`));
+      })
+      .orderBy('institution', 'public_token')
+      .groupBy(
+        'plaid_account.id',
+        'plaid_account.institution',
+        'plaid_account.account_id',
+        'plaid_account.mask',
+        'plaid_account.account_name',
+        'plaid_account.account_subtype',
+        'plaid_account.account_type',
+        'plaid_account.verification_status',
+        'plaid_account.item_id',
+        'plaid_account.access_token',
+        'plaid_account.cursor'
+      );
+    query
+      .then((data) => {
+        res.json(data);
       })
       .catch((err) => console.log(err));
   }
