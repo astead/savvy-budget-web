@@ -159,21 +159,10 @@ export const TransactionTable = ({data, envList, callback}) => {
     callback();      
   };
 
-  const toggleDuplicate = ({txID, isDuplicate}) => {
+  const toggleDuplicate = async ({txID, isDuplicate}) => {
     // Request we update the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.SET_DUPLICATE, { txID: txID, isDuplicate: isDuplicate });
-    
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_SET_DUPLICATE, () => {
-      callback();      
-      ipcRenderer.removeAllListeners(channels.DONE_SET_DUPLICATE);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_SET_DUPLICATE);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.SET_DUPLICATE, { txID: txID, isDuplicate: isDuplicate });
+    callback();
   };
 
   const toggleVisibility = ({txID, isVisible}) => {

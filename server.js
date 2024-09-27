@@ -1349,6 +1349,21 @@ app.post('/api/'+channels.SAVE_KEYWORD, async (req, res) => {
     });
 });
 
+app.post('/api/'+channels.SET_DUPLICATE, async (req, res) => {
+  const { txID, isDuplicate } = req.body;
+  console.log(channels.SET_DUPLICATE, txID, isDuplicate);
+
+  await db('transaction')
+    .update({ isDuplicate: isDuplicate })
+    .where({ id: txID })
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+
+  // Need to adjust envelope balance
+  await adjust_balance(txID, isDuplicate ? 'rem' : 'add');
+});
+
 
 // Helper functions used only by the server
 
