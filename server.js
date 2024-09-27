@@ -917,6 +917,19 @@ app.post('/api/'+channels.UPDATE_BUDGET, async (req, res) => {
   await set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt);
 });
 
+app.post('/api/'+channels.UPDATE_BALANCE, async (req, res) => {
+  const { id, newAmt } = req.body;
+  console.log(channels.UPDATE_BALANCE, id, newAmt);
+
+  db('envelope')
+    .update({ balance: newAmt })
+    .where({ id: id })
+    .then()
+    .catch((err) => {
+      console.log('Error updating balance: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 

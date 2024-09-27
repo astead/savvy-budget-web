@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
+import axios from 'axios';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -30,10 +31,9 @@ export const BudgetBalanceModal = ({balanceAmt, category, envelope, envID, trans
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
-  const handleSaveNewValue = () => {
+  const handleSaveNewValue = async () => {
     // Request we update the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.UPDATE_BALANCE, { id: envID, newAmt: newAmt });
+    await axios.post('http://localhost:3001/api/' + channels.UPDATE_BALANCE, { id: envID, newAmt: newAmt });
     setOpen(false);
     callback();
   };
