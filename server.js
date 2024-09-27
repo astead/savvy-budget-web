@@ -1096,6 +1096,30 @@ app.post('/api/'+channels.GET_CURR_BALANCE, (req, res) => {
     .catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.GET_MONTHLY_AVG, (req, res) => {
+  const { find_date } = req.body;
+  console.log(channels.GET_MONTHLY_AVG);
+
+  let query = db.select('envelopeID')
+    .sum({ totalAmt: 'txAmt' })
+    .min({ firstDate: 'txDate' })
+    .from('transaction')
+    .orderBy('envelopeID')
+    .where({ isBudget: 0 })
+    .andWhere({ isDuplicate: 0 })
+    .andWhere({ isVisible: true })
+    .groupBy('envelopeID');
+
+  // PostgreSQL specific
+  query = query.andWhereRaw(`?::date - "txDate" < 365`, [find_date])
+    .andWhereRaw(`?::date - "txDate" > 0`, [find_date]);
+  
+  query.then((data) => {
+    res.json(data);
+  })
+  .catch((err) => console.log(err));
+});
+
 
 // Helper functions used only by the server
 

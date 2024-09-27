@@ -297,47 +297,37 @@ export const Envelopes: React.FC = () => {
     setLoadedCurrActual(true);     
   };
 
-  const load_MonthlyAvg = () => {
+  const load_MonthlyAvg = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_MONTHLY_AVG, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') });
-
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_MONTHLY_AVG, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') });
+    
     // Receive the data
-    ipcRenderer.on(channels.LIST_MONTHLY_AVG, (arg) => {
-      
-      const tmpData = [...budgetData] as BudgetNodeData[]; 
-      
-      let firstDate = new Date();
-      for (let i=0; i < arg.length; i++) {
-        const tmpDate = new Date(arg[i].firstDate);
-        if (tmpDate < firstDate) {
-          firstDate = tmpDate;
-        }
+    let data = response.data;  
+    const tmpData = [...budgetData] as BudgetNodeData[]; 
+    
+    let firstDate = new Date();
+    for (let i=0; i < data.length; i++) {
+      const tmpDate = new Date(data[i].firstDate);
+      if (tmpDate < firstDate) {
+        firstDate = tmpDate;
       }
-      const curDate = new Date(year, month);
-      const numMonths = monthDiff(firstDate, curDate)+1;
-      
-      if (numMonths > 0) {
-        for (let i=0; i < arg.length; i++) {
-          for (let j=0; j < tmpData.length; j++) {
-            if (arg[i].envelopeID === tmpData[j].envID) {
-              const ttmAvg = arg[i].totalAmt / numMonths;
-              tmpData[j] = Object.assign(tmpData[j], { monthlyAvg: ttmAvg });
-            }
+    }
+    const curDate = new Date(year, month);
+    const numMonths = monthDiff(firstDate, curDate)+1;
+    
+    if (numMonths > 0) {
+      for (let i=0; i < data.length; i++) {
+        for (let j=0; j < tmpData.length; j++) {
+          if (data[i].envelopeID === tmpData[j].envID) {
+            const ttmAvg = data[i].totalAmt / numMonths;
+            tmpData[j] = Object.assign(tmpData[j], { monthlyAvg: ttmAvg });
           }
-        };
-        
-        setBudgetData(tmpData as BudgetNodeData[]); 
-      }
-      setLoadedMonthlyAvg(true);     
-
-      ipcRenderer.removeAllListeners(channels.LIST_MONTHLY_AVG);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_MONTHLY_AVG);
-    };
+        }
+      };
+      
+      setBudgetData(tmpData as BudgetNodeData[]); 
+    }
+    setLoadedMonthlyAvg(true);     
   };
   
   const load_initialEnvelopes = async () => {
