@@ -156,45 +156,30 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const get_transactions = (acc : PLAIDAccount) => {
+  const get_transactions = async (acc : PLAIDAccount) => {
     // Clear error message
     setLink_Error(null);
 
-    setUploading(true);
+    //setUploading(true);
     
     // Get transactions
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.PLAID_GET_TRANSACTIONS, 
-      { access_token: acc.access_token,
+    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_GET_TRANSACTIONS, 
+      {
+        access_token: acc.access_token,
         cursor: acc.cursor,
-      }
-    );
-
-    // Listen for progress updates
-    ipcRenderer.on(channels.UPLOAD_PROGRESS, (data) => {
-      setProgress(data);
-      if (data >= 100) {
-        ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
-        setUploading(false);
+      });
+    
+    //setProgress(data);
+    //setUploading(false);
         
-        // Get new latest transaction dates
-        getAccountList();
-      }
-    });
-
-    ipcRenderer.on(channels.PLAID_LIST_TRANSACTIONS, (data) => {
-      if (data.error_message?.length) {
-        console.log(data);
-        setLink_Error("Error: " + data.error_message);
-      }
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_TRANSACTIONS);
-    });
+    // Get new latest transaction dates
+    getAccountList();
       
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_TRANSACTIONS);
-    };
+    let data = response.data;
+    if (data.error_message?.length) {
+      console.log(data);
+      setLink_Error("Error: " + data.error_message);
+    }
   };
 
   const force_get_transactions = (acc : PLAIDAccount, start_date, end_date) => {

@@ -394,6 +394,174 @@ async function remove_plaid_account_link(account_id) {
     .where({ plaid_id: account_id });
 }
 
+app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
+  const { access_token, cursor } = req.body;
+  console.log('Try getting plaid account transactions ');
+
+  let added = [];
+  let modified = [];
+  let removed = [];
+  let hasMore = true;
+
+  while (hasMore) {
+    console.log('Making the call ');
+    let response = null;
+    try {
+      response = await client.transactionsSync({
+        access_token: access_token,
+        cursor: cursor,
+      });
+    } catch (e) {
+      console.log('Error: ', e.response.data.error_message);
+      //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+      res.json(e.response.data);
+      return;
+    }
+    console.log('Response: ' + response);
+    const data = response.data;
+    console.log(' Response: ', data);
+
+    // Add this page of results
+    added = added.concat(data.added);
+    modified = modified.concat(data.modified);
+    removed = removed.concat(data.removed);
+    hasMore = data.has_more;
+
+    // Update cursor to the next cursor
+    cursor = data.next_cursor;
+  }
+
+  console.log('Done getting the data, now processing');
+
+  //let total_records = added.length + modified.length + removed.length;
+  //let cur_record = 0;
+
+  // Apply added
+  const accountArr = [];
+  for (const [i, a] of added.entries()) {
+    let account_str = a.account_id;
+    let accountID = '';
+    if (accountArr?.length) {
+      const found = accountArr.find((e) => e.name === account_str);
+      if (found) {
+        accountID = found.id;
+      } else {
+        accountID = await lookup_plaid_account(account_str);
+        accountArr.push({ name: account_str, id: accountID });
+      }
+    } else {
+      accountID = await lookup_plaid_account(account_str);
+      accountArr.push({ name: account_str, id: accountID });
+    }
+
+    let envID = await lookup_keyword(accountID, a.name, a.date);
+
+    // Check if this is a duplicate
+    let isDuplicate = await lookup_if_duplicate(
+      accountID,
+      a.transaction_id,
+      a.date,
+      -1 * a.amount,
+      a.name
+    );
+
+    // Check for matching removed transaction
+    let matchingRemoved = removed.find(r => 
+      r.transaction_id === a.pending_transaction_id
+    );
+
+    if (matchingRemoved) {
+      // Update the existing transaction's transaction_id
+      await update_transaction_id(
+        access_token,
+        matchingRemoved.transaction_id, 
+        a.transaction_id,
+        -1 * a.amount,
+        a.date,
+        a.name
+      );
+    } else if (isDuplicate !== 1) {
+      await basic_insert_transaction_node(
+        accountID,
+        -1 * a.amount,
+        a.date,
+        a.name,
+        a.transaction_id,
+        envID
+      );
+    }
+
+    /*
+    cur_record++;
+    event.sender.send(
+      channels.UPLOAD_PROGRESS,
+      (cur_record * 100) / total_records
+    );
+    */
+  }
+
+  // Apply removed
+  for (const [i, r] of removed.entries()) {
+    await basic_remove_transaction_node(access_token, r.transaction_id);
+
+    /*
+    cur_record++;
+    event.sender.send(
+      channels.UPLOAD_PROGRESS,
+      (cur_record * 100) / total_records
+    );
+    */
+  }
+
+  // Apply modified
+  for (const [i, m] of modified.entries()) {
+    let account_str = m.account_id;
+    let accountID = '';
+    if (accountArr?.length) {
+      const found = accountArr.find((e) => e.name === account_str);
+      if (found) {
+        accountID = found.id;
+      } else {
+        accountID = await lookup_plaid_account(account_str);
+        accountArr.push({ name: account_str, id: accountID });
+      }
+    } else {
+      accountID = await lookup_plaid_account(account_str);
+      accountArr.push({ name: account_str, id: accountID });
+    }
+
+    let envID = await lookup_keyword(accountID, m.name, m.date);
+
+    // Rather than modify it, just remove the old and the new
+    await basic_remove_transaction_node(access_token, m.transaction_id);
+
+    await basic_insert_transaction_node(
+      accountID,
+      -1 * m.amount,
+      m.date,
+      m.name,
+      m.transaction_id,
+      envID
+    );
+
+    /*
+    cur_record++;
+    event.sender.send(
+      channels.UPLOAD_PROGRESS,
+      (cur_record * 100) / total_records
+    );
+    */
+  }
+
+  // Update cursor
+  db('plaid_account')
+    .where('access_token', access_token)
+    .update('cursor', cursor)
+    .catch((err) => console.log('Error: ' + err));
+
+  //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+});
+
 async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {
   return await db('transaction')
     .select('id', 'txAmt')
