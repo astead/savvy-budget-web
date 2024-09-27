@@ -119,8 +119,7 @@ export const ConfigKeyword = () => {
 
   const handleKeywordSetAll = (id, force) => {
     // Request we set the keyword in the DB for undefined tx
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.SET_ALL_KEYWORD, {id, force});
+    axios.post('http://localhost:3001/api/' + channels.SET_ALL_KEYWORD, {id, force});
   };
 
   const handleAccountChange = ({id, new_value, new_text}) => {

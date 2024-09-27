@@ -1461,6 +1461,34 @@ app.post('/api/'+channels.UPDATE_KEYWORD_ACC, async (req, res) => {
     .catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
+  const { id, force } = req.body;
+  console.log(channels.SET_ALL_KEYWORD, { id });
+
+  db.select('envelopeID', 'description', 'account')
+    .from('keyword')
+    .where({ id: id })
+    .then((data) => {
+      let query = db('transaction')
+        .update({ envelopeID: data[0].envelopeID })
+        .whereRaw(`description LIKE ?`, data[0].description);
+
+      if (data[0].account !== 'All') {
+        query = query.andWhere({
+          accountID: db('account')
+            .select('id')
+            .where('account', data[0].account),
+        });
+      }
+
+      if (force === 0) {
+        query = query.andWhere({ envelopeID: -1 });
+      }
+      query.then();
+    })
+    .catch((err) => console.log(err));
+});
+
 
 
 
