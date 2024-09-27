@@ -1489,6 +1489,16 @@ app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
     .catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.DEL_KEYWORD, async (req, res) => {
+  const { id } = req.body;
+  console.log(channels.DEL_KEYWORD, { id });
+
+  await db('keyword')
+    .delete()
+    .where({ id: id })
+    .catch((err) => console.log(err));
+});
+
 
 
 

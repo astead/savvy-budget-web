@@ -100,21 +100,10 @@ export const ConfigKeyword = () => {
     setSortKeyword(col + dir);
   }
 
-  const handleKeywordDelete = (id) => {
+  const handleKeywordDelete = async (id) => {
     // Request we delete the keyword in the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.DEL_KEYWORD, {id});
-    
-    // Wait till we are done
-    ipcRenderer.on(channels.DONE_DEL_KEYWORD, () => {
-      load_keywords();
-      ipcRenderer.removeAllListeners(channels.DONE_DEL_KEYWORD);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_DEL_KEYWORD);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.DEL_KEYWORD, { id });
+    load_keywords();
   };
 
   const handleKeywordSetAll = (id, force) => {
