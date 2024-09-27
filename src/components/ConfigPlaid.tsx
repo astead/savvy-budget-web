@@ -98,31 +98,21 @@ export const ConfigPlaid = () => {
 
 
 
-  const createLinkToken = () => {
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.PLAID_GET_TOKEN);
-
+  const createLinkToken = async () => {
+    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_GET_TOKEN);
+    
     // Receive the data
-    ipcRenderer.on(channels.PLAID_LIST_TOKEN, (data) => {
-      if (data.link_token?.length) {
-        setToken(data.link_token);
-        setTokenExpiration(data.expiration);
-        setLink_Error(null);
-        
-        getAccountList();
-      }
-      if (data.error_message?.length) {
-        console.log(data);
-        setLink_Error("Error: " + data.error_message);
-      }
-
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_TOKEN);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.PLAID_LIST_TOKEN);
-    };
+    let data = response.data;
+    if (data.link_token?.length) {
+      setToken(data.link_token);
+      setTokenExpiration(data.expiration);
+      setLink_Error(null);
+      getAccountList();
+    }
+    if (data.error_message?.length) {
+      console.log(data);
+      setLink_Error("Error: " + data.error_message);
+    }
   };
 
 

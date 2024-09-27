@@ -197,6 +197,33 @@ app.post('/api/'+channels.PLAID_GET_KEYS, (req, res) => {
   }
 });
 
+app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
+  console.log('Try getting PLAID link token');
+  if (PLAID_CLIENT_ID?.length) {
+    try {
+      const createTokenResponse = await client.linkTokenCreate(configs);
+
+      if (db) {
+        db('plaid')
+          .update('token', createTokenResponse.data.link_token)
+          .update('token_expiration', createTokenResponse.data.expiration)
+          .then()
+          .catch((err) => console.log(err));
+      }
+
+      res.json(createTokenResponse.data);
+    } catch (error) {
+      console.log(error);
+      // handle error
+      console.log('Error: ', error.response.data.error_message);
+
+      res.json(error.response.data);
+    }
+  } else {
+    res.json(null);
+  }
+});
+
 
 
 // Get the categories and envelopes
