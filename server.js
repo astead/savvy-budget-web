@@ -816,6 +816,35 @@ app.post('/api/'+channels.DEL_CATEGORY, async (req, res) => {
     .catch((err) => console.log('Error: ' + err));
 });
 
+app.post('/api/'+channels.DEL_ENVELOPE, async (req, res) => {
+  const { id } = req.body;
+  console.log(channels.DEL_ENVELOPE, id);
+
+  await db('envelope')
+    .where({ id: id })
+    .delete()
+    .then()
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+
+  await db('transaction')
+    .where({ envelopeID: id })
+    .update({ envelopeID: -1 })
+    .then()
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+
+  await db('keyword')
+    .where({ envelopeID: id })
+    .delete()
+    .then()
+    .catch((err) => {
+      console.log('Error: ' + err);
+    });
+});
+
 
 // Helper functions used only by the server
 
