@@ -211,45 +211,35 @@ export const Envelopes: React.FC = () => {
     };
   };
 
-  const load_CurrBudget = () => {
+  const load_CurrBudget = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_CUR_BUDGET, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') });
-
-    // Receive the data
-    ipcRenderer.on(channels.LIST_CUR_BUDGET, (arg) => {
-      
-      const tmpData = [...budgetData] as BudgetNodeData[]; 
-      let haveValues = false;
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_CUR_BUDGET, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') });
     
-      // Go through the data and store it into our table array
-      for (let i=0; i < arg.length; i++) {
-        for (let j=0; j < tmpData.length; j++) {
-          if (arg[i].envelopeID === tmpData[j].envID) {
-            tmpData[j] = Object.assign(tmpData[j], { currBudget: arg[i].txAmt });
-            if (arg[i].txAmt !== 0) {
-              haveValues = true;
-            }
+    // Receive the data
+    let data = response.data;
+    const tmpData = [...budgetData] as BudgetNodeData[]; 
+    let haveValues = false;
+  
+    // Go through the data and store it into our table array
+    for (let i=0; i < data.length; i++) {
+      for (let j=0; j < tmpData.length; j++) {
+        if (data[i].envelopeID === tmpData[j].envID) {
+          tmpData[j] = Object.assign(tmpData[j], { currBudget: data[i].txAmt });
+          if (data[i].txAmt !== 0) {
+            haveValues = true;
           }
         }
-      };
-
-      if (haveValues) {
-        setHaveCurrBudget(true);
-      } else {
-        setHaveCurrBudget(false);
       }
-    
-      setBudgetData(tmpData as BudgetNodeData[]); 
-      setLoadedCurrBudget(true);
-
-      ipcRenderer.removeAllListeners(channels.LIST_CUR_BUDGET);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_CUR_BUDGET);
     };
+
+    if (haveValues) {
+      setHaveCurrBudget(true);
+    } else {
+      setHaveCurrBudget(false);
+    }
+    
+    setBudgetData(tmpData as BudgetNodeData[]); 
+    setLoadedCurrBudget(true);
   };
 
   const forward_copy_budget = async () => {

@@ -1018,6 +1018,20 @@ app.post('/api/'+channels.GET_PREV_BUDGET, (req, res) => {
     .catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.GET_CUR_BUDGET, (req, res) => {
+  const { find_date } = req.body;
+  console.log(channels.GET_CUR_BUDGET, find_date);
+  db.select('envelopeID', 'txAmt')
+    .from('transaction')
+    .orderBy('envelopeID')
+    .where({ isBudget: 1 })
+    .andWhere({ txDate: find_date })
+    .then((data) => {
+      res.json(data);
+    })
+    .catch((err) => console.log(err));
+});
+
 
 // Helper functions used only by the server
 
