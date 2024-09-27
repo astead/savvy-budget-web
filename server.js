@@ -665,6 +665,15 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
 });
 
+app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
+  const { new_value, filtered_nodes } = req.body;
+    console.log(channels.UPDATE_TX_ENV_LIST);
+    for (let t of filtered_nodes) {
+      await update_tx_env(t.txID, new_value);
+    }
+  }
+);
+
 
 // Helper functions used only by the server
 
