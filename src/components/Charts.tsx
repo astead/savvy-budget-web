@@ -85,66 +85,62 @@ export const Charts: React.FC = () => {
     setFilterTimeFrameLoaded(true);
   }
 
-  const load_envelope_list = () => {
+  const load_envelope_list = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_CAT_ENV, {onlyActive: 1});
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_CAT_ENV, {onlyActive: 1});
 
     // Receive the data
-    ipcRenderer.on(channels.LIST_CAT_ENV, (arg) => {
-      let groupedItems = [{
-        id: "env-3",
-        text: "All",
-      },{
-        id: "env-2",
-        text: "All Spending",
-      },{
-        id: "env-1",
-        text: "Undefined",
-      }];
+    let groupedItems = [{
+      id: "env-3",
+      text: "All",
+    },{
+      id: "env-2",
+      text: "All Spending",
+    },{
+      id: "env-1",
+      text: "Undefined",
+    }];
 
-      let tmpItems = arg.map((item) => {
-        let node = {
-          envID: "env"+item.envID,
-          catID: "cat"+item.catID,
-          category: item.category,
-          envelope: item.envelope, 
-        };
-        return node;
-      });
-
-      if (tmpItems.length > 0) {
-        let cat = '';
-        for (let i = 0; i < tmpItems.length; i++) {
-          if (cat !== tmpItems[i].category) {
-            cat = tmpItems[i].category;
-            const node = {
-              envID: tmpItems[i].catID,
-              category: "All " + tmpItems[i].category,
-              envelope: "", 
-            };
-            tmpItems.splice(i, 0, node);
-          }
-        }
-      }
-
-      let tmpNewItems = tmpItems.map((i) => {
-        return {
-          id: i.envID,
-          text: i.category + (i.category?.length && i.envelope?.length?" : ":"") + i.envelope,
-        }
-      });
-
-      const tmpEnvList = [...groupedItems, ...tmpNewItems];
-      setFilterEnvList(tmpEnvList);
-
-      const tmpEnv = tmpEnvList.find((i) => {return (i.id === filterEnvID)});
-      if (tmpEnv) {
-        setFilterEnvelopeName(tmpEnv.text);
-      }
-      setFilterEnvListLoaded(true);
-      ipcRenderer.removeAllListeners(channels.LIST_ENV_LIST);
+    let tmpItems = response.data.map((item) => {
+      let node = {
+        envID: "env"+item.envID,
+        catID: "cat"+item.catID,
+        category: item.category,
+        envelope: item.envelope, 
+      };
+      return node;
     });
+
+    if (tmpItems.length > 0) {
+      let cat = '';
+      for (let i = 0; i < tmpItems.length; i++) {
+        if (cat !== tmpItems[i].category) {
+          cat = tmpItems[i].category;
+          const node = {
+            envID: tmpItems[i].catID,
+            category: "All " + tmpItems[i].category,
+            envelope: "", 
+          };
+          tmpItems.splice(i, 0, node);
+        }
+      }
+    }
+
+    let tmpNewItems = tmpItems.map((i) => {
+      return {
+        id: i.envID,
+        text: i.category + (i.category?.length && i.envelope?.length?" : ":"") + i.envelope,
+      }
+    });
+
+    const tmpEnvList = [...groupedItems, ...tmpNewItems];
+    setFilterEnvList(tmpEnvList);
+
+    const tmpEnv = tmpEnvList.find((i) => {return (i.id === filterEnvID)});
+    if (tmpEnv) {
+      setFilterEnvelopeName(tmpEnv.text);
+    }
+    setFilterEnvListLoaded(true);
   };
 
   const load_chart = async () => {

@@ -125,65 +125,54 @@ export const Transactions: React.FC = () => {
     setTxData(tmpData);
   }
 
-  const load_envelope_list = () => {
+  const load_envelope_list = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_CAT_ENV, {onlyActive: 0});
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_CAT_ENV, {onlyActive: 0});
 
     // Receive the data
-    ipcRenderer.on(channels.LIST_CAT_ENV, (arg) => {
-      
-      let firstID = -1;
-      const tmpFilterEnvList = arg.map((item, index) => {
-        if (index === 0) {
-          firstID = item.envID;
-        }
-        return { id: item.envID, text: item.category + " : " + item.envelope };
-      });
-      
-      const tmpFilterCatList = arg.reduce((acc, item) => {
-        // Check if the category id already exists in the accumulator array
-        const existingCategory = acc.find(category => category.id === item.catID);
-      
-        // If not, add the category to the accumulator
-        if (!existingCategory) {
-          acc.push({
-            id: item.catID,
-            text: item.category,
-          });
-        }
-      
-        return acc;
-      }, []);
-
-      setNewTxEnvList(tmpFilterEnvList);
-      setNewTxEnvID(firstID);
-      setNewTxEnvListLoaded(true);
-
-      setEnvList([{ id: -1, text: "Undefined"}, ...(tmpFilterEnvList)]);
-      setEnvListLoaded(true);
-
-      setFilterEnvList([
-        { id: -3, text: "All" },
-        { id: -2, text: "Not in current budget" },
-        { id: -1, text: "Undefined" }, ...(tmpFilterEnvList)
-      ]);
-      setFilterEnvListLoaded(true);
-
-      setFilterCatList([
-        { id: -1, text: "All" },
-        ...(tmpFilterCatList)
-      ]);
-      setFilterCatListLoaded(true);
-      setEnvLoaded(true);
-
-      ipcRenderer.removeAllListeners(channels.LIST_CAT_ENV);
+    let firstID = -1;
+    const tmpFilterEnvList = response.data.map((item, index) => {
+      if (index === 0) {
+        firstID = item.envID;
+      }
+      return { id: item.envID, text: item.category + " : " + item.envelope };
     });
     
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_CAT_ENV);
-    };
+    const tmpFilterCatList = response.data.reduce((acc, item) => {
+      // Check if the category id already exists in the accumulator array
+      const existingCategory = acc.find(category => category.id === item.catID);
+    
+      // If not, add the category to the accumulator
+      if (!existingCategory) {
+        acc.push({
+          id: item.catID,
+          text: item.category,
+        });
+      }
+    
+      return acc;
+    }, []);
+
+    setNewTxEnvList(tmpFilterEnvList);
+    setNewTxEnvID(firstID);
+    setNewTxEnvListLoaded(true);
+
+    setEnvList([{ id: -1, text: "Undefined"}, ...(tmpFilterEnvList)]);
+    setEnvListLoaded(true);
+
+    setFilterEnvList([
+      { id: -3, text: "All" },
+      { id: -2, text: "Not in current budget" },
+      { id: -1, text: "Undefined" }, ...(tmpFilterEnvList)
+    ]);
+    setFilterEnvListLoaded(true);
+
+    setFilterCatList([
+      { id: -1, text: "All" },
+      ...(tmpFilterCatList)
+    ]);
+    setFilterCatListLoaded(true);
+    setEnvLoaded(true);
   }
 
   const load_account_list = async () => {
@@ -335,19 +324,8 @@ export const Transactions: React.FC = () => {
       } else {
         // Insert this transaction
         if (filename.toLowerCase().endsWith("qfx")) {
-          //setProgress(0);
-          //setUploading(true);
           axios.post('http://localhost:3001/api/' + channels.IMPORT_OFX, { ofxString });
-          
-          // Listen for progress updates
-            //setProgress(data);
-            
-            //if (data >= 100) {
-              //ipcRenderer.removeAllListeners(channels.UPLOAD_PROGRESS);
-              //setUploading(false);
-            load_transactions();
-            //}
-          //});
+          load_transactions();
         }
         if (filename.toLowerCase().endsWith("csv")) {
           let account_string = '';

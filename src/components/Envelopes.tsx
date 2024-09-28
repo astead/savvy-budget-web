@@ -110,25 +110,13 @@ export const Envelopes: React.FC = () => {
   const [transferEnvList, setTransferEnvList] = useState<any[]>([]);
   //const [transferEnvListLoaded, setTransferEnvListLoaded] = useState(false);
 
-  const load_envelope_list = () => {
+  const load_envelope_list = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_ENV_LIST, {onlyActive: 1});
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ENV_LIST, {onlyActive: 1});
 
-    // Receive the data
-    ipcRenderer.on(channels.LIST_ENV_LIST, (arg) => {
-      setTransferEnvList(arg.map((item) => {
-        return { id: item.envID, text: item.category + " : " + item.envelope };
-      }));
-      //setTransferEnvListLoaded(true);
-
-      ipcRenderer.removeAllListeners(channels.LIST_ENV_LIST);
-    });
-    
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.LIST_ENV_LIST);
-    };
+    setTransferEnvList(response.data.map((item) => {
+      return { id: item.envID, text: item.category + " : " + item.envelope };
+    }));
   };
 
   const load_PrevBudget = async () => {
