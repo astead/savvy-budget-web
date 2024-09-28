@@ -5,6 +5,7 @@ import { channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { useParams } from 'react-router';
 import Chart from "react-apexcharts";
+import axios from 'axios';
 
 /*
   TODO:
@@ -146,152 +147,148 @@ export const Charts: React.FC = () => {
     });
   };
 
-  const load_chart = () => {
+  const load_chart = async () => {
     // Signal we want to get data
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.GET_ENV_CHART_DATA, {filterEnvID, filterTimeFrameID} );
+    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ENV_CHART_DATA, {filterEnvID, filterTimeFrameID});
 
     // Receive the data
-    ipcRenderer.on(channels.LIST_ENV_CHART_DATA, (data) => {
-      let totalValue = 0;
+    let data = response.data;
+    let totalValue = 0;
       
-      const myChartData = data.reduce((acc, obj) => {
-        // Find the existing entry for the date
-        const existingEntry = acc.find((entry) => {
-          return (
-            (entry.month as Date)
-              .toLocaleDateString('en-EN', {
-                month: 'short',
-                year: '2-digit',
-              }) === 
-            new Date(obj.month)
+    const myChartData = data.reduce((acc, obj) => {
+      // Find the existing entry for the date
+      const existingEntry = acc.find((entry) => {
+        return (
+          (entry.month as Date)
+            .toLocaleDateString('en-EN', {
+              month: 'short',
+              year: '2-digit',
+            }) === 
+          new Date(obj.month)
+            .toLocaleDateString('en-EN', {
+              month: 'short',
+              year: '2-digit',
+            })
+        )
+      });
+    
+      if (!obj.isBudget) {
+        // Let's show spending as positive, it's easier to read in a chart,
+        // and also compare against the budget.
+        if (!filterEnvelopeName.includes("Income") &&
+        filterEnvID !== "env-3") {
+          obj.totalAmt = -1 * obj.totalAmt;
+        }
+        totalValue += obj.totalAmt;
+      } else {
+        // Let's show income budget values as positive, for the same
+        // reason as above.
+        if (filterEnvelopeName.includes("Income") ||
+        filterEnvID === "env-3") {
+          obj.totalAmt = -1 * obj.totalAmt;
+        }
+      }
+
+      if (existingEntry) {
+        // Update existing entry
+        if (obj.isBudget) {
+          existingEntry.budgetTotals = obj.totalAmt;
+        } else {
+          existingEntry.actualTotals = obj.totalAmt;
+        }
+      } else {
+        // Add a new entry
+        acc.push({
+          month: new Date(obj.month),
+          actualTotals: obj.isBudget ? 0 : obj.totalAmt,
+          budgetTotals: obj.isBudget ? obj.totalAmt : null,
+        });
+      }
+    
+      return acc;
+    }, []);
+
+    let averageValue = 0 as number;
+    if (myChartData?.length) {
+      averageValue = totalValue / myChartData?.length;
+    }
+      
+    setChartData(myChartData as ChartData[]);
+      
+    const xData = myChartData.map((item) => item.month);
+    setChartOptions({
+      xaxis: {
+        categories: xData,
+        labels: {
+          formatter: function (value) {
+            if (value) {
+              return  new Date(value)
               .toLocaleDateString('en-EN', {
                 month: 'short',
                 year: '2-digit',
               })
-          )
-        });
-      
-        if (!obj.isBudget) {
-          // Let's show spending as positive, it's easier to read in a chart,
-          // and also compare against the budget.
-          if (!filterEnvelopeName.includes("Income") &&
-          filterEnvID !== "env-3") {
-            obj.totalAmt = -1 * obj.totalAmt;
-          }
-          totalValue += obj.totalAmt;
-        } else {
-          // Let's show income budget values as positive, for the same
-          // reason as above.
-          if (filterEnvelopeName.includes("Income") ||
-          filterEnvID === "env-3") {
-            obj.totalAmt = -1 * obj.totalAmt;
-          }
-        }
-
-        if (existingEntry) {
-          // Update existing entry
-          if (obj.isBudget) {
-            existingEntry.budgetTotals = obj.totalAmt;
-          } else {
-            existingEntry.actualTotals = obj.totalAmt;
-          }
-        } else {
-          // Add a new entry
-          acc.push({
-            month: new Date(obj.month),
-            actualTotals: obj.isBudget ? 0 : obj.totalAmt,
-            budgetTotals: obj.isBudget ? obj.totalAmt : null,
-          });
-        }
-      
-        return acc;
-      }, []);
-
-      let averageValue = 0 as number;
-      if (myChartData?.length) {
-        averageValue = totalValue / myChartData?.length;
-      }
-      
-      setChartData(myChartData as ChartData[]);
-      
-      const xData = myChartData.map((item) => item.month);
-      setChartOptions({
-        xaxis: {
-          categories: xData,
-          labels: {
-            formatter: function (value) {
-              if (value) {
-                return  new Date(value)
-                .toLocaleDateString('en-EN', {
-                  month: 'short',
-                  year: '2-digit',
-                })
-              }
             }
-          },
+          }
         },
-        yaxis: {
-          labels: {
-            formatter: function (value) {
-              if (value) {
-                return value.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
-              }
+      },
+      yaxis: {
+        labels: {
+          formatter: function (value) {
+            if (value) {
+              return value.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
             }
-          },
+          }
         },
-        stroke: {
-          curve: 'smooth',
-          width: [4, 4, 2],
-        },
-        markers: { size: [ 4, 4, 0] },
-        chart: { events:{ markerClick: (event, chartContext, { seriesIndex, dataPointIndex, config}) => {
-          if (seriesIndex === 0) {
-            if (xData[dataPointIndex]) {
-              const targetMonth = xData[dataPointIndex] as Date;
-              
-              let envID = -3;
-              let catID = -1;
-              if (filterEnvID) {
-                if (filterEnvID.startsWith('env')) {
-                  envID = parseInt(filterEnvID.substring(3));
-                  if (envID === -2) {
-                    envID = -3;
-                  }
-                } else if (filterEnvID.startsWith('cat')) {
-                  catID = parseInt(filterEnvID.substring(3));
+      },
+      stroke: {
+        curve: 'smooth',
+        width: [4, 4, 2],
+      },
+      markers: { size: [ 4, 4, 0] },
+      chart: { events:{ markerClick: (event, chartContext, { seriesIndex, dataPointIndex, config}) => {
+        if (seriesIndex === 0) {
+          if (xData[dataPointIndex]) {
+            const targetMonth = xData[dataPointIndex] as Date;
+            
+            let envID = -3;
+            let catID = -1;
+            if (filterEnvID) {
+              if (filterEnvID.startsWith('env')) {
+                envID = parseInt(filterEnvID.substring(3));
+                if (envID === -2) {
+                  envID = -3;
                 }
-                
-                setNavigateTo("/Transactions" +
-                  "/" + catID + "/" + envID + 
-                  "/1/" + targetMonth.getFullYear() + 
-                  "/" + (parseInt(targetMonth.toLocaleDateString('en-EN', {month: 'numeric'}))-1)
-                );
-                
-              } else {
-                console.log("don't have filterEnvID: ");
+              } else if (filterEnvID.startsWith('cat')) {
+                catID = parseInt(filterEnvID.substring(3));
               }
+              
+              setNavigateTo("/Transactions" +
+                "/" + catID + "/" + envID + 
+                "/1/" + targetMonth.getFullYear() + 
+                "/" + (parseInt(targetMonth.toLocaleDateString('en-EN', {month: 'numeric'}))-1)
+              );
+              
             } else {
-              console.log("don't have month data for that data point, chartData: " + chartData  );
+              console.log("don't have filterEnvID: ");
             }
           } else {
-            console.log("clicked on wrong series.");
-          } } },
-        },
-      });
-      const yActual = myChartData.map((item) => item.actualTotals);
-      const yBudget = myChartData.map((item) => item.budgetTotals);
-      const yAverage = myChartData.map(() => averageValue);
-      setChartSeriesData([
-        { name: 'Actual', data: yActual, color: '#000000', markers: { size: 1 } },
-        { name: 'Budget', data: yBudget, color: '#1a4297', markers: { size: 1 } },
-        { name: 'Average', data: yAverage, color: '#c5c83a' },
-      ]);
-
-      setHaveChartData(true);
-
-      ipcRenderer.removeAllListeners(channels.LIST_ENV_CHART_DATA);
+            console.log("don't have month data for that data point, chartData: " + chartData  );
+          }
+        } else {
+          console.log("clicked on wrong series.");
+        } } },
+      },
     });
+    const yActual = myChartData.map((item) => item.actualTotals);
+    const yBudget = myChartData.map((item) => item.budgetTotals);
+    const yAverage = myChartData.map(() => averageValue);
+    setChartSeriesData([
+      { name: 'Actual', data: yActual, color: '#000000', markers: { size: 1 } },
+      { name: 'Budget', data: yBudget, color: '#1a4297', markers: { size: 1 } },
+      { name: 'Average', data: yAverage, color: '#c5c83a' },
+    ]);
+
+    setHaveChartData(true);
   };
 
   

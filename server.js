@@ -1562,6 +1562,64 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
   });
 });
 
+app.post('/api/'+channels.GET_ENV_CHART_DATA, async (req, res) => {
+  const { filterEnvID, filterTimeFrameID } = req.body;
+  console.log(channels.GET_ENV_CHART_DATA, filterEnvID);
+
+  const find_date = dayjs(new Date()).format('YYYY-MM-DD');
+
+  const filterType = filterEnvID.substr(0, 3);
+  const envID = filterEnvID.substr(3);
+
+  let query = db('transaction')
+    .select({
+      month: db.raw(`TO_CHAR("txDate", 'YYYY/MM')`),
+      isBudget: 'isBudget',
+    })
+    .sum({ totalAmt: 'txAmt' })
+    .where({ isDuplicate: 0 })
+    .andWhere({ isVisible: true })
+    .groupBy('month', 'isBudget')
+    .orderBy('month');
+
+  // PostgreSQL specific
+  query = query.andWhereRaw(`?::date - "txDate" < ?`, [
+      find_date,
+      365 * filterTimeFrameID,
+    ])
+    .andWhereRaw(`?::date - "txDate" > 0`, [find_date]);
+  
+  if (filterType === 'env' && parseInt(envID) > -2) {
+    query = query.where('envelopeID', envID);
+  }
+
+  if (filterType === 'env' && parseInt(envID) === -2) {
+    query = query
+      .leftJoin('envelope', function () {
+        this.on('envelope.id', '=', 'transaction.envelopeID');
+      })
+      .leftJoin('category', function () {
+        this.on('category.id', '=', 'envelope.categoryID');
+      })
+      .andWhereNot({ category: 'Income' });
+  }
+
+  if (filterType === 'cat') {
+    query = query
+      .leftJoin('envelope', function () {
+        this.on('envelope.id', '=', 'transaction.envelopeID');
+      })
+      .leftJoin('category', function () {
+        this.on('category.id', '=', 'envelope.categoryID');
+      })
+      .andWhere({ categoryID: envID });
+  }
+
+  query.then((data) => {
+    res.json(data);
+  }).catch((err) => console.log(err));
+});
+
 
 
 
