@@ -67,9 +67,9 @@ const {
 const { LogExit } = require('concurrently');
 
 const APP_PORT = process.env.APP_PORT || 8000;
-let PLAID_CLIENT_ID = '';
-let PLAID_SECRET = '';
-let PLAID_ENV = '';
+let PLAID_CLIENT_ID = process.env.REACT_APP_PLAID_CLIENT_ID;
+let PLAID_SECRET = process.env.REACT_APP_PLAID_SECRET;
+let PLAID_ENV = process.env.REACT_APP_PLAID_ENV;
 
 // PLAID_PRODUCTS is a comma-separated list of products to use when initializing
 // Link. Note that this list must contain 'assets' in order for the app to be
@@ -78,9 +78,7 @@ const PLAID_PRODUCTS = [Products.Transactions];
 
 // PLAID_COUNTRY_CODES is a comma-separated list of countries for which users
 // will be able to select institutions from.
-const PLAID_COUNTRY_CODES = (process.env.PLAID_COUNTRY_CODES || 'US').split(
-  ','
-);
+const PLAID_COUNTRY_CODES = (process.env.REACT_APP_PLAID_COUNTRY_CODES || 'US').split(',');
 
 // Initialize the Plaid client
 // Find your API keys in the Dashboard (https://dashboard.plaid.com/account/keys)
@@ -98,6 +96,8 @@ const configuration = new Configuration({
 
 // Used for most PLAID operations
 const client = new PlaidApi(configuration);
+let plaid_link_token = null;
+let plaid_link_token_exp = null;
 
 // Used to create the link token
 const configs = {
@@ -111,6 +111,54 @@ const configs = {
   language: 'en',
   redirect_uri: 'https://localhost:3000',
 };
+
+// This should be on the server only
+const plaid_setup_client = async () => {
+  console.log("plaid_setup_client ENTER");
+  
+  // This should correspond to a unique id for the current user.
+  configs.user.client_user_id = '2';
+
+  console.log("plaid_setup_client EXIT");
+};
+
+const plaid_get_link_token = async () => {
+  console.log('plaid_get_link_token ENTER');
+  const createTokenResponse = await client.linkTokenCreate(configs);
+
+  plaid_link_token = createTokenResponse.data.link_token;
+  plaid_link_token_exp = createTokenResponse.data.expiration;
+
+  console.log("plaid_link_token : " + plaid_link_token);
+  console.log("plaid_link_token_exp : " + plaid_link_token_exp);
+
+  console.log('plaid_get_link_token EXIT');
+};
+
+app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
+  console.log('PLAID_GET_TOKEN ENTER');
+  if (PLAID_CLIENT_ID?.length) {
+    try {
+      
+      await plaid_setup_client();
+      await plaid_get_link_token();
+      
+      console.log("PLAID_GET_TOKEN returning:");
+      console.log({ link_token: plaid_link_token, expiration: plaid_link_token_exp });
+      
+      res.json({ link_token: plaid_link_token, expiration: plaid_link_token_exp });
+    } catch (error) {
+      console.log(error);
+      // handle error
+      console.log('Error: ', error.response.data.error_message);
+
+      res.json(error.response.data);
+    }
+  } else {
+    console.log("PLAID_CLIENT_ID is null, or length is 0?: " + PLAID_CLIENT_ID);
+    res.json(null);
+  }
+});
 
 app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
   const { public_token, metadata } = req.body;
@@ -172,59 +220,6 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
   }
 });
 
-
-app.post('/api/'+channels.PLAID_GET_KEYS, (req, res) => {
-  console.log(channels.PLAID_GET_KEYS);
-  if (db) {
-    db.select('client_id', 'secret', 'environment', 'token', 'token_expiration')
-      .from('plaid')
-      .then((data) => {
-        PLAID_CLIENT_ID = data[0].client_id.trim();
-        PLAID_SECRET = data[0].secret.trim();
-        PLAID_ENV = data[0].environment.trim();
-
-        client.configuration.baseOptions.headers['PLAID-CLIENT-ID'] =
-          PLAID_CLIENT_ID;
-        client.configuration.baseOptions.headers['PLAID-SECRET'] = PLAID_SECRET;
-        client.configuration.basePath = PlaidEnvironments[PLAID_ENV];
-
-        if (data[0].token) {
-          client.linkTokenCreate(configs);
-        }
-
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
-  }
-});
-
-app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
-  console.log('Try getting PLAID link token');
-  if (PLAID_CLIENT_ID?.length) {
-    try {
-      const createTokenResponse = await client.linkTokenCreate(configs);
-
-      if (db) {
-        db('plaid')
-          .update('token', createTokenResponse.data.link_token)
-          .update('token_expiration', createTokenResponse.data.expiration)
-          .then()
-          .catch((err) => console.log(err));
-      }
-
-      res.json(createTokenResponse.data);
-    } catch (error) {
-      console.log(error);
-      // handle error
-      console.log('Error: ', error.response.data.error_message);
-
-      res.json(error.response.data);
-    }
-  } else {
-    res.json(null);
-  }
-});
-
 app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   const { access_token } = req.body;
   console.log('Switching to update mode');
@@ -256,6 +251,7 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   }
 });
 
+// We shouldn't need this, it should be set with environment variables
 app.post('/api/'+channels.PLAID_SET_KEYS, async (req, res) => {
   const { client_id, secret, environment } = req.body;
   console.log(channels.PLAID_SET_KEYS);
