@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 require('dotenv').config();
+const fs = require('fs');
 const port = 3001; // Use a different port than React
 const knex = require('knex');
 require('module-alias/register');
@@ -39,8 +40,10 @@ const set_db = async () => {
         user: process.env.REACT_APP_SUPABASE_CONN_USER,
         password: process.env.REACT_APP_SUPABASE_CONN_PW,
         database: process.env.REACT_APP_SUPABASE_CONN_DB,
-        //ssl: process.env.REACT_APP_SUPABASE_CONN_DB ? { rejectUnauthorized: false } : false,
-        ssl: false,
+        ssl: process.env.REACT_APP_SUPABASE_CONN_CERT ? 
+          { rejectUnauthorized: false, 
+            cert: fs.readFileSync(process.env.REACT_APP_SUPABASE_CONN_CERT).toString() } : 
+          false,
       },
       useNullAsDefault: true,
     });
