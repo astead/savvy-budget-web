@@ -43,8 +43,8 @@ export const ConfigPlaid = () => {
   const [tokenExpiration, setTokenExpiration] = useState<string | null>(null);
   const [link_Error, setLink_Error] = useState<string | null>(null);
   const [PLAIDAccounts, setPLAIDAccounts] = useState<PLAIDAccount[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = React.useState(0);
+  const [uploading, ] = useState(false);
+  const [progress, ] = React.useState(0);
 
   const [getStart, setGetStart] = React.useState('');
   const [getEnd, setGetEnd] = React.useState('');
