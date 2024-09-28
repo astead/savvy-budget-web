@@ -2506,23 +2506,6 @@ async function insert_transaction_node(
   }
 }
 
-const get_db_ver = async () => {
-  //console.log('get_db_ver');
-  let ver = null;
-  if (db) {
-    await db('version')
-      .select('version')
-      .then((data) => {
-        ver = data[0].version;
-      })
-      .catch((err) => {
-        console.log('Error getting DB version.');
-      });
-  }
-  //console.log('returning version: ', ver);
-  return ver;
-};
-
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
