@@ -53,6 +53,12 @@ export const TransactionTable = ({data, envList, callback}) => {
   const [pagingTotalRecords, setPagingTotalRecords] = useState(0);
 
   function formatCurrency(currencyNumber:number) {
+    if (currencyNumber === null) {
+      // TODO: why are we getting a null value?
+      console.log("WARNING: we were asked to convert a null number to a currency string.");
+      let tmpNumber = 0;
+      return tmpNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
+    }
     return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
   }
 
@@ -284,14 +290,14 @@ export const TransactionTable = ({data, envList, callback}) => {
                   selectedID={item.envID}
                   optionData={envList}
                   changeCallback={handleTxEnvChange}
-                  className={item.envID.toString() === "-1" ? "envelopeDropDown-undefined":"envelopeDropDown"}
+                  className={(!item.envID || item.envID.toString() === "-1") ? "envelopeDropDown-undefined":"envelopeDropDown"}
                 />
               </td>
               <td className="Table TC">
                 <SplitTransactionModal 
                     txID={item.txID}
                     txDate={item.txDate}
-                    txAmt={item.txAmt}
+                    txAmt={ ( !item.txAmt ) ? 0 : item.txAmt }
                     txDesc={item.description}
                     cat={item.category}
                     env={item.envelope}

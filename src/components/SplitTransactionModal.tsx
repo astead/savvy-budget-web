@@ -32,6 +32,12 @@ interface SplitNode {
 }
 
 function formatCurrency(currencyNumber:number) {
+  if (currencyNumber === null) {
+    // TODO: why are we getting a null value?
+    console.log("WARNING: we were asked to convert a null number to a currency string.");
+    let tmpNumber = 0;
+    return tmpNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
+  }
   return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
 };
 
@@ -237,7 +243,11 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
                 <td className="Table TC Left"></td>
                 <td className="Table TC Left"></td>
                 <td className="Table TC Right">
-                  <span className={(splitData.reduce((a, item) => a + item.txAmt, 0).toFixed(2) !== txAmt.toFixed(2))?" Red":""}>
+                  <span className={ 
+                    ( // TODO: For some reason some of these reduce functions are returning null
+                      splitData.reduce((a, item) => a + item.txAmt, 0) && 
+                      splitData.reduce((a, item) => a + item.txAmt, 0).toFixed(2) !== txAmt.toFixed(2)
+                    ) ? " Red" : "" }>
                     { formatCurrency(splitData.reduce((a, item) => a + item.txAmt, 0)) }
                   </span>
                 </td>
