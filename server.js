@@ -1526,6 +1526,42 @@ app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
     .catch((err) => console.log(err));
 });
 
+app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
+  const { id } = req.body;
+  console.log(channels.DEL_ACCOUNT, { id });
+
+  await db.transaction(async (trx) => {
+    // Get the account info
+    await trx
+      .select('id', 'account', 'refNumber', 'plaid_id')
+      .from('account')
+      .where({ id: id })
+      .then(async (data) => {
+        if (data?.length) {
+          // Delete the original
+          await trx('account')
+            .delete()
+            .where({ id: id })
+            .then(async () => {
+              // Not sure if we want to delete the plaid account
+              // We would be leaving the account login
+              // If we delete the account login as well, it would remove the login
+              // for all accounts of this institution.
+              // Seems like it would be best to disconnect
+              // the plaid account from this account, and
+              // let the user remove the plaid portion from the configPlaid page.
+              //if (data[0].plaid_id?.length) {
+              // delete the plaid account if it exists
+              //await trx('plaid_account')
+              //  .delete()
+              //  .where({ account_id: data[0].plaid_id });
+              //}
+            });
+        }
+      });
+  });
+});
+
 
 
 

@@ -21,21 +21,10 @@ export const ConfigAccount = () => {
     setAccountData(response.data);
   }
 
-  const handleAccountDelete = (id) => {
+  const handleAccountDelete = async (id) => {
     // Request we delete the account in the DB
-    const ipcRenderer = (window as any).ipcRenderer;
-    ipcRenderer.send(channels.DEL_ACCOUNT, {id});
-
-    // Receive the data
-    ipcRenderer.on(channels.DONE_DEL_ACCOUNT, (arg) => {
-      load_accounts();
-      ipcRenderer.removeAllListeners(channels.DONE_DEL_ACCOUNT);
-    });
-
-    // Clean the listener after the component is dismounted
-    return () => {
-      ipcRenderer.removeAllListeners(channels.DONE_DEL_ACCOUNT);
-    };
+    await axios.post('http://localhost:3001/api/' + channels.DEL_ACCOUNT, {id});
+    load_accounts();
   };
 
 
