@@ -1210,7 +1210,7 @@ app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
     if (filterDesc?.length) {
       filterDesc = '%' + filterDesc + '%';
       query = query.andWhereRaw(
-        `'transaction'.description LIKE ?`,
+        `"transaction"."description" LIKE ?`,
         filterDesc
       );
     }
@@ -1224,7 +1224,7 @@ app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
     }
     if (filterAmount?.length) {
       query = query.andWhereRaw(
-        `'transaction'.txAmt = ?`,
+        `"transaction"."txAmt" = ?`,
         parseFloat(filterAmount)
       );
     }
@@ -1472,7 +1472,7 @@ app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
     .then((data) => {
       let query = db('transaction')
         .update({ envelopeID: data[0].envelopeID })
-        .whereRaw(`description LIKE ?`, data[0].description);
+        .whereRaw(`"description" LIKE ?`, data[0].description);
 
       if (data[0].account !== 'All') {
         query = query.andWhere({
@@ -2267,7 +2267,7 @@ async function lookup_keyword(accountID, description, txDate) {
   if (description?.length) {
     let query = db('keyword')
       .select('id', 'envelopeID')
-      .whereRaw(`? LIKE description`, description);
+      .whereRaw(`? LIKE "description"`, description);
 
     query = query.andWhere(function () {
       this.where('account', 'All').orWhere({
@@ -2305,12 +2305,12 @@ async function lookup_if_duplicate(
 
     let query = db('transaction')
       .select('id')
-      .andWhereRaw(`accountID = ?`, accountID)
-      .andWhereRaw(`refNumber = ?`, refNumber);
+      .andWhereRaw(`"accountID" = ?`, accountID)
+      .andWhereRaw(`"refNumber" = ?`, refNumber);
       
     // PostgreSQL specific
     query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
-      
+    
     await query.then((data) => {
         if (data?.length) {
           isDuplicate = 1;
@@ -2321,7 +2321,7 @@ async function lookup_if_duplicate(
     let query = db('transaction')
       .select('id')
       .where({ txAmt: txAmt })
-      .andWhereRaw(`accountID = ?`, accountID)
+      .andWhereRaw(`"accountID" = ?`, accountID)
       .andWhere({ description: description });
     // PostgreSQL specific
     query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
@@ -2339,9 +2339,9 @@ async function lookup_if_duplicate(
 async function update_env_balance(envID, amt) {
   await db
     .raw(
-      `UPDATE "envelope" SET balance = balance + ` +
+      `UPDATE "envelope" SET "balance" = "balance" + ` +
         amt +
-        ` WHERE id = ` +
+        ` WHERE "id" = ` +
         envID
     )
     .then();
