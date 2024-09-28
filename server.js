@@ -402,6 +402,7 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
   let modified = [];
   let removed = [];
   let hasMore = true;
+  let cursor_iter = cursor;
 
   while (hasMore) {
     console.log('Making the call ');
@@ -409,7 +410,7 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
     try {
       response = await client.transactionsSync({
         access_token: access_token,
-        cursor: cursor,
+        cursor: cursor_iter,
       });
     } catch (e) {
       console.log('Error: ', e.response.data.error_message);
@@ -428,7 +429,7 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
     hasMore = data.has_more;
 
     // Update cursor to the next cursor
-    cursor = data.next_cursor;
+    cursor_iter = data.next_cursor;
   }
 
   console.log('Done getting the data, now processing');
@@ -556,7 +557,7 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
   // Update cursor
   db('plaid_account')
     .where('access_token', access_token)
-    .update('cursor', cursor)
+    .update('cursor', cursor_iter)
     .catch((err) => console.log('Error: ' + err));
 
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
