@@ -1,4 +1,5 @@
 module.exports = {
+  baseUrl: process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api/' : 'http://localhost:3001/api/',
   channels: {
     GET_CAT_ENV: 'get_categories_and_envelopes',
     LIST_CAT_ENV: 'list_categories_and_envelopes',

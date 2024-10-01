@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { KeywordSave } from '../helpers/KeywordSave.tsx';
 import * as dayjs from 'dayjs';
@@ -124,7 +124,7 @@ export const TransactionTable = ({data, envList, callback}) => {
   const delete_checked_transactions = async () => {
     let filtered_nodes = isChecked.filter((item) => item.isChecked);
     // Signal we want to del data
-    await axios.post('http://localhost:3001/api/' + channels.DEL_TX_LIST, { del_tx_list: filtered_nodes });
+    await axios.post(baseUrl + channels.DEL_TX_LIST, { del_tx_list: filtered_nodes });
     
     setIsAllChecked(false);
     callback();
@@ -148,7 +148,7 @@ export const TransactionTable = ({data, envList, callback}) => {
     setTxData([...txData]);
 
     // Signal we want to del data
-    await axios.post('http://localhost:3001/api/' + channels.UPDATE_TX_ENV_LIST, 
+    await axios.post(baseUrl + channels.UPDATE_TX_ENV_LIST, 
       { new_value, filtered_nodes });
 
     // Reset the drop down to the default
@@ -161,19 +161,19 @@ export const TransactionTable = ({data, envList, callback}) => {
   
   const handleTxEnvChange = async ({id, new_value, new_text}) => {
     // Request we update the DB
-    await axios.post('http://localhost:3001/api/' + channels.UPDATE_TX_ENV, { txID: id, envID: new_value });
+    await axios.post(baseUrl + channels.UPDATE_TX_ENV, { txID: id, envID: new_value });
     callback();      
   };
 
   const toggleDuplicate = async ({txID, isDuplicate}) => {
     // Request we update the DB
-    await axios.post('http://localhost:3001/api/' + channels.SET_DUPLICATE, { txID: txID, isDuplicate: isDuplicate });
+    await axios.post(baseUrl + channels.SET_DUPLICATE, { txID: txID, isDuplicate: isDuplicate });
     callback();
   };
 
   const toggleVisibility = async ({txID, isVisible}) => {
     // Request we update the DB
-    await axios.post('http://localhost:3001/api/' + channels.SET_VISIBILITY, { txID: txID, isVisible: isVisible });
+    await axios.post(baseUrl + channels.SET_VISIBILITY, { txID: txID, isVisible: isVisible });
     callback();
   };
 
@@ -265,7 +265,7 @@ export const TransactionTable = ({data, envList, callback}) => {
                   in_ID={item.txID.toString()}
                   in_value={dayjs(item.txDate).format('M/D/YYYY')}
                   callback={({id, value}) => {
-                    axios.post('http://localhost:3001/api/' + channels.UPDATE_TX_DATE, { txID: item.txID, new_value: value });
+                    axios.post(baseUrl + channels.UPDATE_TX_DATE, { txID: item.txID, new_value: value });
                   }}
                 />
               </td>
@@ -276,7 +276,7 @@ export const TransactionTable = ({data, envList, callback}) => {
                   defaultValue={item.description}
                   onSave={({name, value, previousValue}) => {
                     // Request we rename the account in the DB
-                    axios.post('http://localhost:3001/api/' + channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value });
+                    axios.post(baseUrl + channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value });
                   }}
                   style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
                   className={"editableText"}

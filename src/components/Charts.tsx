@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import { Header } from './header.tsx';
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { useParams } from 'react-router';
 import Chart from "react-apexcharts";
@@ -87,7 +87,7 @@ export const Charts: React.FC = () => {
 
   const load_envelope_list = async () => {
     // Signal we want to get data
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_CAT_ENV, {onlyActive: 1});
+    const response = await axios.post(baseUrl + channels.GET_CAT_ENV, {onlyActive: 1});
 
     // Receive the data
     let groupedItems = [{
@@ -145,7 +145,7 @@ export const Charts: React.FC = () => {
 
   const load_chart = async () => {
     // Signal we want to get data
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ENV_CHART_DATA, {filterEnvID, filterTimeFrameID});
+    const response = await axios.post(baseUrl + channels.GET_ENV_CHART_DATA, {filterEnvID, filterTimeFrameID});
 
     // Receive the data
     let data = response.data;

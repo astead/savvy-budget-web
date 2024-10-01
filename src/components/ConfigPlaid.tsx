@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import * as dayjs from 'dayjs';
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
@@ -69,10 +69,10 @@ export const ConfigPlaid = () => {
 
   const createLinkToken = async () => {
     console.log("createLinkToken ENTER");
-    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_GET_TOKEN);
+    const response = await axios.post(baseUrl + channels.PLAID_GET_TOKEN);
     console.log("received response:");
     console.log(response.data);
-    
+
     // Receive the data
     let data = response.data;
     if (data.link_token?.length) {
@@ -90,14 +90,14 @@ export const ConfigPlaid = () => {
   const getAccountList = async () => {
     await createLinkToken();
 
-    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_GET_ACCOUNTS);
+    const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS);
     
     // Receive the data
     setPLAIDAccounts(response.data as PLAIDAccount[]);
   };
 
   const update_login = async (acc : PLAIDAccount) => {
-    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_UPDATE_LOGIN, { access_token: acc.access_token });
+    const response = await axios.post(baseUrl + channels.PLAID_UPDATE_LOGIN, { access_token: acc.access_token });
     
     let { link_token, error } = response.data;
 
@@ -120,7 +120,7 @@ export const ConfigPlaid = () => {
         return;
       }
       
-      await axios.post('http://localhost:3001/api/' + channels.PLAID_REMOVE_LOGIN, 
+      await axios.post(baseUrl + channels.PLAID_REMOVE_LOGIN, 
         { access_token: acc.access_token });
 
       getAccountList();
@@ -136,7 +136,7 @@ export const ConfigPlaid = () => {
     //setUploading(true);
     
     // Get transactions
-    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_GET_TRANSACTIONS, 
+    const response = await axios.post(baseUrl + channels.PLAID_GET_TRANSACTIONS, 
       {
         access_token: acc.access_token,
         cursor: acc.cursor,
@@ -159,7 +159,7 @@ export const ConfigPlaid = () => {
     handleClose();
 
     // Get transactions
-    const response = await axios.post('http://localhost:3001/api/' + channels.PLAID_FORCE_TRANSACTIONS, 
+    const response = await axios.post(baseUrl + channels.PLAID_FORCE_TRANSACTIONS, 
       { access_token: acc.access_token,
         start_date: start_date,
         end_date: end_date
@@ -186,7 +186,7 @@ export const ConfigPlaid = () => {
       console.log("Account: ", metadata?.institution?.name, " : ", account.name);
     });
 
-    axios.post('http://localhost:3001/api/' + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata});
+    axios.post(baseUrl + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata});
   };
 
   const onExit: PlaidLinkOnExit = (error, metadata) => {

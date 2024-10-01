@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import axios from 'axios';
 
@@ -33,14 +33,14 @@ export const BudgetBalanceModal = ({balanceAmt, category, envelope, envID, trans
 
   const handleSaveNewValue = async () => {
     // Request we update the DB
-    await axios.post('http://localhost:3001/api/' + channels.UPDATE_BALANCE, { id: envID, newAmt: newAmt });
+    await axios.post(baseUrl + channels.UPDATE_BALANCE, { id: envID, newAmt: newAmt });
     setOpen(false);
     callback();
   };
 
   const handleSaveTransfer = async () => {
     // Request we update the DB
-    await axios.post('http://localhost:3001/api/' + channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID });
+    await axios.post(baseUrl + channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID });
     setOpen(false);
     callback();
   };

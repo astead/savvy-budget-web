@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faPlus } from "@fortawesome/free-solid-svg-icons"
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import axios from 'axios';
 
 export const NewCategory = ({ callback }) => {
@@ -11,7 +11,7 @@ export const NewCategory = ({ callback }) => {
   const handleSubmit = async () => {
     if (newCategory) {
       // Request we add the new category
-      await axios.post('http://localhost:3001/api/' + channels.ADD_CATEGORY, { name: newCategory });
+      await axios.post(baseUrl + channels.ADD_CATEGORY, { name: newCategory });
       
       callback();
     } else {

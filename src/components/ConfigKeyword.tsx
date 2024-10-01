@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faChevronUp, faChevronDown, faTrash, faReply, faReplyAll } from "@fortawesome/free-solid-svg-icons"
 import * as dayjs from 'dayjs';
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { EditText } from 'react-edit-text';
 import axios from 'axios';
@@ -31,7 +31,7 @@ export const ConfigKeyword = () => {
  
   const load_envelope_list = async () => {
     // Signal we want to get data
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ENV_LIST, { includeInactive: 1 });
+    const response = await axios.post(baseUrl + channels.GET_ENV_LIST, { includeInactive: 1 });
     
     // Receive the data
     setEnvList([...response.data.map((i) => {
@@ -44,7 +44,7 @@ export const ConfigKeyword = () => {
 
   const load_account_list = async () => {
     // Signal we want to get data
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNT_NAMES);
+    const response = await axios.post(baseUrl + channels.GET_ACCOUNT_NAMES);
     setAccList([{
       id: "All", text: "All"
     }, ...(response.data.map((i) => {
@@ -54,7 +54,7 @@ export const ConfigKeyword = () => {
 
   const load_keywords = async () => {
     // Signal we want to get data
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_KEYWORDS);
+    const response = await axios.post(baseUrl + channels.GET_KEYWORDS);
     const tmpArr = sort_keyword_array(response.data);
     setKeywordData(tmpArr);
   }
@@ -102,23 +102,23 @@ export const ConfigKeyword = () => {
 
   const handleKeywordDelete = async (id) => {
     // Request we delete the keyword in the DB
-    await axios.post('http://localhost:3001/api/' + channels.DEL_KEYWORD, { id });
+    await axios.post(baseUrl + channels.DEL_KEYWORD, { id });
     load_keywords();
   };
 
   const handleKeywordSetAll = (id, force) => {
     // Request we set the keyword in the DB for undefined tx
-    axios.post('http://localhost:3001/api/' + channels.SET_ALL_KEYWORD, {id, force});
+    axios.post(baseUrl + channels.SET_ALL_KEYWORD, {id, force});
   };
 
   const handleAccountChange = ({id, new_value, new_text}) => {
     // Request we update the DB
-    axios.post('http://localhost:3001/api/' + channels.UPDATE_KEYWORD_ACC, {id, new_value});
+    axios.post(baseUrl + channels.UPDATE_KEYWORD_ACC, {id, new_value});
   };
 
   const handleEnvelopeChange = ({id, new_value, new_text}) => {
     // Request we update the DB
-    axios.post('http://localhost:3001/api/' + channels.UPDATE_KEYWORD_ENV, {id, new_value});
+    axios.post(baseUrl + channels.UPDATE_KEYWORD_ENV, {id, new_value});
   };
 
   useEffect(() => {
@@ -192,7 +192,7 @@ export const ConfigKeyword = () => {
                   defaultValue={description} 
                   onSave={({name, value, previousValue}) => {
                     // Request we rename the keyword in the DB
-                    axios.post('http://localhost:3001/api/' + channels.UPDATE_KEYWORD, { id, new_value: value });
+                    axios.post(baseUrl + channels.UPDATE_KEYWORD, { id, new_value: value });
                   }}
                   style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
                   className={"editableText"}

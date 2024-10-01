@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faTrash, faEyeSlash } from "@fortawesome/free-solid-svg-icons"
 import { DragDropContext, Draggable } from "react-beautiful-dnd"
@@ -15,7 +15,7 @@ export const ConfigCatEnv = () => {
   const [loaded, setLoaded] = useState(false);
 
   const load_cats_and_envs = async () => {
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_CAT_ENV, {onlyActive: 0});
+    const response = await axios.post(baseUrl + channels.GET_CAT_ENV, {onlyActive: 0});
 
     // Receive the data
     const groupedData = categoryGroupBy(response.data, 'catID', 'category');
@@ -77,7 +77,7 @@ export const ConfigCatEnv = () => {
     }
 
     // Request we delete the category in the DB
-    await axios.post('http://localhost:3001/api/' + channels.DEL_CATEGORY, { id });
+    await axios.post(baseUrl + channels.DEL_CATEGORY, { id });
     load_cats_and_envs();
   };
 
@@ -91,13 +91,13 @@ export const ConfigCatEnv = () => {
 
   const handleEnvelopeDelete = async (id) => {
     // Request we delete the category in the DB
-    await axios.post('http://localhost:3001/api/' + channels.DEL_ENVELOPE, { id });
+    await axios.post(baseUrl + channels.DEL_ENVELOPE, { id });
     load_cats_and_envs();
   };
 
   const handleEnvelopeHide = async (id) => {
     // Request we delete the category in the DB
-    await axios.post('http://localhost:3001/api/' + channels.HIDE_ENVELOPE, { id });
+    await axios.post(baseUrl + channels.HIDE_ENVELOPE, { id });
     load_cats_and_envs();
   };
 
@@ -111,7 +111,7 @@ export const ConfigCatEnv = () => {
     if (oldCatID !== newCatID) {
       
       // Request we move the envelope in the DB
-      axios.post('http://localhost:3001/api/' + channels.MOV_ENVELOPE, { id: envID, newCatID: newCatID });
+      axios.post(baseUrl + channels.MOV_ENVELOPE, { id: envID, newCatID: newCatID });
       
       // Move these around in the arrays (or for pull from DB after this is done)
       const oldCatNode = catData.find((i) => i.catID === oldCatID);
@@ -135,7 +135,7 @@ export const ConfigCatEnv = () => {
     }
 
     // Request we rename the category in the DB
-    await axios.post('http://localhost:3001/api/' + channels.REN_CATEGORY, { id: id, name: tmpName });
+    await axios.post(baseUrl + channels.REN_CATEGORY, { id: id, name: tmpName });
     
     if (tmpName !== value) {
       load_cats_and_envs();
@@ -213,7 +213,7 @@ export const ConfigCatEnv = () => {
                                     defaultValue={env.envelope}
                                     onSave={({name, value, previousValue}) => {
                                       // Request we rename the envelope in the DB
-                                      axios.post('http://localhost:3001/api/' + channels.REN_ENVELOPE, { id: env.envID, name: value });
+                                      axios.post(baseUrl + channels.REN_ENVELOPE, { id: env.envID, name: value });
                                     }}
                                     style={{}}
                                     className={"cat"}

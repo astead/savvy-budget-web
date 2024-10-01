@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEyeSlash, faTrash } from "@fortawesome/free-solid-svg-icons";
 import * as dayjs from 'dayjs';
 import { EditText } from 'react-edit-text';
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import axios from 'axios';
 
 /*
@@ -17,20 +17,20 @@ export const ConfigAccount = () => {
 
   const load_accounts = async () => {
     // Signal we want to get data
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNTS);
+    const response = await axios.post(baseUrl + channels.GET_ACCOUNTS);
     setAccountData(response.data);
   }
 
   const handleAccountDelete = async (id) => {
     // Request we delete the account in the DB
-    await axios.post('http://localhost:3001/api/' + channels.DEL_ACCOUNT, {id});
+    await axios.post(baseUrl + channels.DEL_ACCOUNT, {id});
     load_accounts();
   };
 
 
   const handleAccountVisibility = async (id, isActive) => {
     // Request we delete the account in the DB
-    await axios.post('http://localhost:3001/api/' + channels.VIS_ACCOUNT, { id, value: ( isActive===0 ? true : false ) });
+    await axios.post(baseUrl + channels.VIS_ACCOUNT, { id, value: ( isActive===0 ? true : false ) });
     load_accounts();
   };
 
@@ -69,7 +69,7 @@ export const ConfigAccount = () => {
                 defaultValue={account}
                 onSave={({name, value, previousValue}) => {
                   // Request we rename the account in the DB
-                  axios.post('http://localhost:3001/api/' + channels.UPDATE_ACCOUNT, { id, new_value: value });
+                  axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id, new_value: value });
                 }}
                 style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
                 className={"editableText"}

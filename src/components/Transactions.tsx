@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Header } from './header.tsx';
-import { channels } from '../shared/constants.js';
+import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import * as dayjs from 'dayjs'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -111,7 +111,7 @@ export const Transactions: React.FC = () => {
 
   const load_transactions = async () => {
     // Signal we want to get data
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_TX_DATA, 
+    const response = await axios.post(baseUrl + channels.GET_TX_DATA, 
       { filterStartDate : filterStartDate?.format('YYYY-MM-DD'),
         filterEndDate: filterEndDate?.format('YYYY-MM-DD'),
         filterCatID: filterCatID,
@@ -127,7 +127,7 @@ export const Transactions: React.FC = () => {
 
   const load_envelope_list = async () => {
     // Signal we want to get data
-    const response = await axios.post('http://localhost:3001/api/' + channels.GET_CAT_ENV, {onlyActive: 0});
+    const response = await axios.post(baseUrl + channels.GET_CAT_ENV, {onlyActive: 0});
 
     // Receive the data
     let firstID = -1;
@@ -177,7 +177,7 @@ export const Transactions: React.FC = () => {
 
   const load_account_list = async () => {
     // Signal we want to get data
-    const acct_response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNTS);
+    const acct_response = await axios.post(baseUrl + channels.GET_ACCOUNTS);
     
     // Receive the data
     let acct_list = acct_response.data;
@@ -198,7 +198,7 @@ export const Transactions: React.FC = () => {
     setNewTxAccListLoaded(true);
     
     // Signal we want to get data
-    const acct_name_response = await axios.post('http://localhost:3001/api/' + channels.GET_ACCOUNT_NAMES);
+    const acct_name_response = await axios.post(baseUrl + channels.GET_ACCOUNT_NAMES);
 
     // Receive the data
     setFilterAccList([{
@@ -276,7 +276,7 @@ export const Transactions: React.FC = () => {
       return;
     }
     
-    await axios.post('http://localhost:3001/api/' + channels.ADD_TX, 
+    await axios.post(baseUrl + channels.ADD_TX, 
       {
         txDate: newTxDate?.format('YYYY-MM-DD'),
         txAmt: newTxAmount,
@@ -324,7 +324,7 @@ export const Transactions: React.FC = () => {
       } else {
         // Insert this transaction
         if (filename.toLowerCase().endsWith("qfx")) {
-          axios.post('http://localhost:3001/api/' + channels.IMPORT_OFX, { ofxString });
+          axios.post(baseUrl + channels.IMPORT_OFX, { ofxString });
           load_transactions();
         }
         if (filename.toLowerCase().endsWith("csv")) {
@@ -350,11 +350,11 @@ export const Transactions: React.FC = () => {
               account_string = "Mint";
             }
           }
-          await axios.post('http://localhost:3001/api/' + channels.IMPORT_CSV, { account_string: account_string, ofxString: ofxString });
+          await axios.post(baseUrl + channels.IMPORT_CSV, { account_string: account_string, ofxString: ofxString });
           load_transactions();
         }
         if (filename.toLowerCase().endsWith("txt")) {
-          await axios.post('http://localhost:3001/api/' + channels.IMPORT_CSV, { account_string: "mint tab", ofxString: ofxString });
+          await axios.post(baseUrl + channels.IMPORT_CSV, { account_string: "mint tab", ofxString: ofxString });
         }
       }
     });
