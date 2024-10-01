@@ -679,9 +679,9 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
                   // Update the original budget
                   await trx
                     .raw(
-                      `UPDATE "envelope" SET balance = balance - ` +
+                      `UPDATE "envelope" SET "balance" = "balance" - ` +
                         data[0].txAmt +
-                        ` WHERE id = ` +
+                        ` WHERE "id" = ` +
                         data[0].envelopeID
                     )
                     .then(async () => {
@@ -707,9 +707,9 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
                           .then(async () => {
                             // Adjust that envelope balance
                             await trx.raw(
-                              `UPDATE "envelope" SET balance = balance + ` +
+                              `UPDATE "envelope" SET "balance" = "balance" + ` +
                                 item.txAmt +
-                                ` WHERE id = ` +
+                                ` WHERE "id" = ` +
                                 item.txEnvID
                             );
                           });
@@ -894,16 +894,16 @@ app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
   console.log(channels.MOVE_BALANCE, transferAmt, fromID, toID);
 
   db.raw(
-    `update 'envelope' set balance = balance - ` +
+    `update "envelope" set "balance" = "balance" - ` +
       transferAmt +
-      ` where id = ` +
+      ` where "id" = ` +
       fromID
   ).then();
 
   db.raw(
-    `update 'envelope' set balance = balance + ` +
+    `update "envelope" set "balance" = "balance" + ` +
       transferAmt +
-      ` where id = ` +
+      ` where "id" = ` +
       toID
   ).then();
 });
@@ -1983,9 +1983,9 @@ async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {
           })
           .then(async () => {
             await db.raw(
-              `UPDATE "envelope" SET balance = balance + ` +
+              `UPDATE "envelope" SET "balance" = "balance" + ` +
                 newtxAmt +
-                ` WHERE id = ` +
+                ` WHERE "id" = ` +
                 newEnvelopeID
             );
           })
@@ -1996,9 +1996,9 @@ async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {
         // Already exist
         await db
           .raw(
-            `UPDATE "envelope" SET balance = balance + ` +
+            `UPDATE "envelope" SET "balance" = "balance" + ` +
               (newtxAmt - rows[0].txAmt) +
-              ` WHERE id = ` +
+              ` WHERE "id" = ` +
               newEnvelopeID
           )
           .then(async () => {
@@ -2032,9 +2032,9 @@ async function update_tx_env(txID, envID) {
         if (rows[0].envelopeID > 0) {
           await db
             .raw(
-              `update 'envelope' set balance = balance - ` +
+              `update "envelope" set "balance" = "balance" - ` +
                 rows[0].txAmt +
-                ` where id = ` +
+                ` where "id" = ` +
                 rows[0].envelopeID
             )
             .then()
@@ -2045,9 +2045,9 @@ async function update_tx_env(txID, envID) {
 
         await db
           .raw(
-            `update 'envelope' set balance = balance + ` +
+            `update "envelope" set "balance" = "balance" + ` +
               rows[0].txAmt +
-              ` where id = ` +
+              ` where "id" = ` +
               envID
           )
           .then()
