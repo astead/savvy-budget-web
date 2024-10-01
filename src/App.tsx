@@ -1,6 +1,8 @@
 import React from 'react';
 import { HashRouter as Router, Route, Routes } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
 import './includes/styles.css';
+import Loading from './helpers/loading.js';
 import { HomePage } from './components/homePage.tsx';
 import { Charts } from './components/Charts.tsx';
 import { Transactions } from './components/Transactions.tsx';
@@ -9,7 +11,11 @@ import { Configure } from './components/Configure.tsx';
 
 
 export const App: React.FC = () => {
+  const { isLoading } = useAuth0();
 
+  if (isLoading) {
+    return <Loading />;
+  }
 
   return (
     <Router>
