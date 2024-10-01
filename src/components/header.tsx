@@ -4,9 +4,11 @@ import { Link } from 'react-router-dom';
 import LoginButton from '../helpers/login.js';
 import LogoutButton from '../helpers/logout.js';
 import Profile from '../helpers/profile.js';
+import { useAuth0 } from '@auth0/auth0-react';
 
 export const Header = ({currTab}) => {
-  
+  const { isAuthenticated } = useAuth0();
+
   const [year, setYear] = useState((new Date()).getFullYear());
   const [month, setMonth] = useState((new Date()).getMonth());
 
@@ -35,10 +37,10 @@ export const Header = ({currTab}) => {
   return (
     <div className="NavBar">
       <Link to="/" className={currTab === "Home"?"menuLink menuLink-selected":"menuLink"}>Home</Link>
-      <Link to="/Charts/env-2" className={currTab === "Charts"?"menuLink menuLink-selected":"menuLink"}>Charts</Link>
-      <Link to={"/Transactions/-1/-3/0/"+year+"/"+month} className={currTab === "Transactions"?"menuLink menuLink-selected":"menuLink"}>Transactions</Link>
-      <Link to="/Envelopes" className={currTab === "Envelopes"?"menuLink menuLink-selected":"menuLink"}>Envelopes</Link>
-      <Link to="/Configure" className={currTab === "Configure"?"menuLink menuLink-selected":"menuLink"}>Configure</Link>
+      { isAuthenticated && <Link to="/Charts/env-2" className={currTab === "Charts"?"menuLink menuLink-selected":"menuLink"}>Charts</Link> }
+      { isAuthenticated && <Link to={"/Transactions/-1/-3/0/"+year+"/"+month} className={currTab === "Transactions"?"menuLink menuLink-selected":"menuLink"}>Transactions</Link> }
+      { isAuthenticated && <Link to="/Envelopes" className={currTab === "Envelopes"?"menuLink menuLink-selected":"menuLink"}>Envelopes</Link> }
+      { isAuthenticated && <Link to="/Configure" className={currTab === "Configure"?"menuLink menuLink-selected":"menuLink"}>Configure</Link> }
       <LoginButton/>
       <Profile/>
       <LogoutButton/>
