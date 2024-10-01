@@ -1,7 +1,9 @@
 // header.js
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import LoginButton from '../helpers/login.js';
+import LogoutButton from '../helpers/logout.js';
+import Profile from '../helpers/profile.js';
 
 export const Header = ({currTab}) => {
   
@@ -37,6 +39,9 @@ export const Header = ({currTab}) => {
       <Link to={"/Transactions/-1/-3/0/"+year+"/"+month} className={currTab === "Transactions"?"menuLink menuLink-selected":"menuLink"}>Transactions</Link>
       <Link to="/Envelopes" className={currTab === "Envelopes"?"menuLink menuLink-selected":"menuLink"}>Envelopes</Link>
       <Link to="/Configure" className={currTab === "Configure"?"menuLink menuLink-selected":"menuLink"}>Configure</Link>
+      <LoginButton/>
+      <Profile/>
+      <LogoutButton/>
     </div>
   );
 };
