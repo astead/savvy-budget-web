@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
-import { useAuth0 } from '@auth0/auth0-react';
 import * as dayjs from 'dayjs';
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
@@ -12,6 +11,7 @@ import { PlaidLinkOptions, usePlaidLink,
   PlaidLinkOnSuccess,
   PlaidLinkOnExit } from 'react-plaid-link';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -31,6 +31,7 @@ const style = {
 */
 
 export const ConfigPlaid = () => {
+  const { config } = useAuthToken();
   
   const [open, setOpen] = useState(false);
   const [link_Error, setLink_Error] = useState<string | null>(null);
@@ -48,8 +49,6 @@ export const ConfigPlaid = () => {
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
-  const { getAccessTokenSilently } = useAuth0();
-  
   interface PLAIDAccount {
     id: number; 
     institution: string;
@@ -71,11 +70,7 @@ export const ConfigPlaid = () => {
 
   const createLinkToken = async () => {
     console.log("createLinkToken ENTER");
-    const token = await getAccessTokenSilently();
-    console.log(token);
-    var config = {
-      headers: {authorization: `Bearer ${token}`}
-    };
+    if (!config) return;
     const response = await axios.post(baseUrl + channels.PLAID_GET_TOKEN, null, config );
     console.log("received response:");
     console.log(response.data);
@@ -96,11 +91,8 @@ export const ConfigPlaid = () => {
 
   const getAccountList = async () => {
     await createLinkToken();
-    const token = await getAccessTokenSilently();
-    var config = {
-      headers: {Authorization: `Bearer ${token}`}
-    };
     try {
+      if (!config) return;
       const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS, null, config );
       // Receive the data
       setPLAIDAccounts(response.data as PLAIDAccount[]);
@@ -110,7 +102,8 @@ export const ConfigPlaid = () => {
   };
 
   const update_login = async (acc : PLAIDAccount) => {
-    const response = await axios.post(baseUrl + channels.PLAID_UPDATE_LOGIN, { access_token: acc.access_token });
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.PLAID_UPDATE_LOGIN, { access_token: acc.access_token }, config);
     
     let { link_token, error } = response.data;
 
@@ -133,8 +126,9 @@ export const ConfigPlaid = () => {
         return;
       }
       
+      if (!config) return;
       await axios.post(baseUrl + channels.PLAID_REMOVE_LOGIN, 
-        { access_token: acc.access_token });
+        { access_token: acc.access_token }, config);
 
       getAccountList();
     } else {
@@ -149,11 +143,12 @@ export const ConfigPlaid = () => {
     //setUploading(true);
     
     // Get transactions
+    if (!config) return;
     const response = await axios.post(baseUrl + channels.PLAID_GET_TRANSACTIONS, 
       {
         access_token: acc.access_token,
         cursor: acc.cursor,
-      });
+      }, config);
     
     //setProgress(data);
     //setUploading(false);
@@ -172,11 +167,12 @@ export const ConfigPlaid = () => {
     handleClose();
 
     // Get transactions
+    if (!config) return;
     const response = await axios.post(baseUrl + channels.PLAID_FORCE_TRANSACTIONS, 
       { access_token: acc.access_token,
         start_date: start_date,
         end_date: end_date
-      }
+      }, config
     );
 
     getAccountList();
@@ -199,7 +195,8 @@ export const ConfigPlaid = () => {
       console.log("Account: ", metadata?.institution?.name, " : ", account.name);
     });
 
-    axios.post(baseUrl + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata});
+    if (!config) return;
+    axios.post(baseUrl + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata}, config);
   };
 
   const onExit: PlaidLinkOnExit = (error, metadata) => {
