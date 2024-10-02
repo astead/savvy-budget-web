@@ -11,6 +11,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -42,6 +43,8 @@ function formatCurrency(currencyNumber:number) {
 };
 
 export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, envID, isSplit, envList, callback}) => {
+  const { config } = useAuthToken();
+
   const [open, setOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
@@ -53,7 +56,8 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
     // Request we update the DB
     if (splitData.reduce((a, item) => a + item.txAmt, 0).toFixed(2) === txAmt.toFixed(2)) {
 
-      await axios.post(baseUrl + channels.SPLIT_TX, { txID: txID, split_tx_list: splitData });
+      if (!config) return;
+      await axios.post(baseUrl + channels.SPLIT_TX, { txID: txID, split_tx_list: splitData }, config);
       
       setOpen(false);
       callback();

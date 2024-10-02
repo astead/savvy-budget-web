@@ -19,6 +19,8 @@ import Box from '@mui/material/Box';
 import { TransactionTable } from './TransactionTable.tsx';
 import { EditText } from 'react-edit-text';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
+
 
 /*
   TODO:
@@ -28,6 +30,7 @@ import axios from 'axios';
 */
 
 export const Transactions: React.FC = () => {
+  const { config } = useAuthToken();
   
   const { in_catID, in_envID, in_force_date, in_year, in_month } = useParams();
  
@@ -111,6 +114,7 @@ export const Transactions: React.FC = () => {
 
   const load_transactions = async () => {
     // Signal we want to get data
+    if (!config) return;
     const response = await axios.post(baseUrl + channels.GET_TX_DATA, 
       { filterStartDate : filterStartDate?.format('YYYY-MM-DD'),
         filterEndDate: filterEndDate?.format('YYYY-MM-DD'),
@@ -118,7 +122,7 @@ export const Transactions: React.FC = () => {
         filterEnvID: filterEnvID,
         filterAccID: filterAccID,
         filterDesc: filterDesc,
-        filterAmount: filterAmount });
+        filterAmount: filterAmount }, config);
     
     // Receive the data
     const tmpData = [...response.data]; 
@@ -127,7 +131,8 @@ export const Transactions: React.FC = () => {
 
   const load_envelope_list = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_CAT_ENV, {onlyActive: 0});
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_CAT_ENV, {onlyActive: 0}, config);
 
     // Receive the data
     let firstID = -1;
@@ -177,7 +182,8 @@ export const Transactions: React.FC = () => {
 
   const load_account_list = async () => {
     // Signal we want to get data
-    const acct_response = await axios.post(baseUrl + channels.GET_ACCOUNTS);
+    if (!config) return;
+    const acct_response = await axios.post(baseUrl + channels.GET_ACCOUNTS, null, config);
     
     // Receive the data
     let acct_list = acct_response.data;
@@ -198,7 +204,8 @@ export const Transactions: React.FC = () => {
     setNewTxAccListLoaded(true);
     
     // Signal we want to get data
-    const acct_name_response = await axios.post(baseUrl + channels.GET_ACCOUNT_NAMES);
+    if (!config) return;
+    const acct_name_response = await axios.post(baseUrl + channels.GET_ACCOUNT_NAMES, null, config);
 
     // Receive the data
     setFilterAccList([{
@@ -276,6 +283,7 @@ export const Transactions: React.FC = () => {
       return;
     }
     
+    if (!config) return;
     await axios.post(baseUrl + channels.ADD_TX, 
       {
         txDate: newTxDate?.format('YYYY-MM-DD'),
@@ -283,7 +291,7 @@ export const Transactions: React.FC = () => {
         txEnvID: newTxEnvID,
         txAccID: newTxAccID,
         txDesc: newTxDesc
-      });
+      }, config);
 
     load_transactions();      
   }
@@ -324,7 +332,8 @@ export const Transactions: React.FC = () => {
       } else {
         // Insert this transaction
         if (filename.toLowerCase().endsWith("qfx")) {
-          axios.post(baseUrl + channels.IMPORT_OFX, { ofxString });
+          if (!config) return;
+          axios.post(baseUrl + channels.IMPORT_OFX, { ofxString }, config);
           load_transactions();
         }
         if (filename.toLowerCase().endsWith("csv")) {
@@ -350,11 +359,14 @@ export const Transactions: React.FC = () => {
               account_string = "Mint";
             }
           }
-          await axios.post(baseUrl + channels.IMPORT_CSV, { account_string: account_string, ofxString: ofxString });
+          
+          if (!config) return;
+          await axios.post(baseUrl + channels.IMPORT_CSV, { account_string: account_string, ofxString: ofxString }, config);
           load_transactions();
         }
         if (filename.toLowerCase().endsWith("txt")) {
-          await axios.post(baseUrl + channels.IMPORT_CSV, { account_string: "mint tab", ofxString: ofxString });
+          if (!config) return;
+          await axios.post(baseUrl + channels.IMPORT_CSV, { account_string: "mint tab", ofxString: ofxString }, config);
         }
       }
     });

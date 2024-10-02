@@ -12,6 +12,7 @@ import Pagination from '@mui/material/Pagination';
 import { EditText } from 'react-edit-text';
 import { EditDate } from '../helpers/EditDate.tsx';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 /*
  TODO:
@@ -36,6 +37,7 @@ interface TransactionNodeData {
 }
 
 export const TransactionTable = ({data, envList, callback}) => {  
+  const { config } = useAuthToken();
 
   // Other variables
   const [changeAllEnvID, setChangeAllEnvID] = useState(-1);
@@ -124,7 +126,8 @@ export const TransactionTable = ({data, envList, callback}) => {
   const delete_checked_transactions = async () => {
     let filtered_nodes = isChecked.filter((item) => item.isChecked);
     // Signal we want to del data
-    await axios.post(baseUrl + channels.DEL_TX_LIST, { del_tx_list: filtered_nodes });
+    if (!config) return;
+    await axios.post(baseUrl + channels.DEL_TX_LIST, { del_tx_list: filtered_nodes }, config);
     
     setIsAllChecked(false);
     callback();
@@ -148,8 +151,9 @@ export const TransactionTable = ({data, envList, callback}) => {
     setTxData([...txData]);
 
     // Signal we want to del data
+    if (!config) return;
     await axios.post(baseUrl + channels.UPDATE_TX_ENV_LIST, 
-      { new_value, filtered_nodes });
+      { new_value, filtered_nodes }, config);
 
     // Reset the drop down to the default
     setChangeAllEnvID(-1);
@@ -161,19 +165,22 @@ export const TransactionTable = ({data, envList, callback}) => {
   
   const handleTxEnvChange = async ({id, new_value, new_text}) => {
     // Request we update the DB
-    await axios.post(baseUrl + channels.UPDATE_TX_ENV, { txID: id, envID: new_value });
+    if (!config) return;
+    await axios.post(baseUrl + channels.UPDATE_TX_ENV, { txID: id, envID: new_value }, config);
     callback();      
   };
 
   const toggleDuplicate = async ({txID, isDuplicate}) => {
     // Request we update the DB
-    await axios.post(baseUrl + channels.SET_DUPLICATE, { txID: txID, isDuplicate: isDuplicate });
+    if (!config) return;
+    await axios.post(baseUrl + channels.SET_DUPLICATE, { txID: txID, isDuplicate: isDuplicate }, config);
     callback();
   };
 
   const toggleVisibility = async ({txID, isVisible}) => {
     // Request we update the DB
-    await axios.post(baseUrl + channels.SET_VISIBILITY, { txID: txID, isVisible: isVisible });
+    if (!config) return;
+    await axios.post(baseUrl + channels.SET_VISIBILITY, { txID: txID, isVisible: isVisible }, config);
     callback();
   };
 
@@ -265,7 +272,8 @@ export const TransactionTable = ({data, envList, callback}) => {
                   in_ID={item.txID.toString()}
                   in_value={dayjs(item.txDate).format('M/D/YYYY')}
                   callback={({id, value}) => {
-                    axios.post(baseUrl + channels.UPDATE_TX_DATE, { txID: item.txID, new_value: value });
+                    if (!config) return;
+                    axios.post(baseUrl + channels.UPDATE_TX_DATE, { txID: item.txID, new_value: value }, config);
                   }}
                 />
               </td>
@@ -276,7 +284,8 @@ export const TransactionTable = ({data, envList, callback}) => {
                   defaultValue={item.description}
                   onSave={({name, value, previousValue}) => {
                     // Request we rename the account in the DB
-                    axios.post(baseUrl + channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value });
+                    if (!config) return;
+                    axios.post(baseUrl + channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value }, config);
                   }}
                   style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
                   className={"editableText"}

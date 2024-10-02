@@ -6,6 +6,7 @@ import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { EditText } from 'react-edit-text';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 /*
   TODO:
@@ -24,6 +25,8 @@ interface KeywordList {
 }
 
 export const ConfigKeyword = () => {
+  const { config } = useAuthToken();
+
   const [keywordData, setKeywordData] = useState<KeywordList[]>([]);
   const [sortKeyword, setSortKeyword] = useState('10');
   const [envList, setEnvList] = useState<any[]>([]);
@@ -31,7 +34,8 @@ export const ConfigKeyword = () => {
  
   const load_envelope_list = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_ENV_LIST, { includeInactive: 1 });
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_ENV_LIST, { includeInactive: 1 }, config);
     
     // Receive the data
     setEnvList([...response.data.map((i) => {
@@ -44,7 +48,8 @@ export const ConfigKeyword = () => {
 
   const load_account_list = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_ACCOUNT_NAMES);
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_ACCOUNT_NAMES, null, config);
     setAccList([{
       id: "All", text: "All"
     }, ...(response.data.map((i) => {
@@ -54,7 +59,8 @@ export const ConfigKeyword = () => {
 
   const load_keywords = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_KEYWORDS);
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_KEYWORDS, null, config);
     const tmpArr = sort_keyword_array(response.data);
     setKeywordData(tmpArr);
   }
@@ -102,23 +108,27 @@ export const ConfigKeyword = () => {
 
   const handleKeywordDelete = async (id) => {
     // Request we delete the keyword in the DB
-    await axios.post(baseUrl + channels.DEL_KEYWORD, { id });
+    if (!config) return;
+    await axios.post(baseUrl + channels.DEL_KEYWORD, { id }, config);
     load_keywords();
   };
 
   const handleKeywordSetAll = (id, force) => {
     // Request we set the keyword in the DB for undefined tx
-    axios.post(baseUrl + channels.SET_ALL_KEYWORD, {id, force});
+    if (!config) return;
+    axios.post(baseUrl + channels.SET_ALL_KEYWORD, {id, force}, config);
   };
 
   const handleAccountChange = ({id, new_value, new_text}) => {
     // Request we update the DB
-    axios.post(baseUrl + channels.UPDATE_KEYWORD_ACC, {id, new_value});
+    if (!config) return;
+    axios.post(baseUrl + channels.UPDATE_KEYWORD_ACC, {id, new_value}, config);
   };
 
   const handleEnvelopeChange = ({id, new_value, new_text}) => {
     // Request we update the DB
-    axios.post(baseUrl + channels.UPDATE_KEYWORD_ENV, {id, new_value});
+    if (!config) return;
+    axios.post(baseUrl + channels.UPDATE_KEYWORD_ENV, {id, new_value}, config);
   };
 
   useEffect(() => {
@@ -192,7 +202,8 @@ export const ConfigKeyword = () => {
                   defaultValue={description} 
                   onSave={({name, value, previousValue}) => {
                     // Request we rename the keyword in the DB
-                    axios.post(baseUrl + channels.UPDATE_KEYWORD, { id, new_value: value });
+                    if (!config) return;
+                    axios.post(baseUrl + channels.UPDATE_KEYWORD, { id, new_value: value }, config);
                   }}
                   style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
                   className={"editableText"}

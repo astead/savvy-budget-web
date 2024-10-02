@@ -6,6 +6,7 @@ import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -24,6 +25,8 @@ function formatCurrency(currencyNumber:number) {
 };
 
 export const BudgetBalanceModal = ({balanceAmt, category, envelope, envID, transferEnvList, callback}) => {
+  const { config } = useAuthToken();
+
   const [open, setOpen] = useState(false);
   const [newAmt, setNewAmt] = useState(balanceAmt.toFixed(2));
   const [transferAmt, setTransferAmt] = useState(balanceAmt.toFixed(2));
@@ -33,14 +36,16 @@ export const BudgetBalanceModal = ({balanceAmt, category, envelope, envID, trans
 
   const handleSaveNewValue = async () => {
     // Request we update the DB
-    await axios.post(baseUrl + channels.UPDATE_BALANCE, { id: envID, newAmt: newAmt });
+    if (!config) return;
+    await axios.post(baseUrl + channels.UPDATE_BALANCE, { id: envID, newAmt: newAmt }, config);
     setOpen(false);
     callback();
   };
 
   const handleSaveTransfer = async () => {
     // Request we update the DB
-    await axios.post(baseUrl + channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID });
+    if (!config) return;
+    await axios.post(baseUrl + channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID }, config);
     setOpen(false);
     callback();
   };

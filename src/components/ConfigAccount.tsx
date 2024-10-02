@@ -5,6 +5,7 @@ import * as dayjs from 'dayjs';
 import { EditText } from 'react-edit-text';
 import { baseUrl, channels } from '../shared/constants.js';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 /*
   TODO:
@@ -12,30 +13,35 @@ import axios from 'axios';
 */
 
 export const ConfigAccount = () => {
+  const { config } = useAuthToken();
 
   const [accountData, setAccountData] = useState<any[]>([]);
 
   const load_accounts = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_ACCOUNTS);
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_ACCOUNTS, null, config);
     setAccountData(response.data);
   }
 
   const handleAccountDelete = async (id) => {
     // Request we delete the account in the DB
-    await axios.post(baseUrl + channels.DEL_ACCOUNT, {id});
+    if (!config) return;
+    await axios.post(baseUrl + channels.DEL_ACCOUNT, {id}, config);
     load_accounts();
   };
 
 
   const handleAccountVisibility = async (id, isActive) => {
     // Request we delete the account in the DB
-    await axios.post(baseUrl + channels.VIS_ACCOUNT, { id, value: ( isActive===0 ? true : false ) });
+    if (!config) return;
+    await axios.post(baseUrl + channels.VIS_ACCOUNT, { id, value: ( isActive===0 ? true : false ) }, config);
     load_accounts();
   };
 
   useEffect(() => {
     load_accounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!accountData?.length) {
@@ -69,7 +75,8 @@ export const ConfigAccount = () => {
                 defaultValue={account}
                 onSave={({name, value, previousValue}) => {
                   // Request we rename the account in the DB
-                  axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id, new_value: value });
+                  if (!config) return;
+                  axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id, new_value: value }, config);
                 }}
                 style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
                 className={"editableText"}

@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import InputText from '../helpers/InputText.tsx';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 /*
   TODO:
@@ -16,6 +17,7 @@ import axios from 'axios';
 */
 
 export const Envelopes: React.FC = () => {
+  const { config } = useAuthToken();
   
   /* Month Selector code -------------------------------------------*/
   const [year, setYear] = useState((new Date()).getFullYear());
@@ -112,7 +114,8 @@ export const Envelopes: React.FC = () => {
 
   const load_envelope_list = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_ENV_LIST, {onlyActive: 1});
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_ENV_LIST, {onlyActive: 1}, config);
 
     setTransferEnvList(response.data.map((item) => {
       return { id: item.envID, text: item.category + " : " + item.envelope };
@@ -121,7 +124,8 @@ export const Envelopes: React.FC = () => {
 
   const load_PrevBudget = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_PREV_BUDGET, { find_date: dayjs(new Date(year, month-1)).format('YYYY-MM-DD') });
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_PREV_BUDGET, { find_date: dayjs(new Date(year, month-1)).format('YYYY-MM-DD') }, config);
     
     // Receive the data
     let data = response.data;
@@ -141,7 +145,8 @@ export const Envelopes: React.FC = () => {
 
   const load_PrevActual = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_PREV_ACTUAL, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') });
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_PREV_ACTUAL, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
 
     // Receive the data
     let data = response.data;
@@ -161,7 +166,8 @@ export const Envelopes: React.FC = () => {
 
   const load_CurrBalance = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_CURR_BALANCE);
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_CURR_BALANCE, null, config);
     
     // Receive the data
     let data = response.data;
@@ -181,7 +187,8 @@ export const Envelopes: React.FC = () => {
 
   const load_CurrBudget = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_CUR_BUDGET, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') });
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_CUR_BUDGET, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
     
     // Receive the data
     let data = response.data;
@@ -215,9 +222,10 @@ export const Envelopes: React.FC = () => {
       return {envID: item.envID, value: item.prevBudget};
     });
 
+    if (!config) return;
     await axios.post(baseUrl + channels.COPY_BUDGET, 
       { newtxDate: dayjs(new Date(year, month)).format('YYYY-MM-DD'),
-        budget_values: prev_budget_values }
+        budget_values: prev_budget_values }, config
     );
     
     load_CurrBudget();
@@ -230,8 +238,9 @@ export const Envelopes: React.FC = () => {
 
   const handleUpdateBudget = async ({index, id, date, value}) => {
     // Request we update the DB
+    if (!config) return;
     await axios.post(baseUrl + channels.UPDATE_BUDGET, 
-      { newEnvelopeID: id, newtxDate: date, newtxAmt: value });
+      { newEnvelopeID: id, newtxDate: date, newtxAmt: value }, config);
     handleBudgetItemChange(index, value);
   }
 
@@ -260,7 +269,8 @@ export const Envelopes: React.FC = () => {
 
   const load_CurrActual = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_CUR_ACTUAL, { find_date: dayjs(new Date(year, month+1)).format('YYYY-MM-DD') });
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_CUR_ACTUAL, { find_date: dayjs(new Date(year, month+1)).format('YYYY-MM-DD') }, config);
     
     // Receive the data
     let data = response.data;  
@@ -287,7 +297,8 @@ export const Envelopes: React.FC = () => {
 
   const load_MonthlyAvg = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_MONTHLY_AVG, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') });
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_MONTHLY_AVG, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
     
     // Receive the data
     let data = response.data;  
@@ -320,7 +331,8 @@ export const Envelopes: React.FC = () => {
   
   const load_initialEnvelopes = async () => {
     // Signal we want to get data
-    const response = await axios.post(baseUrl + channels.GET_BUDGET_ENV);
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_BUDGET_ENV, null, config);
   
     // Receive the data
     let data = response.data;

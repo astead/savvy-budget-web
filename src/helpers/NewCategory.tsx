@@ -3,15 +3,19 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faPlus } from "@fortawesome/free-solid-svg-icons"
 import { baseUrl, channels } from '../shared/constants.js';
 import axios from 'axios';
+import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 export const NewCategory = ({ callback }) => {
+  const { config } = useAuthToken();
+
   const [newCategory, setNewCategory] = useState('');
   const [error, setError] = useState('');
   
   const handleSubmit = async () => {
     if (newCategory) {
       // Request we add the new category
-      await axios.post(baseUrl + channels.ADD_CATEGORY, { name: newCategory });
+      if (!config) return;
+      await axios.post(baseUrl + channels.ADD_CATEGORY, { name: newCategory }, config);
       
       callback();
     } else {
