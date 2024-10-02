@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
+import { useAuth0 } from '@auth0/auth0-react';
 import * as dayjs from 'dayjs';
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
@@ -47,6 +48,7 @@ export const ConfigPlaid = () => {
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
+  const { getAccessTokenSilently } = useAuth0();
   
   interface PLAIDAccount {
     id: number; 
@@ -69,7 +71,12 @@ export const ConfigPlaid = () => {
 
   const createLinkToken = async () => {
     console.log("createLinkToken ENTER");
-    const response = await axios.post(baseUrl + channels.PLAID_GET_TOKEN);
+    const token = await getAccessTokenSilently();
+    console.log(token);
+    var config = {
+      headers: {authorization: `Bearer ${token}`}
+    };
+    const response = await axios.post(baseUrl + channels.PLAID_GET_TOKEN, null, config );
     console.log("received response:");
     console.log(response.data);
 
@@ -89,11 +96,17 @@ export const ConfigPlaid = () => {
 
   const getAccountList = async () => {
     await createLinkToken();
-
-    const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS);
-    
-    // Receive the data
-    setPLAIDAccounts(response.data as PLAIDAccount[]);
+    const token = await getAccessTokenSilently();
+    var config = {
+      headers: {Authorization: `Bearer ${token}`}
+    };
+    try {
+      const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS, null, config );
+      // Receive the data
+      setPLAIDAccounts(response.data as PLAIDAccount[]);
+    } catch (error) {
+      console.error("Error creating link token:", error);
+    }
   };
 
   const update_login = async (acc : PLAIDAccount) => {

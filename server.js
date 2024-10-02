@@ -6,11 +6,27 @@ const fs = require('fs');
 const port = 3001; // Use a different port than React
 const knex = require('knex');
 require('module-alias/register');
-const { channels } = require('@shared/constants.js');
+const { auth0data, channels } = require('@shared/constants.js');
 const dayjs = require('dayjs');
+const { auth, requiredScopes } = require('express-oauth2-jwt-bearer');
 
-app.use(cors());
+
+
+// Authorization middleware. When used, the Access Token must
+// exist and be verified against the Auth0 JSON Web Key Set.
+const checkJwt = auth({
+  audience: auth0data.audience,
+  issuerBaseURL: auth0data.issuerBaseURL,
+  tokenSigningAlg: auth0data.tokenSigningAlg,
+});
+
 app.use(express.json());
+app.use((req, res, next) => {
+  console.log('Authorization Header:', req.headers.authorization);
+  next();
+});
+app.use(cors({ origin: auth0data.origin })); // Adjust the origin as needed
+app.use(checkJwt);
 
 let db = null;
 
@@ -154,6 +170,7 @@ app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
       console.log(error);
       // handle error
       console.log('Error: ', error.response.data.error_message);
+      console.log('Error: ', error.message);
 
       res.json(error.response.data);
     }
