@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const app = express();
 require('dotenv').config();
 const fs = require('fs');
@@ -75,6 +76,49 @@ const set_db = async () => {
 };
 
 set_db();
+
+app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
+  const { user } = req.body;
+  console.log('AUTH0_CHECK_CREATE_USER ENTER');
+  const token = req.headers.authorization.split(' ')[1];
+  const decodedToken = jwt.decode(token);
+  const auth0Id = decodedToken.sub;
+
+  try {
+    
+    await db('users')
+    .select('id')
+    .where('auth0_id', auth0Id)
+    .then(async function (rows) {
+      if (rows.length === 0) {
+        // no matching records found
+        return await db('users')
+          .insert({
+            auth0_id: auth0Id,
+            email: user.email,
+            name: user.name,
+          })
+          .then(async () => {
+            res.status(201).json({ message: 'User created successfully' });
+          })
+          .catch((err) => {
+            console.log('Error creating user: ' + err);
+          });
+      } else {
+        // Already exists
+        res.status(200).json({ message: 'User already exists' });
+      }
+    })
+    .catch((err) => {
+      console.log('Error checking if user exists: ' + err);
+    });
+
+  } catch (error) {
+    console.error('Error checking or creating user:', error);
+    res.status(500).json({ message: 'Error checking or creating user' });
+  }
+});
+
 
 // PLAID stuff
 const {

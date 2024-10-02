@@ -138,5 +138,7 @@ module.exports = {
     DRIVE_DELETE_LOCK: 'drive_delete_lock',
     DRIVE_DONE_DELETE_LOCK: 'drive_done_delete_lock',
     DRIVE_STOP_USING: 'drive_stop_using',
+
+    AUTH0_CHECK_CREATE_USER: 'auth0_check_or_create_user',
   },
 };
