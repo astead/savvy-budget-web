@@ -1,4 +1,12 @@
 module.exports = {
+  auth0data: {
+    domain: 'dev-uzuzwxmdtzhadla7.us.auth0.com',
+    clientId: 'OhD9wIJL5VTPQLLN8mINVJgzjfE2BKtt',
+    origin: 'http://localhost:3000',
+    audience: 'http://localhost:3001',
+    issuerBaseURL: 'https://dev-uzuzwxmdtzhadla7.us.auth0.com/',
+    tokenSigningAlg: 'RS256',
+  },
   baseUrl: process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api/' : 'http://localhost:3001/api/',
   channels: {
     GET_CAT_ENV: 'get_categories_and_envelopes',

@@ -4,6 +4,7 @@ import reportWebVitals from './reportWebVitals';
 import { Auth0Provider } from '@auth0/auth0-react';
 import { App } from './App.tsx';
 import './includes/styles.css';
+const { auth0data } = require('./shared/constants.js');
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -12,10 +13,11 @@ const root = ReactDOM.createRoot(
 root.render(
   <React.StrictMode>
     <Auth0Provider
-      domain="dev-uzuzwxmdtzhadla7.us.auth0.com"
-      clientId="OhD9wIJL5VTPQLLN8mINVJgzjfE2BKtt"
+      domain={auth0data.domain}
+      clientId={auth0data.clientId}
       authorizationParams={{
-        redirect_uri: window.location.origin
+        redirect_uri: window.location.origin,
+        audience: auth0data.audience
       }}
     >
       <App />
