@@ -46,7 +46,7 @@ app.use(async (req, res, next) => {
       return res.status(401).send('Unauthorized: Missing User ID');
     }
 
-    await db.raw('SET myapp.current_user_id = ?', [userId]);
+    await db.raw(`SET myapp.current_user_id = '${userId}'`);
     next();
   } catch (error) {
     console.error('Error setting user session:', error);
