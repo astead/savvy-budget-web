@@ -789,92 +789,82 @@ app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
   }
 });
 
-// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
   console.log(channels.SPLIT_TX);
 
   const { txID, split_tx_list } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
-  const userId = await getUserId(auth0Id);
 
-  if (db) {
+  try {
+    const userId = await getUserId(auth0Id);
+
     // Lets use a transaction for this
-    await db
-      .transaction(async (trx) => {
-        // Get some info on the original
-        await trx
-          .select(
-            'id',
-            'envelopeID',
-            'txAmt',
-            'accountID',
-            'refNumber',
-            'origTxID',
-            'isVisible',
-            'isDuplicate'
-          )
-          .from('transaction')
+    await db.transaction(async (trx) => {
+      // Get some info on the original
+      const data = await trx
+        .select(
+          'id',
+          'envelopeID',
+          'txAmt',
+          'accountID',
+          'refNumber',
+          'origTxID',
+          'isVisible',
+          'isDuplicate'
+        )
+        .from('transaction')
+        .where({ id: txID })
+        .andWhere({ user_id: userId });
+
+      if (data?.length) {
+        // Delete the original
+        await trx('transaction')
+          .delete()
           .where({ id: txID })
-          .andWhere({ user_id: userId })
-          .then(async (data) => {
-            if (data?.length) {
-              // Delete the original
-              await trx('transaction')
-                .delete()
-                .where({ id: txID })
-                .andWhere({'user_id': userId})
-                .then(async () => {
-                  // Update the original budget
-                  // TODO: Refactor this once we know the moving budget works
-                  await trx
-                    .raw(
-                      `UPDATE "envelope" SET "balance" = "balance" - ` +
-                        data[0].txAmt +
-                        ` WHERE "id" = ` +
-                        data[0].envelopeID +
-                        ` AND "user_id" = ` + userId
-                    )
-                    .then(async () => {
-                      // Loop through each new split
-                      for (let item of split_tx_list) {
-                        // Insert the new transaction
-                        await trx('transaction')
-                          .insert({
-                            envelopeID: item.txEnvID,
-                            txAmt: item.txAmt,
-                            txDate: item.txDate,
-                            description: item.txDesc,
-                            refNumber: data[0].refNumber,
-                            isBudget: 0,
-                            origTxID: data[0].origTxID
-                              ? data[0].origTxID
-                              : txID,
-                            isDuplicate: data[0].isDuplicate,
-                            isSplit: 1,
-                            accountID: data[0].accountID,
-                            isVisible: data[0].isVisible,
-                            user_id: userId,
-                          })
-                          .then(async () => {
-                            // Adjust that envelope balance
-                            await trx.raw(
-                              `UPDATE "envelope" SET "balance" = "balance" + ` +
-                                item.txAmt +
-                                ` WHERE "id" = ` +
-                                item.txEnvID +
-                                ` AND "user_id" = ` + userId
-                            );
-                          });
-                      }
-                    });
-                });
-            }
-          })
-          .then(trx.commit);
-      })
-      .catch(function (error) {
-        console.error(error);
-      });
+          .andWhere({'user_id': userId});
+          
+        // Update the original budget
+        await trx('envelope')
+          .where({ id: data[0].envelopeID, user_id: userId })
+          .update({
+            balance: db.raw('balance - ?', [data[0].txAmt])
+          });
+
+        // Loop through each new split
+        for (let item of split_tx_list) {
+          // Insert the new transaction
+          await trx('transaction')
+            .insert({
+              envelopeID: item.txEnvID,
+              txAmt: item.txAmt,
+              txDate: item.txDate,
+              description: item.txDesc,
+              refNumber: data[0].refNumber,
+              isBudget: 0,
+              origTxID: data[0].origTxID
+                ? data[0].origTxID
+                : txID,
+              isDuplicate: data[0].isDuplicate,
+              isSplit: 1,
+              accountID: data[0].accountID,
+              isVisible: data[0].isVisible,
+              user_id: userId,
+            });
+
+          // Adjust that envelope balance
+          await trx('envelope')
+            .where({ id: item.txEnvID, user_id: userId })
+            .update({
+              balance: db.raw('balance + ?', [item.txAmt])
+            });
+        }
+      }
+    });
+
+    res.status(200).send('Split transaction successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
