@@ -778,7 +778,7 @@ app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
     for (let t of del_tx_list) {
       if (t.isChecked) {
         console.log('deleting: ' + t.txID);
-        await remove_transaction(t.txID);
+        await remove_transaction(userId, t.txID);
       }
     }
 
