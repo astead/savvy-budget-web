@@ -342,14 +342,14 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   }
 });
 
-// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   console.log(channels.PLAID_GET_ACCOUNTS);
   
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
-  const userId = await getUserId(auth0Id);
+
+  try {
+    const userId = await getUserId(auth0Id);
   
-  if (db) {
     const find_date = dayjs(new Date()).format('YYYY-MM-DD');
     let query = db
       .select(
@@ -393,40 +393,46 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
         'plaid_account.access_token',
         'plaid_account.cursor'
       );
-    query
-      .then((data) => {
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
+
+    const data = await query;
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
-// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
   console.log('Removing plaid account login ');
 
   const { access_token } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
-  const userId = await getUserId(auth0Id);
 
-  await remove_plaid_login(access_token);
+  try {
+    const userId = await getUserId(auth0Id);
 
-  await db.transaction(async (trx) => {
-    // Get the account info
-    await trx
-      .select('account_id')
-      .from('plaid_account')
-      .where({ access_token: access_token, user_id: userId })
-      .then(async (data) => {
-        for (const item of data) {
-          // Remove the plaid account from the database
-          remove_plaid_account(userId, item.account_id);
+    await remove_plaid_login(access_token);
 
-          // If there was a regular account, disconnect it from a plaid account
-          remove_plaid_account_link(userId, item.account_id);
-        }
-      });
-  });
+    await db.transaction(async (trx) => {
+      // Get the account info
+      const data = await trx
+        .select('account_id')
+        .from('plaid_account')
+        .where({ access_token: access_token, user_id: userId });
+
+      for (const item of data) {
+        // Remove the plaid account from the database
+        await remove_plaid_account(trx, userId, item.account_id);
+
+        // If there was a regular account, disconnect it from a plaid account
+        await remove_plaid_account_link(trx, userId, item.account_id);
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 async function remove_plaid_login(access_token) {
@@ -442,14 +448,14 @@ async function remove_plaid_login(access_token) {
   console.log('Response: ' + response);
 }
 
-async function remove_plaid_account(userId, account_id) {
-  await db('plaid_account')
+async function remove_plaid_account(trx, userId, account_id) {
+  await trx('plaid_account')
     .delete()
     .where({ account_id: account_id, user_id: userId });
 }
 
-async function remove_plaid_account_link(userId, account_id) {
-  await db('account')
+async function remove_plaid_account_link(trx, userId, account_id) {
+  await trx('account')
     .update({ plaid_id: null })
     .where({ plaid_id: account_id, user_id: userId });
 }
@@ -740,37 +746,47 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
 });
 
-// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
   console.log(channels.UPDATE_TX_ENV_LIST);
 
   const { new_value, filtered_nodes } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
-  const userId = await getUserId(auth0Id);
+  
+  try {
+    const userId = await getUserId(auth0Id);
 
-  for (let t of filtered_nodes) {
-    await update_tx_env(userId, t.txID, new_value);
+    for (let t of filtered_nodes) {
+      await update_tx_env(userId, t.txID, new_value);
+    }
+  
+    res.status(200).send('Updated transaction envelope list successfully.');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
-// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
   console.log(channels.DEL_TX_LIST);
   
   const { del_tx_list } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
-  const userId = await getUserId(auth0Id);
 
-  if (db) {
-    console.log(del_tx_list);
+  try {
+    const userId = await getUserId(auth0Id);
+
     for (let t of del_tx_list) {
       if (t.isChecked) {
         console.log('deleting: ' + t.txID);
         await remove_transaction(t.txID);
       }
     }
+
+    res.status(200).send('Deleted transaction list successfully.');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
-  console.log('Sending we are done.');
 });
 
 // TODO: refactor this a bit better with try / catch, etc
