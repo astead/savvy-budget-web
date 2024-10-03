@@ -463,7 +463,7 @@ async function remove_plaid_account_link(trx, userId, account_id) {
 // TODO: refactor this a bit better with try / catch, and combine with function below
 // maybe pull out components to separate functions?
 app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
-  console.log('Try getting plaid account transactions ');
+  console.log(channels.PLAID_GET_TRANSACTIONS);
 
   const { access_token, cursor } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -2664,6 +2664,8 @@ async function lookup_account(userId, account) {
 }
 
 async function lookup_plaid_account(userId, account) {
+  console.log("lookup_plaid_account");
+
   // Initialize accountID to -1 to indicate no account found
   let accountID = -1;
 
