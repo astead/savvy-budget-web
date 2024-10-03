@@ -1108,7 +1108,6 @@ app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
   const { transferAmt, fromID, toID } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
-  // TODO: Check to make sure moving balances works after changing this
   try {
     const userId = await getUserId(auth0Id);
 
