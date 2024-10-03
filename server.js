@@ -2798,9 +2798,8 @@ async function lookup_keyword(userId, accountID, description, txDate) {
         .whereRaw(`? LIKE "description"`, [description])
         .andWhere({ user_id: userId });
 
-      query = query.andWhere(() => {
-        this
-          .where('account', 'All')
+      query = query.andWhere(function () {
+        this.where('account', 'All')
           .orWhere({ 
             account: trx('account')
               .select('account')
@@ -2896,10 +2895,14 @@ async function update_transaction_id(
     await db.transaction(async (trx) => {
       const rows = trx('plaid_account')
         .select('transaction.id as id')
-        .join('account', 'account.plaid_id', 'plaid_account.account_id')
-        .andOn('account.user_id', '=', db.raw(`?`, [userId]))
-        .join('transaction', 'transaction.accountID', 'account.id')
-        .andOn('transaction.user_id', '=', db.raw(`?`, [userId]))
+        .join('account', function() {
+          this.on('account.plaid_id', '=', 'plaid_account.account_id')
+              .andOn('account.user_id', '=', db.raw('?', [userId]));
+        })
+        .join('transaction', function() {
+          this.on('transaction.accountID', '=', 'account.id')
+              .andOn('transaction.user_id', '=', db.raw('?', [userId]));
+        })
         .where({ 
           access_token: access_token, 
           'transaction.refNumber': old_transaction_id, 
@@ -3003,10 +3006,14 @@ async function basic_remove_transaction_node(userId, access_token, refNumber) {
           'transaction.envelopeID as envelopeID',
           'transaction.txAmt as txAmt',
         )
-        .join('account', 'account.plaid_id', 'plaid_account.account_id')
-        .andOn('account.user_id', '=', db.raw(`?`, [userId]))
-        .join('transaction', 'transaction.accountID', 'account.id')
-        .andOn('transaction.user_id', '=', db.raw(`?`, [userId]))
+        .join('account', function() {
+          this.on('account.plaid_id', '=', 'plaid_account.account_id')
+              .andOn('account.user_id', '=', db.raw('?', [userId]));
+        })
+        .join('transaction', function() {
+          this.on('transaction.accountID', '=', 'account.id')
+              .andOn('transaction.user_id', '=', db.raw('?', [userId]));
+        })
         .where({ 
           access_token: access_token, 
           'plaid_account.user_id': userId,
