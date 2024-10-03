@@ -22,12 +22,15 @@ const checkJwt = auth({
 });
 
 app.use(express.json());
+app.use(cors({ origin: auth0data.origin }));
+app.use(checkJwt);
 app.use((req, res, next) => {
   console.log('Authorization Header:', req.headers.authorization);
+  const token = req.headers.authorization.split(' ')[1];
+  const decodedToken = jwt.decode(token);
+  req.auth0Id = decodedToken.sub; // Auth0 user ID
   next();
 });
-app.use(cors({ origin: auth0data.origin })); // Adjust the origin as needed
-app.use(checkJwt);
 
 let db = null;
 
@@ -77,6 +80,14 @@ const set_db = async () => {
 
 set_db();
 
+const getUserId = async (auth0Id) => {
+  const user = await db('users').where({ auth0_id: auth0Id }).first();
+  if (!user) {
+    throw new Error('User not found');
+  }
+  return user.id;
+};
+
 app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   const { user } = req.body;
   console.log('AUTH0_CHECK_CREATE_USER ENTER');
@@ -99,6 +110,11 @@ app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
             name: user.name,
           })
           .then(async () => {
+            // Create default DB data
+            const userId = await getUserId(auth0Id);
+            await db('category').insert({ category: 'Uncategorized', user_id: userId }).then();
+            await db('category').insert({ category: 'Income', user_id: userId }).then();
+
             res.status(201).json({ message: 'User created successfully' });
           })
           .catch((err) => {
@@ -118,7 +134,6 @@ app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
     res.status(500).json({ message: 'Error checking or creating user' });
   }
 });
-
 
 // PLAID stuff
 const {
@@ -317,6 +332,10 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
 
 app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   console.log(channels.PLAID_GET_ACCOUNTS);
+  
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
+  
   if (db) {
     const find_date = dayjs(new Date()).format('YYYY-MM-DD');
     let query = db
@@ -338,12 +357,15 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
       .join('account', 'plaid_account.account_id', 'account.plaid_id')
       .leftJoin('transaction', function () {
         this.on('account.id', '=', 'transaction.accountID')
-          .on('transaction.isBudget', '=', 0)
-          .on('transaction.isDuplicate', '=', 0);
+          .andOn('transaction.isBudget', '=', 0)
+          .andOn('transaction.isDuplicate', '=', 0)
+          .andOn('account.user_id', '=', db.raw(`?`, [userId]))
+          .andOn('transaction.user_id', '=', db.raw(`?`, [userId]));
           // PostgreSQL specific
           this.on(db.raw(`?::date - "txDate" >= 0`, [find_date]));
           this.on(db.raw(`"transaction"."isVisible" = true`));
       })
+      .where('plaid_account.user_id', '=', db.raw(`?`, [userId]))
       .orderBy('institution', 'public_token')
       .groupBy(
         'plaid_account.id',
@@ -789,10 +811,14 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
 
 app.post('/api/'+channels.ADD_ENVELOPE, async (req, res) => {
   const { categoryID } = req.body;
+  const auth0Id = req.auth0Id; // Extracted user ID
   console.log(channels.ADD_ENVELOPE, categoryID);
+
+  const userId = await getUserId(auth0Id);
 
   await db('envelope')
     .insert({
+      user_id: userId,
       categoryID: categoryID,
       envelope: 'New Envelope',
       balance: 0,
@@ -970,35 +996,44 @@ app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
 });
 
 // Get the categories and envelopes
-app.post('/api/'+channels.GET_CAT_ENV, (req, res) => {
-  const { onlyActive } = req.body;
+app.post('/api/'+channels.GET_CAT_ENV, async (req, res) => {
   console.log(channels.GET_CAT_ENV + " ENTER");
-  if (db) {
-    let query = db
-      .select(
-        'category.id as catID',
-        'category.category',
-        'envelope.id as envID',
-        'envelope.envelope',
-        'envelope.balance as currBalance',
-        'envelope.isActive'
-      )
-      .from('category')
-      .leftJoin('envelope', function () {
-        this.on('category.id', '=', 'envelope.categoryID');
-      })
-      .orderBy('category.id');
 
-    if (onlyActive === 1) {
-      query.where('envelope.isActive', 1);
+  const { onlyActive } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+    
+    if (db) {
+      let query = db
+        .select(
+          'category.id as catID',
+          'category.category',
+          'envelope.id as envID',
+          'envelope.envelope',
+          'envelope.balance as currBalance',
+          'envelope.isActive'
+        )
+        .from('category')
+        .leftJoin('envelope', function () {
+          this.on('category.id', '=', 'envelope.categoryID')
+            .andOn('envelope.user_id', '=',db.raw(`?`, [userId]));
+        })
+        .where('category.user_id', '=',db.raw(`?`, [userId]))
+        .orderBy('category.id');
+
+      if (onlyActive === 1) {
+        query.where('envelope.isActive', 1);
+      }
+
+      const data = await query;
+      res.json(data);
     }
-
-    query
-      .then((data) => {
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
-  }  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.GET_BUDGET_ENV, (req, res) => {
