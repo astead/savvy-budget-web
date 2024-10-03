@@ -25,7 +25,7 @@ app.use(express.json());
 app.use(cors({ origin: auth0data.origin }));
 app.use(checkJwt);
 app.use((req, res, next) => {
-  console.log('Authorization Header:', req.headers.authorization);
+  //console.log('Authorization Header:', req.headers.authorization);
   const token = req.headers.authorization.split(' ')[1];
   const decodedToken = jwt.decode(token);
   req.auth0Id = decodedToken.sub; // Auth0 user ID
@@ -180,7 +180,7 @@ let plaid_link_token_exp = null;
 // Used to create the link token
 const configs = {
   user: {
-    // This should correspond to a unique id for the current user.
+    // TODO: This should correspond to a unique id for the current user.
     client_user_id: '2',
   },
   client_name: 'Savvy Budget',
@@ -240,13 +240,17 @@ app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
 });
 
 app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
-  const { public_token, metadata } = req.body;
   console.log('Try getting plaid access token');
+
+  const { public_token, metadata } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
   try {
     const response = await client.itemPublicTokenExchange({
       public_token: public_token,
     });
+
+    const userId = await getUserId(auth0Id);
 
     // These values should be saved to a persistent database and
     // associated with the currently signed-in user
@@ -271,6 +275,7 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
             account.mask,
           plaid_id: account.id,
           isActive: true,
+          user_id: userId,
         })
         .then(() => {
           db('plaid_account')
@@ -285,6 +290,7 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
               item_id: itemID,
               access_token: access_token,
               cursor: null,
+              user_id: userId,
             })
             .then(() => {
               console.log('Added PLAID account ');
@@ -330,6 +336,7 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   }
 });
 
+// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   console.log(channels.PLAID_GET_ACCOUNTS);
   
@@ -365,7 +372,7 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
           this.on(db.raw(`?::date - "txDate" >= 0`, [find_date]));
           this.on(db.raw(`"transaction"."isVisible" = true`));
       })
-      .where('plaid_account.user_id', '=', db.raw(`?`, [userId]))
+      .where({ 'plaid_account.user_id': userId })
       .orderBy('institution', 'public_token')
       .groupBy(
         'plaid_account.id',
@@ -388,9 +395,13 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   }
 });
 
+// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
-  const { access_token } = req.body;
   console.log('Removing plaid account login ');
+
+  const { access_token } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
 
   await remove_plaid_login(access_token);
 
@@ -399,14 +410,14 @@ app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
     await trx
       .select('account_id')
       .from('plaid_account')
-      .where({ access_token: access_token })
+      .where({ access_token: access_token, user_id: userId })
       .then(async (data) => {
         for (const item of data) {
           // Remove the plaid account from the database
-          remove_plaid_account(item.account_id);
+          remove_plaid_account(userId, item.account_id);
 
           // If there was a regular account, disconnect it from a plaid account
-          remove_plaid_account_link(item.account_id);
+          remove_plaid_account_link(userId, item.account_id);
         }
       });
   });
@@ -425,19 +436,26 @@ async function remove_plaid_login(access_token) {
   console.log('Response: ' + response);
 }
 
-async function remove_plaid_account(account_id) {
-  await db('plaid_account').delete().where({ account_id: account_id });
+async function remove_plaid_account(userId, account_id) {
+  await db('plaid_account')
+    .delete()
+    .where({ account_id: account_id, user_id: userId });
 }
 
-async function remove_plaid_account_link(account_id) {
+async function remove_plaid_account_link(userId, account_id) {
   await db('account')
     .update({ plaid_id: null })
-    .where({ plaid_id: account_id });
+    .where({ plaid_id: account_id, user_id: userId });
 }
 
+// TODO: refactor this a bit better with try / catch, and combine with function below
+// maybe pull out components to separate functions?
 app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
-  const { access_token, cursor } = req.body;
   console.log('Try getting plaid account transactions ');
+
+  const { access_token, cursor } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
 
   let added = [];
   let modified = [];
@@ -488,18 +506,19 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
       if (found) {
         accountID = found.id;
       } else {
-        accountID = await lookup_plaid_account(account_str);
+        accountID = await lookup_plaid_account(userId, account_str);
         accountArr.push({ name: account_str, id: accountID });
       }
     } else {
-      accountID = await lookup_plaid_account(account_str);
+      accountID = await lookup_plaid_account(userId, account_str);
       accountArr.push({ name: account_str, id: accountID });
     }
 
-    let envID = await lookup_keyword(accountID, a.name, a.date);
+    let envID = await lookup_keyword(userId, accountID, a.name, a.date);
 
     // Check if this is a duplicate
     let isDuplicate = await lookup_if_duplicate(
+      userId,
       accountID,
       a.transaction_id,
       a.date,
@@ -515,6 +534,7 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
     if (matchingRemoved) {
       // Update the existing transaction's transaction_id
       await update_transaction_id(
+        userId,
         access_token,
         matchingRemoved.transaction_id, 
         a.transaction_id,
@@ -524,6 +544,7 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
       );
     } else if (isDuplicate !== 1) {
       await basic_insert_transaction_node(
+        userId,
         accountID,
         -1 * a.amount,
         a.date,
@@ -564,20 +585,21 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
       if (found) {
         accountID = found.id;
       } else {
-        accountID = await lookup_plaid_account(account_str);
+        accountID = await lookup_plaid_account(userId, account_str);
         accountArr.push({ name: account_str, id: accountID });
       }
     } else {
-      accountID = await lookup_plaid_account(account_str);
+      accountID = await lookup_plaid_account(userId, account_str);
       accountArr.push({ name: account_str, id: accountID });
     }
 
-    let envID = await lookup_keyword(accountID, m.name, m.date);
+    let envID = await lookup_keyword(userId, accountID, m.name, m.date);
 
     // Rather than modify it, just remove the old and the new
     await basic_remove_transaction_node(access_token, m.transaction_id);
 
     await basic_insert_transaction_node(
+      userId,
       accountID,
       -1 * m.amount,
       m.date,
@@ -597,8 +619,8 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
 
   // Update cursor
   db('plaid_account')
-    .where('access_token', access_token)
-    .update('cursor', cursor_iter)
+    .where({ access_token: access_token, user_id: userId })
+    .update({ cursor: cursor_iter })
     .catch((err) => console.log('Error: ' + err));
 
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
@@ -607,8 +629,11 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
 // TODO: this can probably be consolidated with the above function
 //       pulling out common tasks to a helper function.
 app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
-  const { access_token, start_date, end_date } = req.body;
   console.log('Try getting plaid account transactions ');
+
+  const { access_token, start_date, end_date } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
 
   let added = [];
 
@@ -665,18 +690,19 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
       if (found) {
         accountID = found.id;
       } else {
-        accountID = await lookup_plaid_account(account_str);
+        accountID = await lookup_plaid_account(userId, account_str);
         accountArr.push({ name: account_str, id: accountID });
       }
     } else {
-      accountID = await lookup_plaid_account(account_str);
+      accountID = await lookup_plaid_account(userId, account_str);
       accountArr.push({ name: account_str, id: accountID });
     }
 
-    let envID = await lookup_keyword(accountID, a.name, a.date);
+    let envID = await lookup_keyword(userId, accountID, a.name, a.date);
 
     // Check if this is a duplicate
     let isDuplicate = await lookup_if_duplicate(
+      userId,
       accountID,
       a.transaction_id,
       a.date,
@@ -686,6 +712,7 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
 
     if (isDuplicate !== 1) {
       await basic_insert_transaction_node(
+        userId,
         accountID,
         -1 * a.amount,
         a.date,
@@ -707,18 +734,27 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
 });
 
+// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
-  const { new_value, filtered_nodes } = req.body;
-    console.log(channels.UPDATE_TX_ENV_LIST);
-    for (let t of filtered_nodes) {
-      await update_tx_env(t.txID, new_value);
-    }
-  }
-);
+  console.log(channels.UPDATE_TX_ENV_LIST);
 
+  const { new_value, filtered_nodes } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
+
+  for (let t of filtered_nodes) {
+    await update_tx_env(userId, t.txID, new_value);
+  }
+});
+
+// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
-  const { del_tx_list } = req.body;
   console.log(channels.DEL_TX_LIST);
+  
+  const { del_tx_list } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
+
   if (db) {
     console.log(del_tx_list);
     for (let t of del_tx_list) {
@@ -731,9 +767,14 @@ app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
   console.log('Sending we are done.');
 });
 
+// TODO: refactor this a bit better with try / catch, etc
 app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
+  console.log(channels.SPLIT_TX);
+
   const { txID, split_tx_list } = req.body;
-  console.log(channels.SPLIT_TX, ' num split: ', split_tx_list?.length);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
+
   if (db) {
     // Lets use a transaction for this
     await db
@@ -752,20 +793,24 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
           )
           .from('transaction')
           .where({ id: txID })
+          .andWhere({ user_id: userId })
           .then(async (data) => {
             if (data?.length) {
               // Delete the original
               await trx('transaction')
                 .delete()
                 .where({ id: txID })
+                .andWhere({'user_id': userId})
                 .then(async () => {
                   // Update the original budget
+                  // TODO: Refactor this once we know the moving budget works
                   await trx
                     .raw(
                       `UPDATE "envelope" SET "balance" = "balance" - ` +
                         data[0].txAmt +
                         ` WHERE "id" = ` +
-                        data[0].envelopeID
+                        data[0].envelopeID +
+                        ` AND "user_id" = ` + userId
                     )
                     .then(async () => {
                       // Loop through each new split
@@ -786,6 +831,7 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
                             isSplit: 1,
                             accountID: data[0].accountID,
                             isVisible: data[0].isVisible,
+                            user_id: userId,
                           })
                           .then(async () => {
                             // Adjust that envelope balance
@@ -793,7 +839,8 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
                               `UPDATE "envelope" SET "balance" = "balance" + ` +
                                 item.txAmt +
                                 ` WHERE "id" = ` +
-                                item.txEnvID
+                                item.txEnvID +
+                                ` AND "user_id" = ` + userId
                             );
                           });
                       }
@@ -810,194 +857,273 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
 });
 
 app.post('/api/'+channels.ADD_ENVELOPE, async (req, res) => {
+  console.log(channels.ADD_ENVELOPE);
+
   const { categoryID } = req.body;
   const auth0Id = req.auth0Id; // Extracted user ID
-  console.log(channels.ADD_ENVELOPE, categoryID);
 
-  const userId = await getUserId(auth0Id);
+  try {
+    const userId = await getUserId(auth0Id);
 
-  await db('envelope')
-    .insert({
-      user_id: userId,
-      categoryID: categoryID,
-      envelope: 'New Envelope',
-      balance: 0,
-      isActive: true,
-    })
-    .then()
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+    await db('envelope')
+      .insert({
+        user_id: userId,
+        categoryID: categoryID,
+        envelope: 'New Envelope',
+        balance: 0,
+        isActive: true,
+        user_id: userId,
+      }); 
+
+    res.status(200).send('Added envelope successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.ADD_CATEGORY, async (req, res) => {
-  const { name } = req.body;
-  console.log(channels.ADD_CATEGORY, name);
+  console.log(channels.ADD_CATEGORY);
 
-  await db('category')
-    .insert({ category: name })
-    .then()
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  const { name } = req.body;
+  const auth0Id = req.auth0Id; // Extracted user ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('category')
+      .insert({
+        category: name,
+        user_id: userId,
+      });
+     
+    res.status(200).send('Added category successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.DEL_CATEGORY, async (req, res) => {
+  console.log(channels.DEL_CATEGORY);
+
   const { id } = req.body;
-  console.log(channels.DEL_CATEGORY, id);
+  const auth0Id = req.auth0Id; // Extracted user ID
 
-  // Move any sub-envelopes to Uncategorized
-  const uncategorizedID = await lookup_uncategorized();
+  try {
+    const userId = await getUserId(auth0Id);
 
-  await db('envelope')
-    .where('categoryID', id)
-    .update('categoryID', uncategorizedID)
-    .then(async () => {
-      await db('category')
-        .where({ id: id })
-        .del()
-        .then()
-        .catch((err) => console.log('Error: ' + err));
-    })
-    .catch((err) => console.log('Error: ' + err));
+    // Move any sub-envelopes to Uncategorized
+    const uncategorizedID = await lookup_uncategorized(userId);
+
+    await db.transaction(async (trx) => {
+      await trx('envelope')
+        .where({ categoryID: id, user_id: userId })
+        .update({ categoryID: uncategorizedID });
+
+      await trx('category')
+        .where({ id: id, user_id: userId })
+        .del();
+    });
+     
+    res.status(200).send('Deleted category successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.DEL_ENVELOPE, async (req, res) => {
+  console.log(channels.DEL_ENVELOPE);
+
   const { id } = req.body;
-  console.log(channels.DEL_ENVELOPE, id);
+  const auth0Id = req.auth0Id; // Extracted user ID
 
-  await db('envelope')
-    .where({ id: id })
-    .delete()
-    .then()
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  try {
+    const userId = await getUserId(auth0Id);
 
-  await db('transaction')
-    .where({ envelopeID: id })
-    .update({ envelopeID: -1 })
-    .then()
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+    await db.transaction(async (trx) => {
+      await trx('transaction')
+        .where({ envelopeID: id, user_id: userId })
+        .update({ envelopeID: -1 });
 
-  await db('keyword')
-    .where({ envelopeID: id })
-    .delete()
-    .then()
-    .catch((err) => {
-      console.log('Error: ' + err);
+      await trx('keyword')
+        .where({ envelopeID: id, user_id: userId })
+        .delete();
+      
+      await trx('envelope')
+        .where({ id: id, user_id: userId })
+        .delete();
     });
+      
+    res.status(200).send('Deleted envelope successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.HIDE_ENVELOPE, async (req, res) => {
-  const { id } = req.body;
-  console.log(channels.HIDE_ENVELOPE, id);
+  console.log(channels.HIDE_ENVELOPE);
 
-  await db('envelope')
-    .where({ id: id })
-    .update({ isActive: false })
-    .then()
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  const { id } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('envelope')
+      .where({ id: id, user_id: userId })
+      .update({ isActive: false });
+
+    res.status(200).send('Hid envelope successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.REN_CATEGORY, async (req, res) => {
-  const { id, name } = req.body;
-  console.log(channels.REN_CATEGORY, id, name);
+  console.log(channels.REN_CATEGORY);
 
-  await db('category')
-    .where({ id: id })
-    .update({ category: name })
-    .then(() => {
-      console.log('Renamed category: ' + name);
-    })
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  const { id, name } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('category')
+      .where({ id: id, user_id: userId })
+      .update({ category: name });
+  
+    res.status(200).send('Renamed category to ' + name + ' successfully');
+    
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.REN_ENVELOPE, async (req, res) => {
-  const { id, name } = req.body;
-  console.log(channels.REN_ENVELOPE, id, name);
+  console.log(channels.REN_ENVELOPE);
 
-  db('envelope')
-    .where({ id: id })
-    .update({ envelope: name })
-    .then(() => {
-      console.log('Renamed envelope: ' + name);
-    })
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  const { id, name } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('envelope')
+      .where({ id: id, user_id: userId })
+      .update({ envelope: name });
+
+    res.status(200).send('Renamed envelope to ' + name + ' successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.MOV_ENVELOPE, async (req, res) => {
-  const { id, newCatID } = req.body;
-  console.log(channels.MOV_ENVELOPE, id, newCatID);
+  console.log(channels.MOV_ENVELOPE);
 
-  db('envelope')
-    .where({ id: id })
-    .update({ categoryID: newCatID })
-    .then(() => {
-      console.log('Moved envelope to: ' + newCatID);
-    })
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  const { id, newCatID } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('envelope')
+      .where({ id: id, user_id: userId })
+      .update({ categoryID: newCatID });
+
+    res.status(200).send('Moved envelope to ' + newCatID + ' successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.COPY_BUDGET, async (req, res) => {
+  console.log(channels.COPY_BUDGET);
+
   const { newtxDate, budget_values } = req.body;
-  console.log(channels.COPY_BUDGET, newtxDate, budget_values);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
+
   for (let item of budget_values) {
-    await set_or_update_budget_item(item.envID, newtxDate, item.value);
+    await set_or_update_budget_item(userId, item.envID, newtxDate, item.value);
   }
 });
 
 app.post('/api/'+channels.UPDATE_BUDGET, async (req, res) => {
+  console.log(channels.UPDATE_BUDGET);
+
   const { newEnvelopeID, newtxDate, newtxAmt } = req.body;
-  console.log(channels.UPDATE_BUDGET, newEnvelopeID, newtxDate, newtxAmt);
-  await set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
+
+  await set_or_update_budget_item(userId, newEnvelopeID, newtxDate, newtxAmt);
 });
 
 app.post('/api/'+channels.UPDATE_BALANCE, async (req, res) => {
-  const { id, newAmt } = req.body;
-  console.log(channels.UPDATE_BALANCE, id, newAmt);
+  console.log(channels.UPDATE_BALANCE);
 
-  db('envelope')
-    .update({ balance: newAmt })
-    .where({ id: id })
-    .then()
-    .catch((err) => {
-      console.log('Error updating balance: ' + err);
-    });
+  const { id, newAmt } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('envelope')
+      .update({ balance: newAmt })
+      .where({ id: id, user_id: userId });
+
+    res.status(200).send('Balance updated successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
+  console.log(channels.MOVE_BALANCE);
+
   const { transferAmt, fromID, toID } = req.body;
-  console.log(channels.MOVE_BALANCE, transferAmt, fromID, toID);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
-  db.raw(
-    `update "envelope" set "balance" = "balance" - ` +
-      transferAmt +
-      ` where "id" = ` +
-      fromID
-  ).then();
+  // TODO: Check to make sure moving balances works after changing this
+  try {
+    const userId = await getUserId(auth0Id);
 
-  db.raw(
-    `update "envelope" set "balance" = "balance" + ` +
-      transferAmt +
-      ` where "id" = ` +
-      toID
-  ).then();
+    await db.transaction(async (trx) => {
+      await trx('envelope')
+        .where({ id: fromID, user_id: userId })
+        .update({
+          balance: db.raw('balance - ?', [transferAmt])
+        });
+
+      await trx('envelope')
+        .where({ id: toID, user_id: userId })
+        .update({
+          balance: db.raw('balance + ?', [transferAmt])
+        });
+    });
+
+    res.status(200).send('Balance transferred successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 // Get the categories and envelopes
 app.post('/api/'+channels.GET_CAT_ENV, async (req, res) => {
-  console.log(channels.GET_CAT_ENV + " ENTER");
+  console.log(channels.GET_CAT_ENV);
 
   const { onlyActive } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -1005,29 +1131,61 @@ app.post('/api/'+channels.GET_CAT_ENV, async (req, res) => {
   try {
     const userId = await getUserId(auth0Id);
     
+    let query = db
+      .select(
+        'category.id as catID',
+        'category.category',
+        'envelope.id as envID',
+        'envelope.envelope',
+        'envelope.balance as currBalance',
+        'envelope.isActive'
+      )
+      .from('category')
+      .leftJoin('envelope', function () {
+        this.on('category.id', '=', 'envelope.categoryID')
+          .andOn('envelope.user_id', '=', db.raw(`?`, [userId]));
+      })
+      .where({ 'category.user_id': userId})
+      .orderBy('category.id');
+
+    if (onlyActive === 1) {
+      query.where('envelope.isActive', 1);
+    }
+
+    const data = await query;
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+app.post('/api/'+channels.GET_BUDGET_ENV, async (req, res) => {
+  console.log(channels.GET_BUDGET_ENV);
+
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
     if (db) {
-      let query = db
+      const data = await db
         .select(
           'category.id as catID',
           'category.category',
           'envelope.id as envID',
           'envelope.envelope',
-          'envelope.balance as currBalance',
-          'envelope.isActive'
+          'envelope.balance as currBalance'
         )
-        .from('category')
-        .leftJoin('envelope', function () {
+        .from('envelope')
+        .leftJoin('category', function () {
           this.on('category.id', '=', 'envelope.categoryID')
-            .andOn('envelope.user_id', '=',db.raw(`?`, [userId]));
+            .andOn('category.user_id', '=', db.raw(`?`, [userId]))
         })
-        .where('category.user_id', '=',db.raw(`?`, [userId]))
+        .where({ 'envelope.isActive': true, 'envelope.user_id': userId })
         .orderBy('category.id');
-
-      if (onlyActive === 1) {
-        query.where('envelope.isActive', 1);
-      }
-
-      const data = await query;
+      
       res.json(data);
     }
   } catch (err) {
@@ -1036,146 +1194,174 @@ app.post('/api/'+channels.GET_CAT_ENV, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_BUDGET_ENV, (req, res) => {
-  console.log(channels.GET_BUDGET_ENV);
-  if (db) {
-    db.select(
-      'category.id as catID',
-      'category.category',
-      'envelope.id as envID',
-      'envelope.envelope',
-      'envelope.balance as currBalance'
-    )
-      .from('envelope')
-      .leftJoin('category', function () {
-        this.on('category.id', '=', 'envelope.categoryID');
-      })
-      .where('envelope.isActive', true)
-      .orderBy('category.id')
-      .then((data) => {
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
+app.post('/api/'+channels.GET_PREV_BUDGET, async (req, res) => {
+  console.log(channels.GET_PREV_BUDGET);
+
+  const { find_date } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    const data = await db
+      .select('envelopeID', 'txAmt')
+      .from('transaction')
+      .orderBy('envelopeID')
+      .where({ isBudget: 1, txDate: find_date, user_id: userId });
+
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
-app.post('/api/'+channels.GET_PREV_BUDGET, (req, res) => {
+app.post('/api/'+channels.GET_CUR_BUDGET, async (req, res) => {
+  console.log(channels.GET_CUR_BUDGET);
+
   const { find_date } = req.body;
-  console.log(channels.GET_PREV_BUDGET);
-  db.select('envelopeID', 'txAmt')
-    .from('transaction')
-    .orderBy('envelopeID')
-    .where({ isBudget: 1 })
-    .andWhere({ txDate: find_date })
-    .then((data) => {
-      res.json(data);
-    })
-    .catch((err) => console.log(err));
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    const data = await db
+      .select('envelopeID', 'txAmt')
+      .from('transaction')
+      .orderBy('envelopeID')
+      .where({ isBudget: 1, txDate: find_date, user_id: userId });
+
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-app.post('/api/'+channels.GET_CUR_BUDGET, (req, res) => {
-  const { find_date } = req.body;
-  console.log(channels.GET_CUR_BUDGET, find_date);
-  db.select('envelopeID', 'txAmt')
-    .from('transaction')
-    .orderBy('envelopeID')
-    .where({ isBudget: 1 })
-    .andWhere({ txDate: find_date })
-    .then((data) => {
-      res.json(data);
-    })
-    .catch((err) => console.log(err));
-});
-
-app.post('/api/'+channels.GET_PREV_ACTUAL, (req, res) => {
-  const { find_date } = req.body;
+app.post('/api/'+channels.GET_PREV_ACTUAL, async (req, res) => {
   console.log(channels.GET_PREV_ACTUAL);
 
-  const month = dayjs(new Date(find_date)).format('MM');
-  const year = dayjs(new Date(find_date)).format('YYYY');
-
-  let query = db.select('envelopeID')
-    .sum({ totalAmt: 'txAmt' })
-    .from('transaction')
-    .orderBy('envelopeID')
-    .where({ isBudget: 0 })
-    .andWhere({ isDuplicate: 0 })
-    .andWhere({ isVisible: true })
-    .groupBy('envelopeID');
-    
-  // PostgreSQL specific
-  query = query
-    .andWhereRaw(`EXTRACT(MONTH FROM "txDate") = ?`, [month])
-    .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
+  const { find_date } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
   
-  query.then((data) => {
+  try {
+    const userId = await getUserId(auth0Id);
+
+    const month = dayjs(new Date(find_date)).format('MM');
+    const year = dayjs(new Date(find_date)).format('YYYY');
+
+    let query = db.select('envelopeID')
+      .sum({ totalAmt: 'txAmt' })
+      .from('transaction')
+      .orderBy('envelopeID')
+      .where({ isBudget: 0, isDuplicate: 0, isVisible: true, user_id: userId })
+      .groupBy('envelopeID');
+      
+    // PostgreSQL specific
+    query = query
+      .andWhereRaw(`EXTRACT(MONTH FROM "txDate") = ?`, [month])
+      .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
+  
+    const data = await query;
     res.json(data);
-  }).catch((err) => console.log(err));
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-app.post('/api/'+channels.GET_CUR_ACTUAL, (req, res) => {
-  const { find_date } = req.body;
+app.post('/api/'+channels.GET_CUR_ACTUAL, async (req, res) => {
   console.log(channels.GET_CUR_ACTUAL);
 
-  const month = dayjs(new Date(find_date)).format('MM');
-  const year = dayjs(new Date(find_date)).format('YYYY');
-
-  let query = db.select('envelopeID')
-    .sum({ totalAmt: 'txAmt' })
-    .from('transaction')
-    .where({ isBudget: 0 })
-    .andWhere({ isDuplicate: 0 })
-    .andWhere({ isVisible: true })
-    .groupBy('envelopeID')
-    .orderBy('envelopeID');
-
-  // PostgreSQL specific
-  query = query
-    .andWhereRaw(`EXTRACT(MONTH FROM "txDate") = ?`, [month])
-    .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
-  
-  query.then((data) => {
-    res.json(data);
-  }).catch((err) => console.log(err));
-});
-
-app.post('/api/'+channels.GET_CURR_BALANCE, (req, res) => {
-  console.log(channels.GET_CURR_BALANCE);
-
-  db.select('id', 'balance')
-    .from('envelope')
-    .orderBy('id')
-    .then((data) => {
-      res.json(data);
-    })
-    .catch((err) => console.log(err));
-});
-
-app.post('/api/'+channels.GET_MONTHLY_AVG, (req, res) => {
   const { find_date } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    const month = dayjs(new Date(find_date)).format('MM');
+    const year = dayjs(new Date(find_date)).format('YYYY');
+
+    let query = db.select('envelopeID')
+      .sum({ totalAmt: 'txAmt' })
+      .from('transaction')
+      .where({ isBudget: 0, isDuplicate: 0, isVisible: true, user_id: userId })
+      .groupBy('envelopeID')
+      .orderBy('envelopeID');
+
+    // PostgreSQL specific
+    query = query
+      .andWhereRaw(`EXTRACT(MONTH FROM "txDate") = ?`, [month])
+      .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
+
+    const data = await query;
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+app.post('/api/'+channels.GET_CURR_BALANCE, async (req, res) => {
+  console.log(channels.GET_CURR_BALANCE);
+  
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    const data = await db.select('id', 'balance')
+      .from('envelope')
+      .where({ user_id: userId })
+      .orderBy('id');
+
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  } 
+});
+
+app.post('/api/'+channels.GET_MONTHLY_AVG, async (req, res) => {
   console.log(channels.GET_MONTHLY_AVG);
 
-  let query = db.select('envelopeID')
-    .sum({ totalAmt: 'txAmt' })
-    .min({ firstDate: 'txDate' })
-    .from('transaction')
-    .orderBy('envelopeID')
-    .where({ isBudget: 0 })
-    .andWhere({ isDuplicate: 0 })
-    .andWhere({ isVisible: true })
-    .groupBy('envelopeID');
-
-  // PostgreSQL specific
-  query = query.andWhereRaw(`?::date - "txDate" < 365`, [find_date])
-    .andWhereRaw(`?::date - "txDate" > 0`, [find_date]);
+  const { find_date } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
   
-  query.then((data) => {
+  try {
+    const userId = await getUserId(auth0Id);
+
+    let query = db
+      .select('envelopeID')
+      .sum({ totalAmt: 'txAmt' })
+      .min({ firstDate: 'txDate' })
+      .from('transaction')
+      .orderBy('envelopeID')
+      .where({ isBudget: 0, isDuplicate: 0, isVisible: true, user_id: userId })
+      .groupBy('envelopeID');
+
+    // PostgreSQL specific
+    query = query
+      .andWhereRaw(`?::date - "txDate" < 365`, [find_date])
+      .andWhereRaw(`?::date - "txDate" > 0`, [find_date]);
+  
+    const data = await query;
     res.json(data);
-  })
-  .catch((err) => console.log(err));
+  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  } 
 });
 
-app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
+app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
+  console.log(channels.GET_TX_DATA);
+
   const {
     filterStartDate,
     filterEndDate,
@@ -1185,18 +1371,11 @@ app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
     filterDesc,
     filterAmount,
   } = req.body;
-  console.log(
-    channels.GET_TX_DATA,
-    filterStartDate,
-    filterEndDate,
-    filterCatID,
-    filterEnvID,
-    filterAccID,
-    filterDesc,
-    filterAmount
-  );
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
-  if (db) {
+  try {
+    const userId = await getUserId(auth0Id);
+
     let query = db
       .select(
         'transaction.id as txID',
@@ -1216,13 +1395,16 @@ app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
       )
       .from('transaction')
       .leftJoin('envelope', function () {
-        this.on('envelope.id', '=', 'transaction.envelopeID');
+        this.on('envelope.id', '=', 'transaction.envelopeID')
+          .andOn('envelope.user_id', '=', db.raw(`?`, [userId]))
       })
       .leftJoin('category', function () {
-        this.on('category.id', '=', 'envelope.categoryID');
+        this.on('category.id', '=', 'envelope.categoryID')
+          .andOn('category.user_id', '=', db.raw(`?`, [userId]))
       })
       .leftJoin('account', function () {
-        this.on('account.id', '=', 'transaction.accountID');
+        this.on('account.id', '=', 'transaction.accountID')
+        .andOn('account.user_id', '=', db.raw(`?`, [userId]))
       })
       .leftJoin('keyword', function () {
         //this.on('keyword.description', '=', 'transaction.description');
@@ -1235,37 +1417,38 @@ app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
           'transaction.description',
           'like',
           'keyword.description'
-        ).andOn(function () {
-          this.onVal('keyword.account', '=', 'All').orOn(
-            'keyword.account',
-            'account.account'
-          );
-        });
+        )
+        .andOn(function () {
+          this
+            .onVal('keyword.account', '=', 'All')
+            .orOn('keyword.account','account.account');
+        })
+        .andOn('keyword.user_id', '=', db.raw(`?`, [userId]))
       })
-      .where({ isBudget: 0 })
+      .where({ isBudget: 0, 'transaction.user_id': userId })
       .orderBy('transaction.txDate', 'desc');
 
     if (parseInt(filterEnvID) > -2) {
-      query = query.andWhere('transaction.envelopeID', filterEnvID);
+      query = query.andWhere({ 'transaction.envelopeID': filterEnvID });
     } else {
       if (parseInt(filterEnvID) > -3) {
         query = query.andWhere(function () {
-          this.where('transaction.envelopeID', -1)
-          .orWhere('envelope.isActive', false);
+          this.where({ 'transaction.envelopeID': -1 })
+          .orWhere({ 'envelope.isActive': false });
         });
       }
     }
     if (parseInt(filterCatID) > -1) {
-      query = query.andWhere('envelope.categoryID', filterCatID);
+      query = query.andWhere({'envelope.categoryID': filterCatID });
     }
     if (filterAccID !== -1 && filterAccID !== '-1' && filterAccID !== 'All') {
-      query = query.andWhere('account.account', filterAccID);
+      query = query.andWhere({'account.account': filterAccID });
     }
     if (filterDesc?.length) {
       filterDesc = '%' + filterDesc + '%';
       query = query.andWhereRaw(
         `"transaction"."description" LIKE ?`,
-        filterDesc
+        [filterDesc]
       );
     }
     if (filterStartDate) {
@@ -1279,49 +1462,69 @@ app.post('/api/'+channels.GET_TX_DATA, (req, res) => {
     if (filterAmount?.length) {
       query = query.andWhereRaw(
         `"transaction"."txAmt" = ?`,
-        parseFloat(filterAmount)
+        [parseFloat(filterAmount)]
       );
     }
 
-    query
-      .then((data) => {
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
+    const data = await query;
+    res.json(data);
+  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
 app.post('/api/'+channels.ADD_TX, async (req, res) => {
-  const { data } = req.body;
   console.log(channels.ADD_TX);
 
-  // Prepare the data node
-  const myNode = {
-    envelopeID: data.txEnvID,
-    txAmt: data.txAmt,
-    txDate: data.txDate,
-    description: data.txDesc,
-    refNumber: '',
-    isBudget: 0,
-    origTxID: 0,
-    isDuplicate: 0,
-    isSplit: 0,
-    accountID: data.txAccID,
-    isVisible: true,
-  };
+  const { data } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
 
-  // Insert the node
-  await db('transaction').insert(myNode);
+    // Prepare the data node
+    const myNode = {
+      envelopeID: data.txEnvID,
+      txAmt: data.txAmt,
+      txDate: data.txDate,
+      description: data.txDesc,
+      refNumber: '',
+      isBudget: 0,
+      origTxID: 0,
+      isDuplicate: 0,
+      isSplit: 0,
+      accountID: data.txAccID,
+      isVisible: true,
+      user_id: userId,
+    };
 
-  // Update the envelope balance
-  await update_env_balance(data.txEnvID, data.txAmt);
+    // Insert the node
+    await db.transaction(async (trx) => {
+      await trx('transaction').insert(myNode);
+
+      // Update the envelope balance
+      await update_env_balance(trx, userId, data.txEnvID, data.txAmt);
+    });
+
+    res.status(200).send('Added transaction successfully.');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.GET_ENV_LIST, async (req, res) => {
-  const { onlyActive } = req.body;
   console.log(channels.GET_ENV_LIST);
 
-  if (db) {
+  const { onlyActive } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+    
     let query = db
       .select(
         'envelope.id as envID',
@@ -1330,349 +1533,551 @@ app.post('/api/'+channels.GET_ENV_LIST, async (req, res) => {
       )
       .from('envelope')
       .leftJoin('category', function () {
-        this.on('category.id', '=', 'envelope.categoryID');
+        this
+          .on('category.id', '=', 'envelope.categoryID')
+          .andOn('category.user_id', '=',db.raw(`?`, [userId]));
       })
+      .where({ 'envelope.user_id': userId })
       .orderBy('category.category', 'envelope.envelope');
 
     if (onlyActive === 1) {
       query.where('envelope.isActive', true);
     }
 
-    query
-      .then((data) => {
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
+    const data = await query;
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
 app.post('/api/'+channels.UPDATE_TX_ENV, async (req, res) => {
+  console.log(channels.UPDATE_TX_ENV);
+
   const { txID, envID } = req.body;
-  console.log(channels.UPDATE_TX_ENV, txID, envID);
-  await update_tx_env(txID, envID);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+    await update_tx_env(userId, txID, envID);
+
+    res.status(200).send('Updated transaction envelope successfully.');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.UPDATE_TX_DESC, async (req, res) => {
-  const { txID, new_value } = req.body;
-  console.log(channels.UPDATE_TX_DESC, txID, new_value);
+  console.log(channels.UPDATE_TX_DESC);
 
-  db('transaction')
-    .where({ id: txID })
-    .update({ description: new_value })
-    .then()
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  const { txID, new_value } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('transaction')
+      .where({ id: txID, user_id: userId })
+      .update({ description: new_value });
+
+    res.status(200).send('Updated transaction description successfully.');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.UPDATE_TX_DATE, async (req, res) => {
-  const { txID, new_value } = req.body;
-  console.log(channels.UPDATE_TX_DATE, txID, new_value);
+  console.log(channels.UPDATE_TX_DATE);
 
-  db('transaction')
-    .where({ id: txID })
-    .update({ txDate: new_value })
-    .then()
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  const { txID, new_value } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('transaction')
+      .where({ id: txID, user_id: userId })
+      .update({ txDate: new_value });
+
+    res.status(200).send('Updated transaction date successfully.');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.SAVE_KEYWORD, async (req, res) => {
-  const { acc, envID, description } = req.body;
-  console.log(channels.SAVE_KEYWORD, acc, envID, description);
+  console.log(channels.SAVE_KEYWORD);
 
-  db.from('keyword')
-    .delete()
-    .where({ description: description })
-    .then(() => {
+  const { acc, envID, description } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db.transaction(async (trx) => {
+      await trx('keyword')
+        .delete()
+        .where({ description: description, user_id: userId });
+      
       const node = {
         account: acc,
         envelopeID: envID,
         description: description,
+        user_id: userId,
       };
 
-      db('keyword')
-        .insert(node)
-        .then()
-        .catch((err) => {
-          console.log('Error: ' + err);
-        });
-    })
-    .catch((err) => {
-      console.log('Error: ' + err);
+      await trx('keyword').insert(node);
     });
+
+    res.status(200).send('Keyword saved successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.SET_DUPLICATE, async (req, res) => {
+  console.log(channels.SET_DUPLICATE);
+
   const { txID, isDuplicate } = req.body;
-  console.log(channels.SET_DUPLICATE, txID, isDuplicate);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
-  await db('transaction')
-    .update({ isDuplicate: isDuplicate })
-    .where({ id: txID })
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  try {
+    const userId = await getUserId(auth0Id);
 
-  // Need to adjust envelope balance
-  await adjust_balance(txID, isDuplicate ? 'rem' : 'add');
+    await db('transaction')
+      .update({ isDuplicate: isDuplicate })
+      .where({ id: txID, user_id: userId });
+
+    // Need to adjust envelope balance
+    await adjust_balance(txID, isDuplicate ? 'rem' : 'add');
+
+    res.status(200).send('Set as duplicate successfully.');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.SET_VISIBILITY, async (req, res) => {
+  console.log(channels.SET_VISIBILITY);
+
   const { txID, isVisible } = req.body;
-  console.log(channels.SET_VISIBILITY, txID, isVisible);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
-  await db('transaction')
-    .update({ isVisible: isVisible })
-    .where({ id: txID })
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+  try {
+    const userId = await getUserId(auth0Id);
 
-  // Need to adjust envelope balance
-  await adjust_balance(txID, isVisible ? 'add' : 'rem');
+    await db('transaction')
+      .update({ isVisible: isVisible })
+      .where({ id: txID, user_id: userId });
+
+    // Need to adjust envelope balance
+    await adjust_balance(txID, isVisible ? 'add' : 'rem');
+
+    res.status(200).send('Set visibility successfully.');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.GET_KEYWORDS, async (req, res) => {
   console.log(channels.GET_KEYWORDS);
-  if (db) {
-    db.select(
-      'keyword.id',
-      'keyword.envelopeID',
-      'description',
-      'category',
-      'envelope',
-      'account',
-      'last_used'
-    )
-      .from('keyword')
+  
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+  
+    const data = await db('keyword')
+      .select(
+        'keyword.id',
+        'keyword.envelopeID',
+        'description',
+        'category',
+        'envelope',
+        'account',
+        'last_used'
+      )
       .leftJoin('envelope', function () {
-        this.on('keyword.envelopeID', '=', 'envelope.id');
+        this.on('keyword.envelopeID', '=', 'envelope.id')
+        .andOn('envelope.user_id', '=' ,db.raw(`?`, [userId]));
+
       })
       .leftJoin('category', function () {
-        this.on('category.id', '=', 'envelope.categoryID');
+        this.on('category.id', '=', 'envelope.categoryID')
+        .andOn('category.user_id', '=', db.raw(`?`, [userId]));
       })
-      .then((data) => {
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
+      .where({ 'keyword.user_id': userId });
+
+      res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
 app.post('/api/'+channels.GET_ACCOUNT_NAMES, async (req, res) => {
   console.log(channels.GET_ACCOUNT_NAMES);
-  if (db) {
-    db.select('account')
-      .from('account')
+
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    const data = await db('account')
+      .select('account')
+      .where({ user_id: userId })
       .orderBy('account')
-      .groupBy('account')
-      .then((data) => {
-        res.json(data);
-      })
-      .catch((err) => console.log(err));
+      .groupBy('account');
+    
+    res.json(data);
+  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
 app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
   console.log(channels.GET_ACCOUNTS);
-  if (db) {
+
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+
     const find_date = dayjs(new Date()).format('YYYY-MM-DD');
-    let query = db.select('account.id', 'account.refNumber', 'account', 'isActive')
+
+    let query = db('account')
+      .select('account.id', 'account.refNumber', 'account', 'isActive')
       .max({ lastTx: 'txDate' })
       .count({ numTx: 'txDate' })
-      .from('account')
       .leftJoin('transaction', function () {
-        this.on('account.id', '=', 'transaction.accountID')
-          .on('transaction.isBudget', '=', 0)
-          .on('transaction.isDuplicate', '=', 0);
-        // PostgreSQL specific
-        this.on(db.raw(`?::date - "txDate" >= 0`, [find_date]));
-        this.on(db.raw(`"transaction"."isVisible" = true`));
+        this
+          .on('account.id', '=', 'transaction.accountID')
+          .andOn('transaction.user_id', '=', db.raw(`?`, [userId]))
+          .andOn('transaction.isBudget', '=', 0)
+          .andOn('transaction.isDuplicate', '=', 0);
+        
+          // PostgreSQL specific
+        this.andOn(db.raw(`?::date - "txDate" >= 0`, [find_date]));
+        this.andOn(db.raw(`"transaction"."isVisible" = true`));
       })
+      .where({ 'account.user_id': userId})
       .orderBy('account.id')
       .groupBy('account.id', 'account.refNumber', 'account', 'isActive');
-    query.then((data) => {
-      res.json(data);
-    }).catch((err) => console.log(err));
+    
+    const data = await query;
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
 });
 
 app.post('/api/'+channels.UPDATE_KEYWORD_ENV, async (req, res) => {
+  console.log(channels.GET_KEYWORDS);
+
   const { id, new_value } = req.body;
-  console.log(channels.GET_KEYWORDS, { id, new_value });
-  db('keyword')
-    .update({ envelopeID: new_value })
-    .where({ id: id })
-    .catch((err) => console.log(err));
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('keyword')
+      .update({ envelopeID: new_value })
+      .where({ id: id, user_id: userId });
+
+    res.status(200).send('Updated keyword envelope successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.UPDATE_KEYWORD_ACC, async (req, res) => {
+  console.log(channels.UPDATE_KEYWORD_ACC);
+
   const { id, new_value } = req.body;
-  console.log(channels.UPDATE_KEYWORD_ACC, { id, new_value });
-  db('keyword')
-    .update({ account: new_value })
-    .where({ id: id })
-    .catch((err) => console.log(err));
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+    
+    await db('keyword')
+      .update({ account: new_value })
+      .where({ id: id, user_id: userId });
+
+    res.status(200).send('Updated keyword account successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
+// TODO: refactor this with transactions
 app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
+  console.log(channels.SET_ALL_KEYWORD);
+
   const { id, force } = req.body;
-  console.log(channels.SET_ALL_KEYWORD, { id });
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
 
-  db.select('envelopeID', 'description', 'account')
-    .from('keyword')
-    .where({ id: id })
-    .then((data) => {
-      let query = db('transaction')
-        .update({ envelopeID: data[0].envelopeID })
-        .whereRaw(`"description" LIKE ?`, data[0].description);
+    await db('keyword')
+      .select('envelopeID', 'description', 'account')
+      .where({ id: id, user_id: userId })
+      .then((data) => {
+        let query = db('transaction')
+          .update({ envelopeID: data[0].envelopeID })
+          .whereRaw(`"description" LIKE ?`, [data[0].description])
+          .andWhere({ user_id: userId });
 
-      if (data[0].account !== 'All') {
-        query = query.andWhere({
-          accountID: db('account')
-            .select('id')
-            .where('account', data[0].account),
-        });
-      }
+        if (data[0].account !== 'All') {
+          query = query
+            .andWhere({
+              accountID: db('account')
+                .select('id')
+                .where({ 'account': data[0].account, user_id: userId })
+            });
+        }
 
-      if (force === 0) {
-        query = query.andWhere({ envelopeID: -1 });
-      }
-      query.then();
-    })
-    .catch((err) => console.log(err));
+        if (force === 0) {
+          query = query.andWhere({ envelopeID: -1 });
+        }
+
+        // TODO: do I really need the ".then()"?
+        query.then();
+      });
+
+    res.status(200).send('Set all keywords successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.DEL_KEYWORD, async (req, res) => {
-  const { id } = req.body;
-  console.log(channels.DEL_KEYWORD, { id });
+  console.log(channels.DEL_KEYWORD);
 
-  await db('keyword')
-    .delete()
-    .where({ id: id })
-    .catch((err) => console.log(err));
+  const { id } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('keyword')
+      .delete()
+      .where({ id: id, user_id: userId });
+
+    res.status(200).send('Deleted keyword successfully');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.UPDATE_KEYWORD, async (req, res) => {
+  console.log(channels.UPDATE_KEYWORD);
+
   const { id, new_value } = req.body;
-  console.log(channels.UPDATE_KEYWORD, { id, new_value });
-  db('keyword')
-    .update({ description: new_value })
-    .where({ id: id })
-    .catch((err) => console.log(err));
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('keyword')
+      .update({ description: new_value })
+      .where({ id: id, user_id: userId });
+
+    res.status(200).send('Updated keyword successfully');
+  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
-app.post('/api/'+channels.UPDATE_ACCOUNT, (req, res) => {
+app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
+  console.log(channels.UPDATE_ACCOUNT);
+
   const { id, new_value } = req.body;
-  console.log(channels.UPDATE_ACCOUNT, { id, new_value });
-  db('account')
-    .update({ account: new_value })
-    .where({ id: id })
-    .catch((err) => console.log(err));
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('account')
+      .update({ account: new_value })
+      .where({ id: id, user_id: userId });
+
+    res.status(200).send('Updated account successfully');
+  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
+  console.log(channels.VIS_ACCOUNT);
+
   const { id, value } = req.body;
-  console.log(channels.VIS_ACCOUNT, { id, value });
-  await db('account')
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db('account')
     .update({ isActive: value })
-    .where({ id: id })
-    .catch((err) => console.log(err));
+    .where({ id: id, user_id: userId });
+
+    res.status(200).send('Updated account visibility successfully');
+  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
-  const { id } = req.body;
-  console.log(channels.DEL_ACCOUNT, { id });
+  console.log(channels.DEL_ACCOUNT);
 
-  await db.transaction(async (trx) => {
-    // Get the account info
-    await trx
-      .select('id', 'account', 'refNumber', 'plaid_id')
-      .from('account')
-      .where({ id: id })
-      .then(async (data) => {
-        if (data?.length) {
-          // Delete the original
-          await trx('account')
-            .delete()
-            .where({ id: id })
-            .then(async () => {
-              // Not sure if we want to delete the plaid account
-              // We would be leaving the account login
-              // If we delete the account login as well, it would remove the login
-              // for all accounts of this institution.
-              // Seems like it would be best to disconnect
-              // the plaid account from this account, and
-              // let the user remove the plaid portion from the configPlaid page.
-              //if (data[0].plaid_id?.length) {
-              // delete the plaid account if it exists
-              //await trx('plaid_account')
-              //  .delete()
-              //  .where({ account_id: data[0].plaid_id });
-              //}
-            });
-        }
-      });
-  });
+  const { id } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    await db.transaction(async (trx) => {
+      // Get the account info
+      await trx
+        .select('id', 'account', 'refNumber', 'plaid_id')
+        .from('account')
+        .where({ id: id, user_id: userId })
+        .then(async (data) => {
+          if (data?.length) {
+            // Delete the original
+            await trx('account')
+              .delete()
+              .where({ id: id, user_id: userId })
+              .then(async () => {
+                // Not sure if we want to delete the plaid account
+                // We would be leaving the account login
+                // If we delete the account login as well, it would remove the login
+                // for all accounts of this institution.
+                // Seems like it would be best to disconnect
+                // the plaid account from this account, and
+                // let the user remove the plaid portion from the configPlaid page.
+                //if (data[0].plaid_id?.length) {
+                // delete the plaid account if it exists
+                //await trx('plaid_account')
+                //  .delete()
+                //  .where({ account_id: data[0].plaid_id });
+                //}
+              });
+          }
+        });
+    });
+    
+    res.status(200).send('Deleted account successfully');
+  
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post('/api/'+channels.GET_ENV_CHART_DATA, async (req, res) => {
+  console.log(channels.GET_ENV_CHART_DATA);
+
   const { filterEnvID, filterTimeFrameID } = req.body;
-  console.log(channels.GET_ENV_CHART_DATA, filterEnvID);
-
-  const find_date = dayjs(new Date()).format('YYYY-MM-DD');
-
-  const filterType = filterEnvID.substr(0, 3);
-  const envID = filterEnvID.substr(3);
-
-  let query = db('transaction')
-    .select({
-      month: db.raw(`TO_CHAR("txDate", 'YYYY/MM')`),
-      isBudget: 'isBudget',
-    })
-    .sum({ totalAmt: 'txAmt' })
-    .where({ isDuplicate: 0 })
-    .andWhere({ isVisible: true })
-    .groupBy('month', 'isBudget')
-    .orderBy('month');
-
-  // PostgreSQL specific
-  query = query.andWhereRaw(`?::date - "txDate" < ?`, [
-      find_date,
-      365 * filterTimeFrameID,
-    ])
-    .andWhereRaw(`?::date - "txDate" > 0`, [find_date]);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
   
-  if (filterType === 'env' && parseInt(envID) > -2) {
-    query = query.where('envelopeID', envID);
-  }
+  try {
+    const userId = await getUserId(auth0Id);
 
-  if (filterType === 'env' && parseInt(envID) === -2) {
-    query = query
-      .leftJoin('envelope', function () {
-        this.on('envelope.id', '=', 'transaction.envelopeID');
-      })
-      .leftJoin('category', function () {
-        this.on('category.id', '=', 'envelope.categoryID');
-      })
-      .andWhereNot({ category: 'Income' });
-  }
+    const find_date = dayjs(new Date()).format('YYYY-MM-DD');
 
-  if (filterType === 'cat') {
-    query = query
-      .leftJoin('envelope', function () {
-        this.on('envelope.id', '=', 'transaction.envelopeID');
-      })
-      .leftJoin('category', function () {
-        this.on('category.id', '=', 'envelope.categoryID');
-      })
-      .andWhere({ categoryID: envID });
-  }
+    const filterType = filterEnvID.substr(0, 3);
+    const envID = filterEnvID.substr(3);
 
-  query.then((data) => {
+    let query = db('transaction')
+      .select({
+        month: db.raw(`TO_CHAR("txDate", 'YYYY/MM')`),
+        isBudget: 'isBudget',
+      })
+      .sum({ totalAmt: 'txAmt' })
+      .where({ isDuplicate: 0, isVisible: true, 'transaction.user_id': userId })
+      .groupBy('month', 'isBudget')
+      .orderBy('month');
+
+    // PostgreSQL specific
+    query = query.andWhereRaw(`?::date - "txDate" < ?`, [
+        find_date,
+        365 * filterTimeFrameID,
+      ])
+      .andWhereRaw(`?::date - "txDate" > 0`, [find_date]);
+    
+    if (filterType === 'env' && parseInt(envID) > -2) {
+      query = query.andWhere({ 'envelopeID': envID });
+    }
+
+    if (filterType === 'env' && parseInt(envID) === -2) {
+      query = query
+        .leftJoin('envelope', function () {
+          this
+            .on('envelope.id', '=', 'transaction.envelopeID')
+            .andOn('envelope.user_id', '=', db.raw(`?`, [userId]));
+        })
+        .leftJoin('category', function () {
+          this
+            .on('category.id', '=', 'envelope.categoryID')
+            .andOn('category.user_id', '=', db.raw(`?`, [userId]));
+        })
+        .andWhereNot({ category: 'Income' });
+    }
+
+    if (filterType === 'cat') {
+      query = query
+        .leftJoin('envelope', function () {
+          this
+            .on('envelope.id', '=', 'transaction.envelopeID')
+            .andOn('envelope.user_id', '=', db.raw(`?`, [userId]));
+        })
+        .leftJoin('category', function () {
+          this
+            .on('category.id', '=', 'envelope.categoryID')
+            .andOn('category.user_id', '=', db.raw(`?`, [userId]));
+        })
+        .andWhere({ categoryID: envID });
+    }
+
+    const data = await query;
     res.json(data);
-  }).catch((err) => console.log(err));
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 
@@ -1680,395 +2085,417 @@ app.post('/api/'+channels.GET_ENV_CHART_DATA, async (req, res) => {
 
 
 app.post('/api/'+channels.IMPORT_OFX, async (req, res) => {
+  console.log(channels.IMPORT_OFX);
+  
   const { ofxString } = req.body;
-  //console.log(channels.IMPORT_OFX, ofxString);
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
-  let accountID = '';
-  let accountID_str = '';
-  let ver = '';
+  try {
+    const userId = await getUserId(auth0Id);
 
-  // Find the financial institution ID
-  const tmpStr = ofxString;
-  if (tmpStr.includes('<ACCTID>')) {
-    const i = tmpStr.indexOf('<ACCTID>') + 8;
-    const j = tmpStr.indexOf('\n', i);
-    const k = tmpStr.indexOf('</ACCTID>', i);
+    let accountID = '';
+    let accountID_str = '';
+    let ver = '';
 
-    accountID_str = tmpStr
-      .substr(i, ((j < k && j !== -1) || k === -1 ? j : k) - i)
-      .trim();
+    // Find the financial institution ID
+    const tmpStr = ofxString;
+    if (tmpStr.includes('<ACCTID>')) {
+      const i = tmpStr.indexOf('<ACCTID>') + 8;
+      const j = tmpStr.indexOf('\n', i);
+      const k = tmpStr.indexOf('</ACCTID>', i);
+
+      accountID_str = tmpStr
+        .substr(i, ((j < k && j !== -1) || k === -1 ? j : k) - i)
+        .trim();
+    }
+    accountID = await lookup_account(userId, accountID_str);
+
+    // What version of OFX is this?
+    // Seems like the OFX library only supports 102,
+    //  maybe all the 100's.
+    const tmpStr2 = ofxString;
+    if (tmpStr2.includes('VERSION')) {
+      const i = tmpStr.indexOf('VERSION') + 7;
+      const j = tmpStr.indexOf('SECURITY', i);
+      ver = tmpStr
+        .substr(i, j - i)
+        .replace(/"/g, '')
+        .replace(/:/g, '')
+        .replace(/=/g, '')
+        .trim();
+    }
+
+    if (ver[0] === '1') {
+      const ofx = new Ofx(ofxString);
+      const trans = await ofx.getBankTransferList();
+      //let total_records = trans.length;
+
+      trans.forEach(async (tx, i) => {
+        insert_transaction_node(
+          accountID,
+          tx.TRNAMT,
+          tx.DTPOSTED.date,
+          tx.NAME,
+          tx.FITID
+        );
+        //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / total_records);
+      });
+    }
+    if (ver[0] === '2') {
+      const xml = new XMLParser().parse(ofxString);
+      const trans = await xml.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS.CCSTMTRS
+        .BANKTRANLIST.STMTTRN;
+      let total_records = trans.length;
+
+      trans.forEach(async (tx, i) => {
+        insert_transaction_node(
+          accountID,
+          tx.TRNAMT,
+          tx.DTPOSTED.substr(0, 4) +
+            '-' +
+            tx.DTPOSTED.substr(4, 2) +
+            '-' +
+            tx.DTPOSTED.substr(6, 2),
+          tx.NAME,
+          tx.FITID
+        );
+        //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / total_records);
+      });
+    }
+    //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+    res.status(200).send('Imported OFX completed successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
-  accountID = await lookup_account(accountID_str);
-
-  // What version of OFX is this?
-  // Seems like the OFX library only supports 102,
-  //  maybe all the 100's.
-  const tmpStr2 = ofxString;
-  if (tmpStr2.includes('VERSION')) {
-    const i = tmpStr.indexOf('VERSION') + 7;
-    const j = tmpStr.indexOf('SECURITY', i);
-    ver = tmpStr
-      .substr(i, j - i)
-      .replace(/"/g, '')
-      .replace(/:/g, '')
-      .replace(/=/g, '')
-      .trim();
-  }
-
-  if (ver[0] === '1') {
-    const ofx = new Ofx(ofxString);
-    const trans = await ofx.getBankTransferList();
-    //let total_records = trans.length;
-
-    trans.forEach(async (tx, i) => {
-      insert_transaction_node(
-        accountID,
-        tx.TRNAMT,
-        tx.DTPOSTED.date,
-        tx.NAME,
-        tx.FITID
-      );
-      //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / total_records);
-    });
-  }
-  if (ver[0] === '2') {
-    const xml = new XMLParser().parse(ofxString);
-    const trans = await xml.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS.CCSTMTRS
-      .BANKTRANLIST.STMTTRN;
-    let total_records = trans.length;
-
-    trans.forEach(async (tx, i) => {
-      insert_transaction_node(
-        accountID,
-        tx.TRNAMT,
-        tx.DTPOSTED.substr(0, 4) +
-          '-' +
-          tx.DTPOSTED.substr(4, 2) +
-          '-' +
-          tx.DTPOSTED.substr(6, 2),
-        tx.NAME,
-        tx.FITID
-      );
-      //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / total_records);
-    });
-  }
-  //event.sender.send(channels.UPLOAD_PROGRESS, 100);
 });
 
 app.post('/api/'+channels.IMPORT_CSV, async (req, res) => {
+  console.log(channels.IMPORT_CSV);
+
   const { account_string, ofxString } = req.body;
-  let accountID = '';
-  let totalNodes = 0;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
 
-  // Find the financial institution ID
-  console.log('Account string: ', account_string);
+    let accountID = '';
+    let totalNodes = 0;
 
-  const nodes = ofxString.split('\n');
+    // Find the financial institution ID
+    console.log('Account string: ', account_string);
 
-  if (account_string.toLowerCase().startsWith('sofi-')) {
-    accountID = await lookup_account(account_string);
-    totalNodes = nodes.length;
-    for (const [i, tx] of nodes.entries()) {
-      if (i > 0 && tx.trim().length > 0) {
-        const tx_values = tx.split(',');
+    const nodes = ofxString.split('\n');
 
-        await insert_transaction_node(
-          accountID,
-          tx_values[3],
-          tx_values[0],
-          tx_values[1],
-          ''
-        );
-        //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
-      }
-    }
-  }
-  if (account_string.toLowerCase() === 'venmo') {
-    accountID = await lookup_account(account_string);
-    totalNodes = nodes.length;
-    for (const [i, tx] of nodes.entries()) {
-      if (i > 3 && tx[0] === ',') {
-        const tx_values = tx.split(',');
-
-        if (tx_values?.length && tx_values[1]?.length) {
-          let refNumber = tx_values[1];
-          let txDate = tx_values[2].substr(0, 10);
-          let description = tx_values[5];
-          let j = 5;
-          if (description[0] === '"') {
-            while (!tx_values[j].endsWith('"')) {
-              j++;
-              description += ',' + tx_values[j];
-            }
-            description = description.replace(/\"/g, '');
-          }
-          let txFrom = tx_values[j + 1];
-          let txTo = tx_values[j + 2];
-          let txAmt_str = tx_values[j + 3]
-            .replace(/\"/g, '')
-            .replace(/\+/g, '')
-            .replace(/\$/g, '')
-            .replace(/\ /g, '')
-            .trim();
-          let txAmt = parseFloat(txAmt_str);
-
-          description = (txAmt > 0 ? txFrom : txTo) + ' : ' + description;
-
-          insert_transaction_node(
-            accountID,
-            txAmt,
-            txDate,
-            description,
-            refNumber
-          );
-          //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
-        }
-      }
-    }
-  }
-  if (account_string.toLowerCase() === 'paypal') {
-    accountID = await lookup_account(account_string);
-    totalNodes = nodes.length;
-    for (const [i, tx] of nodes.entries()) {
-      if (i > 0) {
-        const tx_values = tx.split(',');
-
-        if (tx_values?.length) {
-          let j = 0;
-          let item_iter = 0;
-          let txDate = '';
-          let description = '';
-          let description2 = '';
-          let txAmt = '';
-          let refNum = '';
-          while (j < tx_values?.length) {
-            let item_str = tx_values[j];
-            if (item_str[0] === '"') {
-              while (j < tx_values?.length - 1 && !item_str.endsWith('"')) {
-                j++;
-                item_str += ',' + tx_values[j];
-              }
-              item_str = item_str.replace(/\"/g, '');
-            }
-
-            switch (item_iter) {
-              case 0:
-                txDate = item_str.trim();
-                break;
-              case 3:
-                description = item_str.trim();
-                break;
-              case 4:
-                description2 = item_str.trim();
-                break;
-              case 7:
-                txAmt = item_str.trim().replace(/,/g, '');
-                break;
-              case 12:
-                refNum = item_str.trim();
-                break;
-              default:
-            }
-
-            j++;
-            item_iter++;
-          }
-
-          if (!description?.length && description2?.length) {
-            description = description2;
-          }
+    if (account_string.toLowerCase().startsWith('sofi-')) {
+      accountID = await lookup_account(userId, account_string);
+      totalNodes = nodes.length;
+      for (const [i, tx] of nodes.entries()) {
+        if (i > 0 && tx.trim().length > 0) {
+          const tx_values = tx.split(',');
 
           await insert_transaction_node(
             accountID,
-            txAmt,
-            txDate,
-            description,
-            refNum
+            tx_values[3],
+            tx_values[0],
+            tx_values[1],
+            ''
           );
           //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
         }
       }
     }
-  }
-  if (account_string.toLowerCase() === 'mint') {
-    const accountArr = [];
-    const envelopeArr = [];
-    const uncategorizedID = await lookup_uncategorized();
+    if (account_string.toLowerCase() === 'venmo') {
+      accountID = await lookup_account(userId, account_string);
+      totalNodes = nodes.length;
+      for (const [i, tx] of nodes.entries()) {
+        if (i > 3 && tx[0] === ',') {
+          const tx_values = tx.split(',');
 
-    totalNodes = nodes.length;
-    for (const [i, tx] of nodes.entries()) {
-      if (tx?.length) {
-        const tx_values = tx.split(',');
-
-        if (tx_values?.length) {
-          // Date
-          let txDate = dayjs(
-            new Date(tx_values[0].replace(/\"/g, '').trim())
-          ).format('YYYY-MM-DD');
-
-          if (txDate !== 'Invalid date') {
-            // Description
-            let j = 1;
-            let description = tx_values[j];
-            if (description?.startsWith('"')) {
-              while (!tx_values[j]?.endsWith('"')) {
+          if (tx_values?.length && tx_values[1]?.length) {
+            let refNumber = tx_values[1];
+            let txDate = tx_values[2].substr(0, 10);
+            let description = tx_values[5];
+            let j = 5;
+            if (description[0] === '"') {
+              while (!tx_values[j].endsWith('"')) {
                 j++;
                 description += ',' + tx_values[j];
               }
               description = description.replace(/\"/g, '');
             }
+            let txFrom = tx_values[j + 1];
+            let txTo = tx_values[j + 2];
+            let txAmt_str = tx_values[j + 3]
+              .replace(/\"/g, '')
+              .replace(/\+/g, '')
+              .replace(/\$/g, '')
+              .replace(/\ /g, '')
+              .trim();
+            let txAmt = parseFloat(txAmt_str);
 
-            // Original Description
-            // We don't do anything with this, but need to account
-            // for commas.
-            j += 1;
-            if (tx_values[j]?.startsWith('"')) {
-              while (!tx_values[j]?.endsWith('"')) {
-                j++;
-              }
-            }
+            description = (txAmt > 0 ? txFrom : txTo) + ' : ' + description;
 
-            // Amount
-            j += 1;
-            let txAmt = tx_values[j];
-            if (txAmt?.startsWith('"')) {
-              while (!tx_values[j]?.endsWith('"')) {
-                j++;
-                txAmt += tx_values[j];
-              }
-              txAmt = parseFloat(txAmt.replace(/\"/g, ''));
-            }
-
-            // Transaction type (debit or credit)
-            j += 1;
-            if (tx_values[j] && tx_values[j].replace(/\"/g, '') === 'debit') {
-              txAmt = txAmt * -1;
-            }
-
-            // Category/envelope
-            j += 1;
-            let envelope_str = tx_values[j];
-            if (envelope_str?.startsWith('"')) {
-              while (!tx_values[j]?.endsWith('"')) {
-                j++;
-                envelope_str += ',' + tx_values[j];
-              }
-              envelope_str = envelope_str.replace(/\"/g, '').trim();
-            }
-            let envelopeID = '';
-            if (envelopeArr?.length) {
-              const found = envelopeArr.find((e) => e.name === envelope_str);
-              if (found) {
-                envelopeID = found.id;
-              } else {
-                envelopeID = await lookup_envelope(
-                  envelope_str,
-                  uncategorizedID
-                );
-                envelopeArr.push({ name: envelope_str, id: envelopeID });
-              }
-            } else {
-              envelopeID = await lookup_envelope(
-                envelope_str,
-                uncategorizedID
-              );
-              envelopeArr.push({ name: envelope_str, id: envelopeID });
-            }
-
-            // Account
-            j += 1;
-            let account_str = tx_values[j];
-            if (account_str?.startsWith('"')) {
-              while (!tx_values[j]?.endsWith('"')) {
-                j++;
-                account_str += ',' + tx_values[j];
-              }
-              account_str = account_str.replace(/\"/g, '').trim();
-            }
-            let accountID = '';
-            if (accountArr?.length) {
-              const found = accountArr.find((e) => e.name === account_str);
-              if (found) {
-                accountID = found.id;
-              } else {
-                accountID = await lookup_account(account_str);
-                accountArr.push({ name: account_str, id: accountID });
-              }
-            } else {
-              accountID = await lookup_account(account_str);
-              accountArr.push({ name: account_str, id: accountID });
-            }
-
-            await basic_insert_transaction_node(
+            insert_transaction_node(
               accountID,
               txAmt,
               txDate,
               description,
-              '',
-              envelopeID
+              refNumber
             );
+            //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
           }
-          //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
         }
       }
     }
-  }
-  if (account_string.toLowerCase() === 'mint tab') {
-    const accountArr = [];
+    if (account_string.toLowerCase() === 'paypal') {
+      accountID = await lookup_account(userId, account_string);
+      totalNodes = nodes.length;
+      for (const [i, tx] of nodes.entries()) {
+        if (i > 0) {
+          const tx_values = tx.split(',');
 
-    for (const [i, tx] of nodes.entries()) {
-      const tx_values = tx.trim().split('\t');
+          if (tx_values?.length) {
+            let j = 0;
+            let item_iter = 0;
+            let txDate = '';
+            let description = '';
+            let description2 = '';
+            let txAmt = '';
+            let refNum = '';
+            while (j < tx_values?.length) {
+              let item_str = tx_values[j];
+              if (item_str[0] === '"') {
+                while (j < tx_values?.length - 1 && !item_str.endsWith('"')) {
+                  j++;
+                  item_str += ',' + tx_values[j];
+                }
+                item_str = item_str.replace(/\"/g, '');
+              }
 
-      if (tx?.length && tx_values?.length) {
-        let envID = tx_values[0].trim();
-        let txAmt = tx_values[1].trim();
-        let txDate = tx_values[2].trim();
-        let description = tx_values[3].trim();
-        let account_str = tx_values[4].trim();
+              switch (item_iter) {
+                case 0:
+                  txDate = item_str.trim();
+                  break;
+                case 3:
+                  description = item_str.trim();
+                  break;
+                case 4:
+                  description2 = item_str.trim();
+                  break;
+                case 7:
+                  txAmt = item_str.trim().replace(/,/g, '');
+                  break;
+                case 12:
+                  refNum = item_str.trim();
+                  break;
+                default:
+              }
 
-        let accountID = '';
-        if (accountArr?.length) {
-          const found = accountArr.find((e) => e.name === account_str);
-          if (found) {
-            accountID = found.id;
+              j++;
+              item_iter++;
+            }
+
+            if (!description?.length && description2?.length) {
+              description = description2;
+            }
+
+            await insert_transaction_node(
+              accountID,
+              txAmt,
+              txDate,
+              description,
+              refNum
+            );
+            //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
+          }
+        }
+      }
+    }
+    if (account_string.toLowerCase() === 'mint') {
+      const accountArr = [];
+      const envelopeArr = [];
+      const uncategorizedID = await lookup_uncategorized(userId);
+
+      totalNodes = nodes.length;
+      for (const [i, tx] of nodes.entries()) {
+        if (tx?.length) {
+          const tx_values = tx.split(',');
+
+          if (tx_values?.length) {
+            // Date
+            let txDate = dayjs(
+              new Date(tx_values[0].replace(/\"/g, '').trim())
+            ).format('YYYY-MM-DD');
+
+            if (txDate !== 'Invalid date') {
+              // Description
+              let j = 1;
+              let description = tx_values[j];
+              if (description?.startsWith('"')) {
+                while (!tx_values[j]?.endsWith('"')) {
+                  j++;
+                  description += ',' + tx_values[j];
+                }
+                description = description.replace(/\"/g, '');
+              }
+
+              // Original Description
+              // We don't do anything with this, but need to account
+              // for commas.
+              j += 1;
+              if (tx_values[j]?.startsWith('"')) {
+                while (!tx_values[j]?.endsWith('"')) {
+                  j++;
+                }
+              }
+
+              // Amount
+              j += 1;
+              let txAmt = tx_values[j];
+              if (txAmt?.startsWith('"')) {
+                while (!tx_values[j]?.endsWith('"')) {
+                  j++;
+                  txAmt += tx_values[j];
+                }
+                txAmt = parseFloat(txAmt.replace(/\"/g, ''));
+              }
+
+              // Transaction type (debit or credit)
+              j += 1;
+              if (tx_values[j] && tx_values[j].replace(/\"/g, '') === 'debit') {
+                txAmt = txAmt * -1;
+              }
+
+              // Category/envelope
+              j += 1;
+              let envelope_str = tx_values[j];
+              if (envelope_str?.startsWith('"')) {
+                while (!tx_values[j]?.endsWith('"')) {
+                  j++;
+                  envelope_str += ',' + tx_values[j];
+                }
+                envelope_str = envelope_str.replace(/\"/g, '').trim();
+              }
+              let envelopeID = '';
+              if (envelopeArr?.length) {
+                const found = envelopeArr.find((e) => e.name === envelope_str);
+                if (found) {
+                  envelopeID = found.id;
+                } else {
+                  envelopeID = await lookup_envelope(
+                    userId, envelope_str, uncategorizedID
+                  );
+                  envelopeArr.push({ name: envelope_str, id: envelopeID });
+                }
+              } else {
+                envelopeID = await lookup_envelope(
+                  userId, envelope_str, uncategorizedID
+                );
+                envelopeArr.push({ name: envelope_str, id: envelopeID });
+              }
+
+              // Account
+              j += 1;
+              let account_str = tx_values[j];
+              if (account_str?.startsWith('"')) {
+                while (!tx_values[j]?.endsWith('"')) {
+                  j++;
+                  account_str += ',' + tx_values[j];
+                }
+                account_str = account_str.replace(/\"/g, '').trim();
+              }
+              let accountID = '';
+              if (accountArr?.length) {
+                const found = accountArr.find((e) => e.name === account_str);
+                if (found) {
+                  accountID = found.id;
+                } else {
+                  accountID = await lookup_account(userId, account_str);
+                  accountArr.push({ name: account_str, id: accountID });
+                }
+              } else {
+                accountID = await lookup_account(userId, account_str);
+                accountArr.push({ name: account_str, id: accountID });
+              }
+
+              await basic_insert_transaction_node(
+                userId,
+                accountID,
+                txAmt,
+                txDate,
+                description,
+                '',
+                envelopeID
+              );
+            }
+            //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
+          }
+        }
+      }
+    }
+    if (account_string.toLowerCase() === 'mint tab') {
+      const accountArr = [];
+
+      for (const [i, tx] of nodes.entries()) {
+        const tx_values = tx.trim().split('\t');
+
+        if (tx?.length && tx_values?.length) {
+          let envID = tx_values[0].trim();
+          let txAmt = tx_values[1].trim();
+          let txDate = tx_values[2].trim();
+          let description = tx_values[3].trim();
+          let account_str = tx_values[4].trim();
+
+          let accountID = '';
+          if (accountArr?.length) {
+            const found = accountArr.find((e) => e.name === account_str);
+            if (found) {
+              accountID = found.id;
+            } else {
+              accountID = await lookup_account(userId, account_str);
+              accountArr.push({ name: account_str, id: accountID });
+            }
           } else {
-            accountID = await lookup_account(account_str);
+            accountID = await lookup_account(userId, account_str);
             accountArr.push({ name: account_str, id: accountID });
           }
-        } else {
-          accountID = await lookup_account(account_str);
-          accountArr.push({ name: account_str, id: accountID });
-        }
 
-        await basic_insert_transaction_node(
-          accountID,
-          txAmt,
-          txDate,
-          description,
-          '',
-          envID
-        );
+          await basic_insert_transaction_node(
+            userId,
+            accountID,
+            txAmt,
+            txDate,
+            description,
+            '',
+            envID
+          );
+        }
       }
+      console.log('');
     }
-    console.log('');
+    //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+    res.status(200).send('Imported CSV completed successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
   }
-  //event.sender.send(channels.UPLOAD_PROGRESS, 100);
 });
 
 
 
 // Helper functions used only by the server
 
-async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {
-  return await db('transaction')
-    .select('id', 'txAmt')
-    .where('envelopeID', newEnvelopeID)
-    .andWhere('txDate', newtxDate)
-    .andWhere('isBudget', 1)
-    .then(async function (rows) {
+async function set_or_update_budget_item(userId, newEnvelopeID, newtxDate, newtxAmt) {
+  try {
+    await db.transaction(async (trx) => {
+      const rows = await trx('transaction')
+        .select('id', 'txAmt')
+        .where({ envelopeID: newEnvelopeID, txDate: newtxDate, isBudget: 1, user_id: userId });
+  
       if (rows.length === 0) {
         // no matching records found
-        return await db('transaction')
+        await trx('transaction')
           .insert({
             envelopeID: newEnvelopeID,
             txDate: newtxDate,
@@ -2076,275 +2503,307 @@ async function set_or_update_budget_item(newEnvelopeID, newtxDate, newtxAmt) {
             txAmt: newtxAmt,
             isDuplicate: 0,
             isVisible: true,
-          })
-          .then(async () => {
-            await db.raw(
-              `UPDATE "envelope" SET "balance" = "balance" + ` +
-                newtxAmt +
-                ` WHERE "id" = ` +
-                newEnvelopeID
-            );
-          })
-          .catch((err) => {
-            console.log('Error inserting budget: ' + err);
+            user_id: userId,
           });
+        
+        await trx('envelope')
+          .where({ id: newEnvelopeID, user_id: userId })
+          .update({
+            balance: db.raw('balance + ?', [newtxAmt])
+          });
+          
       } else {
         // Already exist
-        await db
-          .raw(
-            `UPDATE "envelope" SET "balance" = "balance" + ` +
-              (newtxAmt - rows[0].txAmt) +
-              ` WHERE "id" = ` +
-              newEnvelopeID
-          )
-          .then(async () => {
-            await db('transaction')
-              .update({ txAmt: newtxAmt })
-              .where('id', rows[0].id)
-              .then(() => {
-                console.log('Updated budget amt.');
-              })
-              .catch((err) => {
-                console.log('Error updating budget: ' + err);
-              });
-          })
-          .catch((err) => {
-            console.log('Error updating budget: ' + err);
+        const oldTxAmt = rows[0].txAmt;
+
+        await trx('envelope')
+          .where({ id: newEnvelopeID, user_id: userId })
+          .update({
+            balance: db.raw('balance + ?', [newtxAmt - oldTxAmt])
           });
+
+        await trx('transaction')
+          .where({ id: rows[0].id, user_id: userId })
+          .update({ txAmt: newtxAmt });
+
+        console.log('Updated budget amt.');
       }
-    })
-    .catch((err) => {
-      console.log('Error checking if budget exists: ' + err);
     });
+    console.log('Budget item set or updated successfully');
+  } catch (err) {
+    console.error('Error setting or updating budget item:', err);
+  }
 }
 
-async function update_tx_env(txID, envID) {
-  await db
-    .select('id', 'txAmt', 'envelopeID')
-    .from('transaction')
-    .where({ id: txID })
-    .then(async (rows) => {
-      if (rows?.length) {
-        if (rows[0].envelopeID > 0) {
-          await db
-            .raw(
-              `update "envelope" set "balance" = "balance" - ` +
-                rows[0].txAmt +
-                ` where "id" = ` +
-                rows[0].envelopeID
-            )
-            .then()
-            .catch((err) => {
-              console.log('Error: ' + err);
-            });
+async function update_tx_env(userId, txID, envID) {
+  try {
+    await db.transaction(async (trx) => {
+      const rows = await trx('transaction')
+        .select('id', 'txAmt', 'envelopeID')
+        .where({ id: txID, user_id: userId });
+
+      if (rows.length > 0) {
+        const { envelopeID, txAmt } = rows[0];
+
+        if (envelopeID > 0) {
+          await trx('envelope')
+          .where({ id: envelopeID, user_id: userId })
+          .update({
+            balance: db.raw('"balance" - ?', [txAmt])
+          });
         }
 
-        await db
-          .raw(
-            `update "envelope" set "balance" = "balance" + ` +
-              rows[0].txAmt +
-              ` where "id" = ` +
-              envID
-          )
-          .then()
-          .catch((err) => {
-            console.log('Error: ' + err);
-          });
-      }
-    })
-    .catch((err) => {
-      console.log('Error: ' + err);
-    });
+        await trx('envelope')
+        .where({ id: envID, user_id: userId })
+        .update({
+          balance: db.raw('"balance" + ?', [txAmt])
+        });
 
-  await db('transaction')
-    .where({ id: txID })
-    .update({ envelopeID: envID })
-    .then(() => {
-      console.log('Changed tx envelope to: ' + envID);
-    })
-    .catch((err) => {
-      console.log('Error: ' + err);
+        await trx('transaction')
+          .where({ id: txID, user_id: userId })
+          .update({ envelopeID: envID });
+  
+        console.log('Updated transaction envelope successfully.');
+      } else {
+        console.log('Transaction not found.');
+      }
     });
+  } catch (err) {
+    console.error('Error changing transaction envelope:', err);
+  }
 }
 
-async function adjust_balance(txID, add_or_remove) {
-  await db
-    .select('envelopeID', 'txAmt')
-    .from('transaction')
-    .where({ id: txID })
-    .then(async (data) => {
-      if (data?.length) {
+async function adjust_balance(userId, txID, add_or_remove) {
+  try {
+    await db.transaction(async (trx) => {
+      const rows = trx('transaction')
+        .select('envelopeID', 'txAmt')
+        .where({ id: txID, user_id: userId });
+
+      if (rows.length > 0) {
+        const { envelopeID, txAmt } = rows[0];
+
         await update_env_balance(
-          data[0].envelopeID,
-          add_or_remove === 'add' ? data[0].txAmt : -1 * data[0].txAmt
+          trx, userId, envelopeID,
+          add_or_remove === 'add' ? txAmt : -1 * txAmt
         );
       }
     });
+  } catch (err) {
+    console.error('Error adjusting the balance: ', err);
+  }
 }
 
-async function lookup_account(account) {
+async function lookup_account(userId, account) {
+  // Initialize accountID to -1 to indicate no account found
   let accountID = -1;
 
-  // Lookup if we've already use this one
-  if (account?.length) {
-    await db
-      .select('id', 'account', 'refNumber')
-      .from('account')
-      .orderBy('account')
-      .where({ refNumber: account })
-      .then(async (data) => {
-        if (data?.length) {
-          // If we have, use this ID
-          accountID = data[0].id;
-        } else {
-          // If we haven't, lets store this one
-          await db('account')
-            .insert({ 
-              account: 'New Account', 
-              refNumber: account, 
-              isActive: true })
-            .then((result) => {
-              if (result?.length) {
-                accountID = result[0];
-              }
-            })
-            .catch((err) => {
-              console.log('Error: ' + err);
-            });
+  // Early return if account is empty or undefined
+  if (!account?.length) {
+    console.log('No account provided');
+    return accountID;
+  }
+  
+  try {
+    await db.transaction(async (trx) => {
+      // Check if the account already exists
+      const data = await trx('account')
+        .select('id', 'account', 'refNumber')
+        .orderBy('account')
+        .where({ refNumber: account, user_id: userId });
+
+      if (data?.length) {
+        // If the account exists, use the existing ID
+        accountID = data[0].id;
+        console.log('Account found: ', accountID);
+      } else {
+        // If the account does not exist, insert a new one
+        const result = await trx('account')
+          .insert({
+            account: 'New Account',
+            refNumber: account,
+            isActive: true,
+            user_id: userId,
+          })
+          .returning('id');
+
+        if (result?.length) {
+          accountID = result[0];
+          console.log('New account created: ', accountID);
         }
-      })
-      .catch((err) => console.log(err));
+      }
+    });
+  } catch (err) {
+    console.error('Error looking up or creating account:', err);
   }
 
   return accountID;
 }
 
-async function lookup_plaid_account(account) {
+async function lookup_plaid_account(userId, account) {
+  // Initialize accountID to -1 to indicate no account found
   let accountID = -1;
 
+  // Early return if account is empty or undefined
+  if (!account?.length) {
+    console.log('No account provided');
+    return accountID;
+  }
+
   // Lookup if we've already use this one
-  if (account?.length) {
-    await db
-      .select('id', 'account', 'refNumber')
-      .from('account')
-      .orderBy('account')
-      .where({ plaid_id: account })
-      .then(async (data) => {
+  try {
+    await db.transaction(async (trx) => {
+      // Check if the account already exists
+      const data = await trx('account')
+        .select('id', 'account', 'refNumber')
+        .orderBy('account')
+        .where({ plaid_id: account, user_id: userId });
+      
         if (data?.length) {
-          // If we have, use this ID
+          // If the account exists, use the existing ID
           accountID = data[0].id;
+          console.log('Account found: ', accountID);
         } else {
-          // If we haven't, lets store this one
-          await db('account')
+          
+          // If the account does not exist, insert a new one
+          const result = await trx('account')
             .insert({
               account: 'New Account',
               refNumber: account,
               plaid_id: account,
               isActive: true,
+              user_id: userId,
             })
-            .then((result) => {
-              if (result?.length) {
-                accountID = result[0];
-              }
-            })
-            .catch((err) => {
-              console.log('Error: ' + err);
-            });
+            .returning('id');
+
+          if (result?.length) {
+            accountID = result[0];
+            console.log('New account created: ', accountID);
+          }
         }
-      })
-      .catch((err) => console.log(err));
+    });
+  } catch (err) {
+    console.error('Error looking up or creating plaid account:', err);
   }
 
   return accountID;
 }
 
-async function lookup_envelope(envelope, defaultCategoryID) {
+async function lookup_envelope(userId, envelope, defaultCategoryID) {
+  // Initialize envelopeID to -1 to indicate no envelope found
   let envelopeID = -1;
 
+  // Early return if envelope is empty or undefined
+  if (!envelope?.length) {
+    console.log('No envelope provided');
+    return envelopeID;
+  }
+
   // Lookup if we've already use this one
-  if (envelope?.length) {
-    await db
-      .select('id', 'envelope')
-      .from('envelope')
-      .orderBy('id')
-      .where({ envelope: envelope })
-      .then(async (data) => {
+  try {
+    await db.transaction(async (trx) => {
+      // Check if the account already exists
+      const data = await trx('envelope')
+        .select('id', 'envelope')
+        .orderBy('id')
+        .where({ envelope: envelope, user_id: userId });
+
         if (data?.length) {
-          // If we have, use this ID
+          // If the envelope exists, use the existing ID
           envelopeID = data[0].id;
+          console.log('Envelope found: ', envelopeID);
         } else {
-          // If we haven't, lets store this one
-          await db('envelope')
+          // If the account does not exist, insert a new one
+          const result = await trx('envelope')
             .insert({
               envelope: envelope,
               categoryID: defaultCategoryID,
               balance: 0,
               isActive: true,
+              user_id: userId,
             })
-            .then((result) => {
-              if (result?.length) {
-                envelopeID = result[0];
-              }
-            })
-            .catch((err) => {
-              console.log('Error: ' + err);
-            });
+            .returning('id');
+
+          if (result?.length) {
+            envelopeID = result[0];
+            console.log('New envelope created: ', envelopeID);
+          }
         }
-      })
-      .catch((err) => console.log(err));
+      });
+    } catch (err) {
+      console.error('Error looking up or creating envelope:', err);
+    }
+  
+    return envelopeID;
+}
+
+async function lookup_uncategorized(userId) {
+  try {
+    const rows = await db('category')
+      .select('id')
+      .where({ category: 'Uncategorized', user_id: userId });
+    
+    if (rows?.length > 0) {
+      console.log('Uncategorized category ID is: ', rows[0].id);
+      return rows[0].id;
+    } else {
+      console.log('Uncategorized category not found.');
+      return -1;
+    }
+  } catch (err) {
+    console.error('Error looking up uncategorized category ID:', err);
+    return -1;
+  }
+}
+
+async function lookup_keyword(userId, accountID, description, txDate) {
+  // Initialize envelopeID to -1 to indicate no envelope found
+  let envID = -1;
+  
+  // Early return if description is empty or undefined
+  if (!description?.length) {
+    console.log('No description provided');
+    return envID;
   }
 
-  return envelopeID;
-}
+  try {
+    await db.transaction(async (trx) => {
+      let query = trx('keyword')
+        .select('id', 'envelopeID')
+        .whereRaw(`? LIKE "description"`, [description])
+        .andWhere({ user_id: userId });
 
-async function lookup_uncategorized() {
-  let categoryID = -1;
-
-  await db
-    .select('id')
-    .from('category')
-    .where('category', 'Uncategorized')
-    .then((rows) => {
-      if (rows?.length > 0) {
-        console.log('Uncategorized category ID is: ', rows[0].id);
-        categoryID = rows[0].id;
-      }
-    })
-    .catch((err) => console.log(err));
-
-  return categoryID;
-}
-
-async function lookup_keyword(accountID, description, txDate) {
-  let envID = -1;
-
-  if (description?.length) {
-    let query = db('keyword')
-      .select('id', 'envelopeID')
-      .whereRaw(`? LIKE "description"`, description);
-
-    query = query.andWhere(function () {
-      this.where('account', 'All').orWhere({
-        account: db('account').select('account').where('id', accountID),
+      query = query.andWhere(() => {
+        this
+          .where('account', 'All')
+          .orWhere({ 
+            account: trx('account')
+              .select('account')
+              .where({ id: accountID, user_id: userId }),
+          });
       });
-    });
 
-    await query.then((data) => {
+      const data = await query;
       if (data?.length) {
-        envID = data[0].envelopeID;
+        const { id, envelopeId } = data[0];
+        envID = envelopeID;
 
         // Let's record that we used this keyword
-        db('keyword')
+        await trx('keyword')
           .update({ last_used: txDate })
-          .where('id', data[0].id)
-          .catch((err) => console.log(err));
+          .where({ id: id, user_id: userId });
       }
     });
+  
+  } catch (err) {
+    console.error('Error looking up keyword:', err);
   }
+
   return envID;
 }
 
 async function lookup_if_duplicate(
+  userId, 
   accountID,
   refNumber,
   txDate,
@@ -2353,55 +2812,52 @@ async function lookup_if_duplicate(
 ) {
   let isDuplicate = 0;
 
-  // Check if it is a duplicate?
-  if (refNumber?.length) {
-    //console.log('Checking by refNumber');
+  // Early return if refNumber is empty or undefined
+  if (!refNumber?.length && !description?.length) {
+    console.log('No refNumber or description provided');
+    return isDuplicate;
+  }
 
+  try {
     let query = db('transaction')
       .select('id')
-      .andWhereRaw(`"accountID" = ?`, accountID)
-      .andWhereRaw(`"refNumber" = ?`, refNumber);
-      
+      .where({ user_id: userId, accountID: accountID });
+
     // PostgreSQL specific
     query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
     
-    await query.then((data) => {
-        if (data?.length) {
-          isDuplicate = 1;
-        }
-      });
-  } else {
-    //console.log('Checking by other stuff');
-    let query = db('transaction')
-      .select('id')
-      .where({ txAmt: txAmt })
-      .andWhereRaw(`"accountID" = ?`, accountID)
-      .andWhere({ description: description });
-    // PostgreSQL specific
-    query = query.andWhereRaw(`?::date - "txDate" = 0`, [txDate]);
-      
-    await query.then((data) => {
-        if (data?.length) {
-          isDuplicate = 1;
-        }
-      });
+    if (refNumber?.length) {
+      query = query.andWhere({ refNumber: refNumber });
+    } else {
+      query = query.andWhere({ txAmt: txAmt, description: description });
+    }
+    
+    const data = await query;
+    if (data?.length) {
+      isDuplicate = 1;
+    }
+    
+  } catch (err) {
+    console.error('Error checking for duplicate transaction:', err);
   }
 
   return isDuplicate;
 }
 
-async function update_env_balance(envID, amt) {
-  await db
-    .raw(
-      `UPDATE "envelope" SET "balance" = "balance" + ` +
-        amt +
-        ` WHERE "id" = ` +
-        envID
-    )
-    .then();
+async function update_env_balance(trx, userId, envID, amt) {
+  try {
+    await trx('envelope')
+    .where({ id: envID, user_id: userId })
+    .update({
+      balance: db.raw('balance + ?', [amt])
+    });
+  } catch (err) {
+    console.error('Error updating envelope balance: ', err);
+  }
 }
 
 async function update_transaction_id(
+  userId,
   access_token,
   old_transaction_id, 
   new_transaction_id,
@@ -2409,57 +2865,48 @@ async function update_transaction_id(
   txDate,
   description
 ) {
-  let my_txDate = dayjs(new Date(txDate + 'T00:00:00')).format('YYYY-MM-DD');
+  try {
+    let my_txDate = dayjs(new Date(txDate + 'T00:00:00')).format('YYYY-MM-DD');
 
-  await db.select(
-    'transaction.id as id'
-  )
-    .from('plaid_account')
-    .join('account', 'account.plaid_id', 'plaid_account.account_id')
-    .join('transaction', 'transaction.accountID', 'account.id')
-    .where({ access_token: access_token })
-    .andWhere('transaction.refNumber', '=', old_transaction_id)
-    .then(async (data) => {
-      if (data?.length) {
-        console.log(
-          'Updating transaction id: ',
-          data[0].id,
-          ' -> ',
-          new_transaction_id
-        );
-        await db('transaction')
-        .where({ id: data[0].id })
-        .update({ 
-          refNumber: new_transaction_id,
-          txAmt: txAmt,
-          txDate: my_txDate,
-          description: description
-        })
-        .then(() =>
-          {
-            console.log('Successully updated former pending transaction refNumber. ');
-          }
-        )
-        .catch((err) => {
-          console.log('Error: ' + err);
+    await db.transaction(async (trx) => {
+      const rows = trx('plaid_account')
+        .select('transaction.id as id')
+        .join('account', 'account.plaid_id', 'plaid_account.account_id')
+        .andOn('account.user_id', '=', db.raw(`?`, [userId]))
+        .join('transaction', 'transaction.accountID', 'account.id')
+        .andOn('transaction.user_id', '=', db.raw(`?`, [userId]))
+        .where({ 
+          access_token: access_token, 
+          'transaction.refNumber': old_transaction_id, 
+          'plaid_account.user_id': userId
         });
+      
+      if (rows?.length) {
+        const { id } = rows[0];
+
+        console.log(`Updating transaction id: ${id} -> ${new_transaction_id}`);
+        await trx('transaction')
+          .where({ id: id })
+          .update({ 
+            refNumber: new_transaction_id,
+            txAmt: txAmt,
+            txDate: my_txDate,
+            description: description
+          });
+        console.log('Successully updated former pending transaction refNumber. ');
                 
       } else {
-        console.log(
-          'We were supposed to be updating a transactions ref Number, but we couldnt find refNumber: ',
-          refNumber,
-          ' and access_token: ',
-          access_token
-        );
+        console.log(`We were supposed to be updating a transaction's refNumber, but we couldn't find refNumber: ${old_transaction_id} and access_token: ${access_token}`);
       }
-    })
-    .catch((err) => console.log(err));
-
+    });
+  } catch (err) {
+    console.log('Error trying to update transaction id: ', err)
+  }
   process.stdout.write('.');
-  
 };
 
 async function basic_insert_transaction_node(
+  userId,
   accountID,
   txAmt,
   txDate,
@@ -2482,74 +2929,89 @@ async function basic_insert_transaction_node(
     isSplit: 0,
     accountID: accountID,
     isVisible: true,
+    user_id: userId,
   };
 
-  // Insert the node
-  await db('transaction').insert(myNode);
+  await db.transaction(async (trx) => {
+    // Insert the node
+    await trx('transaction').insert(myNode);
 
-  // Update the envelope balance
-  if (envID !== -1) {
-    await update_env_balance(envID, txAmt);
-  }
+    // Update the envelope balance
+    if (envID !== -1) {
+      await update_env_balance(trx, userId, envID, txAmt);
+    }
+  });
 
   process.stdout.write('.');
 }
 
-async function remove_transaction(txID) {
-  await db
-    .select('id', 'envelopeID', 'txAmt', 'isDuplicate', 'isVisible')
-    .from('transaction')
-    .where({ id: txID })
-    .then(async (data) => {
+async function remove_transaction(userId, txID) {
+  try {
+    await db.transaction(async (trx) => {
+      const data = await trx('transaction')
+        .select('envelopeID', 'txAmt', 'isDuplicate', 'isVisible')
+        .where({ id: txID, user_id: userId });
+      
       if (data?.length) {
-        await db('transaction').delete().where({ id: data[0].id });
-        if (data[0].isVisible && !data[0].isDuplicate) {
-          await update_env_balance(data[0].envelopeID, -1 * data[0].txAmt);
+        const { envelopeID, txAmt, isDuplicate, isVisible } = data[0];
+
+        if (isVisible && !isDuplicate) {
+          await update_env_balance(trx, userId, envelopeID, -1 * txAmt);
         }
+
+        await trx('transaction')
+          .delete()
+          .where({ id: txID, user_id: userId });
       }
-    })
-    .catch((err) => console.log(err));
+    });
+  } catch (err) {
+    console.error('Error removing transaction:', err);
+  }
 }
 
-async function basic_remove_transaction_node(access_token, refNumber) {
-  db.select(
-    'transaction.id as id',
-    'transaction.envelopeID as envelopeID',
-    'transaction.txAmt as txAmt'
-  )
-    .from('plaid_account')
-    .join('account', 'account.plaid_id', 'plaid_account.account_id')
-    .join('transaction', 'transaction.accountID', 'account.id')
-    .where({ access_token: access_token })
-    .andWhere('transaction.refNumber', '=', refNumber)
-    .then(async (data) => {
-      if (data?.length) {
+async function basic_remove_transaction_node(userId, access_token, refNumber) {
+  try {
+    await db.transaction(async (trx) => {
+      const rows = await trx('plaid_account')
+        .select(
+          'transaction.id as id',
+          'transaction.envelopeID as envelopeID',
+          'transaction.txAmt as txAmt',
+        )
+        .join('account', 'account.plaid_id', 'plaid_account.account_id')
+        .andOn('account.user_id', '=', db.raw(`?`, [userId]))
+        .join('transaction', 'transaction.accountID', 'account.id')
+        .andOn('transaction.user_id', '=', db.raw(`?`, [userId]))
+        .where({ 
+          access_token: access_token, 
+          'plaid_account.user_id': userId,
+          'transaction.refNumber': refNumber
+        });
+
+      if (rows?.length) {
+        const { id, envelopeID, txAmt } = rows[0];
+
         console.log(
-          'Deleting transaction id: ',
-          data[0].id,
-          ' amt: ',
-          data[0].txAmt,
-          ' envID: ',
-          data[0].envelopeID
+          `Deleting transaction id: ${id}, amt: ${txAmt}, envID: ${envelopeID}`
         );
-        await db('transaction').delete().where({ id: data[0].id });
-        await update_env_balance(data[0].envelopeID, -1 * data[0].txAmt);
+        await trx('transaction')
+          .delete()
+          .where({ id: id, user_id: userId });
+        await update_env_balance(trx, userId, envelopeID, -1 * txAmt);
       } else {
         console.log(
-          'No TX to delete, looking for refNumber: ',
-          refNumber,
-          ' and access_token: ',
-          access_token
+          `No TX to delete, looking for refNumber: ${refNumber} and access_token: ${access_token}`
         );
       }
-    })
-    .catch((err) => console.log(err));
-
+    });
+  } catch (err) {
+    console.error('Error removing transaction node: ', err);
+  }
   process.stdout.write('.');
 }
 
-//console.log(channels.IMPORT_OFX, ofxString);
 async function insert_transaction_node(
+  userId, 
   accountID,
   txAmt,
   txDate,
@@ -2567,10 +3029,11 @@ async function insert_transaction_node(
   }
 
   // Check if this matches a keyword
-  let envID = await lookup_keyword(accountID, description, my_txDate);
+  let envID = await lookup_keyword(userId, accountID, description, my_txDate);
 
   // Check if this is a duplicate
   isDuplicate = await lookup_if_duplicate(
+    userId,
     accountID,
     refNumber,
     my_txDate,
@@ -2591,14 +3054,21 @@ async function insert_transaction_node(
     isSplit: 0,
     accountID: accountID,
     isVisible: true,
+    user_id: userId,
   };
 
-  // Insert the node
-  await db('transaction').insert(myNode);
+  try {
+    await db.transaction(async (trx) => {
+      // Insert the node
+      await trx('transaction').insert(myNode);
 
-  // Update the envelope balance
-  if (envID !== -1 && isDuplicate !== 1) {
-    await update_env_balance(envID, txAmt);
+      // Update the envelope balance
+      if (envID !== -1 && isDuplicate !== 1) {
+        await update_env_balance(trx, userId, envID, txAmt);
+      }
+    });
+  } catch (err) {
+    console.error('Error inserting transaction node: ', err);
   }
 }
 
