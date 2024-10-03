@@ -1852,7 +1852,6 @@ app.post('/api/'+channels.UPDATE_KEYWORD_ACC, async (req, res) => {
   }
 });
 
-// TODO: refactor this with transactions
 app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
   console.log(channels.SET_ALL_KEYWORD);
 
@@ -1862,31 +1861,35 @@ app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
   try {
     const userId = await getUserId(auth0Id);
 
-    await db('keyword')
-      .select('envelopeID', 'description', 'account')
-      .where({ id: id, user_id: userId })
-      .then((data) => {
-        let query = db('transaction')
+    await db.transaction(async (trx) => {
+      const data = await trx('keyword')
+        .select('envelopeID', 'description', 'account')
+        .where({ id: id, user_id: userId })
+      
+      if (data.length > 0) {
+        let query = trx('transaction')
           .update({ envelopeID: data[0].envelopeID })
           .whereRaw(`"description" LIKE ?`, [data[0].description])
           .andWhere({ user_id: userId });
 
         if (data[0].account !== 'All') {
-          query = query
-            .andWhere({
-              accountID: db('account')
-                .select('id')
-                .where({ 'account': data[0].account, user_id: userId })
-            });
+          const accountID = await trx('account')
+            .select('id')
+            .where({ 'account': data[0].account, user_id: userId })
+            .first();
+
+          if (accountID) {
+            query = query.andWhere({ accountID: accountID.id });
+          }
         }
 
         if (force === 0) {
           query = query.andWhere({ envelopeID: -1 });
         }
 
-        // TODO: do I really need the ".then()"?
-        query.then();
-      });
+        await query;
+      }
+    });
 
     res.status(200).send('Set all keywords successfully');
 
@@ -1991,33 +1994,31 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
 
     await db.transaction(async (trx) => {
       // Get the account info
-      await trx
+      const data = await trx
         .select('id', 'account', 'refNumber', 'plaid_id')
         .from('account')
-        .where({ id: id, user_id: userId })
-        .then(async (data) => {
-          if (data?.length) {
-            // Delete the original
-            await trx('account')
-              .delete()
-              .where({ id: id, user_id: userId })
-              .then(async () => {
-                // Not sure if we want to delete the plaid account
-                // We would be leaving the account login
-                // If we delete the account login as well, it would remove the login
-                // for all accounts of this institution.
-                // Seems like it would be best to disconnect
-                // the plaid account from this account, and
-                // let the user remove the plaid portion from the configPlaid page.
-                //if (data[0].plaid_id?.length) {
-                // delete the plaid account if it exists
-                //await trx('plaid_account')
-                //  .delete()
-                //  .where({ account_id: data[0].plaid_id });
-                //}
-              });
-          }
-        });
+        .where({ id: id, user_id: userId });
+        
+      if (data?.length) {
+        // Delete the original
+        await trx('account')
+          .delete()
+          .where({ id: id, user_id: userId });
+          
+        // TODO: Not sure if we want to delete the plaid account
+        // We would be leaving the account login
+        // If we delete the account login as well, it would remove the login
+        // for all accounts of this institution.
+        // Seems like it would be best to disconnect
+        // the plaid account from this account, and
+        // let the user remove the plaid portion from the configPlaid page.
+        //if (data[0].plaid_id?.length) {
+        // delete the plaid account if it exists
+        //await trx('plaid_account')
+        //  .delete()
+        //  .where({ account_id: data[0].plaid_id });
+        //}
+      }        
     });
     
     res.status(200).send('Deleted account successfully');
