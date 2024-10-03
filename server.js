@@ -2810,7 +2810,7 @@ async function lookup_keyword(userId, accountID, description, txDate) {
 
       const data = await query;
       if (data?.length) {
-        const { id, envelopeId } = data[0];
+        const { id, envelopeID } = data[0];
         envID = envelopeID;
 
         // Let's record that we used this keyword
