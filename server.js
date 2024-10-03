@@ -24,12 +24,34 @@ const checkJwt = auth({
 app.use(express.json());
 app.use(cors({ origin: auth0data.origin }));
 app.use(checkJwt);
-app.use((req, res, next) => {
-  //console.log('Authorization Header:', req.headers.authorization);
-  const token = req.headers.authorization.split(' ')[1];
-  const decodedToken = jwt.decode(token);
-  req.auth0Id = decodedToken.sub; // Auth0 user ID
-  next();
+app.use(async (req, res, next) => {
+  try {
+    // Verify auth0 token
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).send('Unauthorized: Missing Authorization Header');
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.decode(token);
+    if (!decodedToken) {
+      return res.status(401).send('Unauthorized: Invalid Token');
+    }
+
+    req.auth0Id = decodedToken.sub; // Auth0 user ID
+
+    // Set user ID as a session variable
+    const userId = req.auth0Id;
+    if (!userId) {
+      return res.status(401).send('Unauthorized: Missing User ID');
+    }
+
+    await db.raw('SET myapp.current_user_id = ?', [userId]);
+    next();
+  } catch (error) {
+    console.error('Error setting user session:', error);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 let db = null;
