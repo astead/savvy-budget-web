@@ -180,8 +180,10 @@ let plaid_link_token_exp = null;
 // Used to create the link token
 const configs = {
   user: {
-    // TODO: This should correspond to a unique id for the current user.
-    client_user_id: '2',
+    // This should correspond to a unique id for the current user.
+    // This should get entered in a call to plaid_setup_client
+    // before being used.
+    client_user_id: '',
   },
   client_name: 'Savvy Budget',
   products: PLAID_PRODUCTS,
@@ -191,11 +193,11 @@ const configs = {
 };
 
 // This should be on the server only
-const plaid_setup_client = async () => {
+const plaid_setup_client = async (userId) => {
   console.log("plaid_setup_client ENTER");
   
   // This should correspond to a unique id for the current user.
-  configs.user.client_user_id = '2';
+  configs.user.client_user_id = userId.toString();
 
   console.log("plaid_setup_client EXIT");
 };
@@ -215,10 +217,14 @@ const plaid_get_link_token = async () => {
 
 app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
   console.log('PLAID_GET_TOKEN ENTER');
+
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
+
   if (PLAID_CLIENT_ID?.length) {
     try {
       
-      await plaid_setup_client();
+      await plaid_setup_client(userId);
       await plaid_get_link_token();
       
       console.log("PLAID_GET_TOKEN returning:");
