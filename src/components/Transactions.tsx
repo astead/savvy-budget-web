@@ -97,6 +97,10 @@ export const Transactions: React.FC = () => {
   const [accLoaded, setAccLoaded] = useState(false);
   const [envLoaded, setEnvLoaded] = useState(false);
 
+  const isValidDate = (date: any): date is Dayjs | null => {
+    return (dayjs.isDayjs(date) && date.isValid()) || date === null;
+  };
+
   function LinearProgressWithLabel(props: LinearProgressProps & { value: number }) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -653,14 +657,16 @@ export const Transactions: React.FC = () => {
                     <DatePicker
                       value={filterStartDate}
                       onChange={(newValue) => {
-                        setFilterStartDate(newValue)
-                        localStorage.setItem(
-                          'transaction-filter-startDate', 
-                          JSON.stringify({ filterStartDate: newValue?.format('YYYY-MM-DD')})
-                        );
-                        
-                        if (filterEndDate && newValue && filterEndDate.diff(newValue) <= 0 ) {
-                          setFilterEndDate(newValue?.add(1, 'day'));
+                        if (isValidDate(newValue)) {
+                          setFilterStartDate(newValue)
+                          localStorage.setItem(
+                            'transaction-filter-startDate', 
+                            JSON.stringify({ filterStartDate: newValue?.format('YYYY-MM-DD')})
+                          );
+                          
+                          if (filterEndDate && newValue && filterEndDate.diff(newValue) <= 0 ) {
+                            setFilterEndDate(newValue?.add(1, 'day'));
+                          }
                         }
                       }}
                       sx={{ width:250, pr:0 }}
@@ -692,12 +698,14 @@ export const Transactions: React.FC = () => {
                     <DatePicker
                       value={filterEndDate}
                       onChange={(newValue) => {
-                        localStorage.setItem(
-                          'transaction-filter-endDate', 
-                          JSON.stringify({ filterEndDate: newValue?.format('YYYY-MM-DD')})
-                        );
-                        if (newValue) {
-                          setFilterEndDate(newValue);
+                        if (isValidDate(newValue)) {
+                          localStorage.setItem(
+                            'transaction-filter-endDate', 
+                            JSON.stringify({ filterEndDate: newValue?.format('YYYY-MM-DD')})
+                          );
+                          if (newValue) {
+                            setFilterEndDate(newValue);
+                          }
                         }
                       }}
                       sx={{ width:250}}
