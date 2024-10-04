@@ -18,12 +18,6 @@ interface Envelope {
   isActive: boolean;
 }
 
-interface CategoryGroup {
-  catID: number;
-  cat: string;
-  items: Envelope[];
-}
-
 /*
   TODO:
   - Don't really like how this is loading everything sequentially
@@ -153,18 +147,15 @@ export const Envelopes: React.FC = () => {
     const response = await axios.post(baseUrl + channels.GET_PREV_BUDGET, { find_date: dayjs(new Date(year, month-1)).format('YYYY-MM-DD') }, config);
     
     // Receive the data
-    let data = response.data;
-    const tmpData = [...budgetData] as BudgetNodeData[]; 
-  
-    for (let i=0; i < data.length; i++) {
-      for (let j=0; j < tmpData.length; j++) {
-        if (data[i].envelopeID === tmpData[j].envID) {
-          tmpData[j] = Object.assign(tmpData[j], { prevBudget: data[i].txAmt });
-        }
-      }
-    };
-  
-    setBudgetData(tmpData as BudgetNodeData[]); 
+    let rows = response.data;
+    
+    // Go through the data and store it into our table array
+    const updatedData = budgetData.map((item) => {
+      const match = rows.find((d) => d.envelopeID === item.envID);
+      return match ? { ...item, prevBudget: match.txAmt } : item;
+    });
+    
+    setBudgetData(updatedData);
     setLoadedPrevBudget(true);     
   };
 
@@ -174,18 +165,15 @@ export const Envelopes: React.FC = () => {
     const response = await axios.post(baseUrl + channels.GET_PREV_ACTUAL, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
 
     // Receive the data
-    let data = response.data;
-    const tmpData = [...budgetData] as BudgetNodeData[]; 
+    let rows = response.data;
   
-    for (let i=0; i < data.length; i++) {
-      for (let j=0; j < tmpData.length; j++) {
-        if (data[i].envelopeID === tmpData[j].envID) {
-          tmpData[j] = Object.assign(tmpData[j], { prevActual: data[i].totalAmt });
-        }
-      }
-    };
+    // Go through the data and store it into our table array
+    const updatedData = budgetData.map((item) => {
+      const match = rows.find((d) => d.envelopeID === item.envID);
+      return match ? { ...item, prevActual: match.totalAmt } : item;
+    });
   
-    setBudgetData(tmpData as BudgetNodeData[]); 
+    setBudgetData(updatedData); 
     setLoadedPrevActual(true);     
   };
 
@@ -195,18 +183,15 @@ export const Envelopes: React.FC = () => {
     const response = await axios.post(baseUrl + channels.GET_CURR_BALANCE, null, config);
     
     // Receive the data
-    let data = response.data;
-    const tmpData = [...budgetData] as BudgetNodeData[]; 
+    let rows = response.data;
   
-    for (let i=0; i < data.length; i++) {
-      for (let j=0; j < tmpData.length; j++) {
-        if (data[i].id === tmpData[j].envID) {
-          tmpData[j] = Object.assign(tmpData[j], { currBalance: data[i].balance });
-        }
-      }
-    };
+    // Go through the data and store it into our table array
+    const updatedData = budgetData.map((item) => {
+      const match = rows.find((d) => d.id === item.envID);
+      return match ? { ...item, currBalance: match.balance } : item;
+    });
     
-    setBudgetData(tmpData as BudgetNodeData[]); 
+    setBudgetData(updatedData); 
     setLoadedCurrBalance(true);     
   };
 
@@ -216,21 +201,15 @@ export const Envelopes: React.FC = () => {
     const response = await axios.post(baseUrl + channels.GET_CUR_BUDGET, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
     
     // Receive the data
-    let data = response.data;
-    const tmpData = [...budgetData] as BudgetNodeData[]; 
-    let haveValues = false;
+    let rows = response.data;
   
     // Go through the data and store it into our table array
-    for (let i=0; i < data.length; i++) {
-      for (let j=0; j < tmpData.length; j++) {
-        if (data[i].envelopeID === tmpData[j].envID) {
-          tmpData[j] = Object.assign(tmpData[j], { currBudget: data[i].txAmt });
-          if (data[i].txAmt !== 0) {
-            haveValues = true;
-          }
-        }
-      }
-    };
+    const updatedData = budgetData.map((item) => {
+      const match = rows.find((d) => d.envelopeID === item.envID);
+      return match ? { ...item, currBudget: match.txAmt } : item;
+    });
+
+    const haveValues = rows.some((row) => row.txAmt !== 0);
 
     if (haveValues) {
       setHaveCurrBudget(true);
@@ -238,8 +217,62 @@ export const Envelopes: React.FC = () => {
       setHaveCurrBudget(false);
     }
     
-    setBudgetData(tmpData as BudgetNodeData[]); 
+    setBudgetData(updatedData); 
     setLoadedCurrBudget(true);
+  };
+
+  const load_CurrActual = async () => {
+    // Signal we want to get data
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_CUR_ACTUAL, { find_date: dayjs(new Date(year, month+1)).format('YYYY-MM-DD') }, config);
+    
+    // Receive the data
+    let rows = response.data;  
+    let myTotalCurr = 0;    
+  
+    // Go through the data and store it into our table array
+    const updatedData = budgetData.map((item) => {
+      const match = rows.find((d) => d.envelopeID === item.envID);
+      if (match) {
+        myTotalCurr += match.totalAmt ?? 0; // Add to total if match is found
+        return { ...item, currActual: match.totalAmt ?? 0 }; // Set default value to 0 if undefined
+      }
+      return item;
+    });
+  
+    setCurTotalActualUndefined(myTotalCurr);
+    setBudgetData(updatedData); 
+    setLoadedCurrActual(true);     
+  };
+
+  const load_MonthlyAvg = async () => {
+    // Signal we want to get data
+    if (!config) return;
+    const response = await axios.post(baseUrl + channels.GET_MONTHLY_AVG, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
+    
+    // Receive the data
+    let rows = response.data;  
+    
+    // Determine the earliest date from the data
+    const firstDate = rows.reduce((earliest, item) => {
+      const tmpDate = new Date(item.firstDate);
+      return tmpDate < earliest ? tmpDate : earliest;
+    }, new Date());
+
+    
+    const curDate = new Date(year, month);
+    const numMonths = monthDiff(firstDate, curDate) + 1;
+    
+    if (numMonths > 0) {
+      const updatedData = budgetData.map((item) => {
+        const match = rows.find((d) => d.envelopeID === item.envID);
+        const ttmAvg = match ? (match.totalAmt / numMonths) : 0;
+        return { ...item, monthlyAvg: ttmAvg };
+      });
+
+      setBudgetData(updatedData); 
+    }
+    setLoadedMonthlyAvg(true);     
   };
 
   const forward_copy_budget = async () => {
@@ -291,68 +324,6 @@ export const Envelopes: React.FC = () => {
     setCurTotalBudgetIncome(myTotalBudgetIncome);
     setCurTotalBudgetSpending(myTotalBudgetSpending);
   }
-
-  const load_CurrActual = async () => {
-    // Signal we want to get data
-    if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_CUR_ACTUAL, { find_date: dayjs(new Date(year, month+1)).format('YYYY-MM-DD') }, config);
-    
-    // Receive the data
-    let data = response.data;  
-    let myTotalCurr = 0;
-    const tmpData = [...budgetData] as BudgetNodeData[]; 
-  
-    for (let i=0; i < data.length; i++) {
-      let found = false;
-      for (let j=0; j < tmpData.length; j++) {
-        if (data[i].envelopeID === tmpData[j].envID) {
-          found = true;
-          tmpData[j] = Object.assign(tmpData[j], { currActual: data[i].totalAmt });
-        }
-      }
-      if (!found) {
-        myTotalCurr += data[i].totalAmt;
-      }
-    };
-  
-    setCurTotalActualUndefined(myTotalCurr);
-    setBudgetData(tmpData as BudgetNodeData[]); 
-    setLoadedCurrActual(true);     
-  };
-
-  const load_MonthlyAvg = async () => {
-    // Signal we want to get data
-    if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_MONTHLY_AVG, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
-    
-    // Receive the data
-    let data = response.data;  
-    const tmpData = [...budgetData] as BudgetNodeData[]; 
-    
-    let firstDate = new Date();
-    for (let i=0; i < data.length; i++) {
-      const tmpDate = new Date(data[i].firstDate);
-      if (tmpDate < firstDate) {
-        firstDate = tmpDate;
-      }
-    }
-    const curDate = new Date(year, month);
-    const numMonths = monthDiff(firstDate, curDate)+1;
-    
-    if (numMonths > 0) {
-      for (let i=0; i < data.length; i++) {
-        for (let j=0; j < tmpData.length; j++) {
-          if (data[i].envelopeID === tmpData[j].envID) {
-            const ttmAvg = data[i].totalAmt / numMonths;
-            tmpData[j] = Object.assign(tmpData[j], { monthlyAvg: ttmAvg });
-          }
-        }
-      };
-      
-      setBudgetData(tmpData as BudgetNodeData[]); 
-    }
-    setLoadedMonthlyAvg(true);     
-  };
   
   const load_initialEnvelopes = async () => {
     // Signal we want to get data
@@ -396,11 +367,12 @@ export const Envelopes: React.FC = () => {
 
   useEffect(() => {
     get_totals();
+
     if (budgetData?.length > 0) {
-       if (!loadedEnvelopes) {
+      if (!loadedEnvelopes) {
         setLoadedEnvelopes(true);
       } else {
-        setData({nodes:budgetData});
+        setData({ nodes:budgetData });
       }
     } else {
       load_initialEnvelopes();
@@ -642,6 +614,11 @@ export const Envelopes: React.FC = () => {
                 
               </div>
             </div>
+          </div>
+        }
+        {!loaded &&
+          <div>
+            Data is loading...
           </div>
         }
       </div>
