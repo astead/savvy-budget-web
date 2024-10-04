@@ -12,9 +12,8 @@ import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
 /*
-  TODO:
-  - Don't really like how this is loading everything sequentially
-*/
+  TODO: Set the width of this page so it is the same for each month.
+ */
 
 export const Envelopes: React.FC = () => {
   const { config } = useAuthToken();
@@ -109,26 +108,12 @@ export const Envelopes: React.FC = () => {
   const [loaded, setLoaded] = useState(false);  
   const [haveCurrBudget, setHaveCurrBudget] = useState(false);
   const [loadedEnvelopes, setLoadedEnvelopes] = useState(false);
-
-  const [, setLoadingStates] = useState({
-    loadedPrevBudget: false,
-    loadedCurrBudget: false,
-    loadedPrevActual: false,
-    loadedCurrBalance: false,
-    loadedCurrActual: false,
-    loadedMonthlyAvg: false,
-  });
-
   const [curTotalBudgetIncome, setCurTotalBudgetIncome] = useState(0);
   const [curTotalBudgetSpending, setCurTotalBudgetSpending] = useState(0);
   const [curTotalActualUndefined, setCurTotalActualUndefined] = useState(0);
   
   const [transferEnvList, setTransferEnvList] = useState<any[]>([]);
   //const [transferEnvListLoaded, setTransferEnvListLoaded] = useState(false);
-
-  const setLoadingState = (key, value) => {
-    setLoadingStates((prevState) => ({ ...prevState, [key]: value }));
-  };
 
   const load_envelope_list = async () => {
     // Signal we want to get data
@@ -151,10 +136,9 @@ export const Envelopes: React.FC = () => {
     // Go through the data and store it into our table array
     const updatedData = currentData.map((item) => {
       const match = rows.find((d) => d.envelopeID === item.envID);
-      return match ? { ...item, prevBudget: match.txAmt } : item;
+      return match ? {  envID: item.envID, prevBudget: match.txAmt } : { envID: item.envID };
     });
     
-    setLoadingState('loadedCurrBudget', true);
     return updatedData; 
   };
 
@@ -169,10 +153,9 @@ export const Envelopes: React.FC = () => {
     // Go through the data and store it into our table array
     const updatedData = currentData.map((item) => {
       const match = rows.find((d) => d.envelopeID === item.envID);
-      return match ? { ...item, prevActual: match.totalAmt } : item;
+      return match ? { envID: item.envID, prevActual: match.totalAmt } : { envID: item.envID };
     });
    
-    setLoadingState('loadedPrevBudget', true); 
     return updatedData;     
   };
 
@@ -187,10 +170,9 @@ export const Envelopes: React.FC = () => {
     // Go through the data and store it into our table array
     const updatedData = currentData.map((item) => {
       const match = rows.find((d) => d.id === item.envID);
-      return match ? { ...item, currBalance: match.balance } : item;
+      return match ? { envID: item.envID, currBalance: match.balance } : { envID: item.envID };
     });
     
-    setLoadingState('loadedPrevActual', true); 
     return updatedData;
   };
 
@@ -205,7 +187,7 @@ export const Envelopes: React.FC = () => {
     // Go through the data and store it into our table array
     const updatedData = currentData.map((item) => {
       const match = rows.find((d) => d.envelopeID === item.envID);
-      return match ? { ...item, currBudget: match.txAmt } : item;
+      return match ? { envID: item.envID, currBudget: match.txAmt } : { envID: item.envID };
     });
 
     const haveValues = rows.some((row) => row.txAmt !== 0);
@@ -216,7 +198,6 @@ export const Envelopes: React.FC = () => {
       setHaveCurrBudget(false);
     }
     
-    setLoadingState('loadedCurrBalance', true);
     return updatedData;
   };
 
@@ -232,7 +213,7 @@ export const Envelopes: React.FC = () => {
     // Go through the data and store it into our table array
     const updatedData = currentData.map((item) => {
       const match = rows.find((d) => d.envelopeID === item.envID);
-      return match ? { ...item, currActual: match.totalAmt ?? 0 } : item;
+      return match ? { envID: item.envID, currActual: match.totalAmt ?? 0 } : { envID: item.envID };
     });
 
     // Sum the totalAmt values from rows where no match is found in budgetData
@@ -244,7 +225,6 @@ export const Envelopes: React.FC = () => {
     });
   
     setCurTotalActualUndefined(myTotalCurr);
-    setLoadingState('loadedCurrActual', true);
     return updatedData;
   };
 
@@ -261,24 +241,22 @@ export const Envelopes: React.FC = () => {
       const tmpDate = new Date(item.firstDate);
       return tmpDate < earliest ? tmpDate : earliest;
     }, new Date());
-
     
     const curDate = new Date(year, month);
     const numMonths = monthDiff(firstDate, curDate) + 1;
     
-    if (numMonths > 0) {
+    
       const updatedData = currentData.map((item) => {
-        const match = rows.find((d) => d.envelopeID === item.envID);
-        const ttmAvg = match ? (match.totalAmt / numMonths) : 0;
-        return { ...item, monthlyAvg: ttmAvg };
+        if (numMonths > 0) {
+          const match = rows.find((d) => d.envelopeID === item.envID);
+          const ttmAvg = match ? (match.totalAmt / numMonths) : 0;
+          return { envID: item.envID, monthlyAvg: ttmAvg };
+        } else {
+          return { envID: item.envID };
+        }
       });
 
-      setLoadingState('loadedMonthlyAvg', true);
       return updatedData; 
-    } else {
-      setLoadingState('loadedMonthlyAvg', true);
-      return currentData;
-    }
   };
 
   const forward_copy_budget = async () => {
@@ -314,7 +292,7 @@ export const Envelopes: React.FC = () => {
     const oldValue = budgetData[index].currBudget;
     budgetData[index].currBudget = parseFloat(value);
     budgetData[index].currBalance += value - oldValue;
-    get_totals();
+    get_totals(budgetData);
   }
 
   const set_color = (target, actual) => {
@@ -325,11 +303,11 @@ export const Envelopes: React.FC = () => {
     }
   }
 
-  const get_totals = () => {
+  const get_totals = (currentData) => {
     let myTotalBudgetIncome = 0;
     let myTotalBudgetSpending = 0;
 
-    for (const [, n] of budgetData.entries()) {
+    for (const [, n] of currentData.entries()) {
       if (n.category === "Income") {
         myTotalBudgetIncome += n.currBudget;
       } else {
@@ -366,35 +344,41 @@ export const Envelopes: React.FC = () => {
   }
 
   const loadData = async () => {
-    console.log("loadData");
     try {
-      let combinedData = budgetData;
-      combinedData = await load_PrevBudget(combinedData);
-      combinedData = await load_PrevActual(combinedData);
-      combinedData = await load_CurrBalance(combinedData);
-      combinedData = await load_CurrBudget(combinedData);
-      combinedData = await load_CurrActual(combinedData);
-      combinedData = await load_MonthlyAvg(combinedData);
+      // Fetch all data in parallel
+      const [currBudgetData, prevBudgetData, currBalanceData, currActualData, monthlyAvgData, prevActualData] = 
+      await Promise.all([
+        load_CurrBudget(budgetData),
+        load_PrevBudget(budgetData),
+        load_CurrBalance(budgetData),
+        load_CurrActual(budgetData),
+        load_MonthlyAvg(budgetData),
+        load_PrevActual(budgetData),
+      ]);
+
+      // Combine the results
+      const combinedData = budgetData.map((item, index) => ({
+        ...item,
+        ...currBudgetData[index],
+        ...prevBudgetData[index],
+        ...currBalanceData[index],
+        ...currActualData[index],
+        ...monthlyAvgData[index],
+        ...prevActualData[index],
+      }));
+
+      // Update the state once with the combined data
       setBudgetData(combinedData);
 
-      setLoadingStates({
-        loadedCurrBudget: true,
-        loadedPrevBudget: true,
-        loadedPrevActual: true,
-        loadedCurrBalance: true,
-        loadedCurrActual: true,
-        loadedMonthlyAvg: true,
-      });
       setLoaded(true);
 
-      get_totals();
+      get_totals(combinedData);
     } catch (error) {
       console.error('Error loading data:', error);
     }
   };
 
   useEffect(() => {
-    console.log("useEffect [curMonth]");
     if (gotMonthData) {
       setLoadedEnvelopes(false);
     }
@@ -402,9 +386,6 @@ export const Envelopes: React.FC = () => {
   }, [curMonth]);  
 
   useEffect(() => {
-    console.log("useEffect [loadedEnvelopes, budgetData.length]");
-    console.log("loadedEnvelopes: ", loadedEnvelopes);
-    console.log("budgetData?.length: ", budgetData?.length);
     // Once we have the main table data, we can go get
     // the details and fill it in.
     if (loadedEnvelopes && budgetData?.length > 0) {      
@@ -413,21 +394,20 @@ export const Envelopes: React.FC = () => {
       // We must be re-setting due to a month selection change.
       // Lets wipe this out and force it to start over.
       setLoaded(false);
-      setLoadingStates({
-        loadedCurrBudget: false,
-        loadedPrevBudget: false,
-        loadedPrevActual: false,
-        loadedCurrBalance: false,
-        loadedCurrActual: false,
-        loadedMonthlyAvg: false,
-      });
       setBudgetData([]);
+      
+      // TODO: I wonder if there is a race condition here
+      // as above we are setting budgetData and inside
+      // load_initialEnvelopes we are also going to set
+      // budgetData. I wonder if we should take the same
+      // approach as with getting each column of data and
+      // pass in our starting data set?
+      load_initialEnvelopes();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadedEnvelopes, budgetData.length]);
 
   useEffect(() => {
-    console.log("useEffect []");
     // which month were we
     const my_monthData_str = localStorage.getItem('envelopes-month-data');
     if (my_monthData_str?.length) {
