@@ -47,7 +47,7 @@ export const BudgetBalanceModal = ({balanceAmt, category, envelope, envID, trans
     if (!config) return;
     await axios.post(baseUrl + channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID }, config);
     setOpen(false);
-    callback();
+    callback({ transferAmt: transferAmt, toID: transferEnvID });
   };
 
   const handleFilterEnvChange = ({id, new_value, new_text}) => {

@@ -4,12 +4,11 @@ import { baseUrl, channels } from '../shared/constants.js'
 import { MonthSelector } from '../helpers/MonthSelector.tsx';
 import * as dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
-import BudgetBalanceModal from './BudgetBalanceModal.tsx';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
-import InputText from '../helpers/InputText.tsx';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
+import { EnvelopeRow } from './EnvelopeRow.tsx';
 
 /*
   TODO: Set the width of this page so it is the same for each month.
@@ -54,10 +53,6 @@ export const Envelopes: React.FC = () => {
     prevActual: number;
     currActual: number; 
     prevBudget: number; 
-  };
-
-  function formatCurrency(currencyNumber:number) {
-    return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
   };
 
   function formatWholeCurrency(currencyNumber:number) {
@@ -276,32 +271,26 @@ export const Envelopes: React.FC = () => {
     setBudgetData(combinedData);
   }
 
-  const handleBalanceChangeTransfer = async () => {
-    setBudgetData(await load_CurrBalance(budgetData));
+  const handleBalanceTransfer = async ({ updatedRow, transferAmt, toID }) => {
+    let updatedData = budgetData.map((row) => {
+      if (row.envID === updatedRow.envID) {
+        return updatedRow;
+      } else if (row.envID === toID) {
+        const newBalance = row.currBalance + parseFloat(transferAmt);
+        return { ...row, currBalance: newBalance };
+      } else {
+        return row;
+      }
+    });
+
+    setBudgetData(updatedData);
   }
 
-  const handleUpdateBudget = async ({index, id, date, value}) => {
-    // Request we update the DB
-    if (!config) return;
-    await axios.post(baseUrl + channels.UPDATE_BUDGET, 
-      { newEnvelopeID: id, newtxDate: date, newtxAmt: value }, config);
-    handleBudgetItemChange(index, value);
-  }
-
-  const handleBudgetItemChange = (index, value) => {
-    const oldValue = budgetData[index].currBudget;
-    budgetData[index].currBudget = parseFloat(value);
-    budgetData[index].currBalance += value - oldValue;
-    get_totals(budgetData);
-  }
-
-  const set_color = (target, actual) => {
-    if (actual > target) {
-      return '#dd8888'
-    } else if (actual <= target) {
-      return 'none'
-    }
-  }
+  const handleRowUpdate = (updatedRow) => {
+    const updatedData = budgetData.map((row) => (row.envID === updatedRow.envID ? updatedRow : row));
+    setBudgetData(updatedData);
+    get_totals(updatedData);
+  };
 
   const get_totals = (currentData) => {
     let myTotalBudgetIncome = 0;
@@ -471,56 +460,20 @@ export const Envelopes: React.FC = () => {
                 <tbody>
                   {budgetData.map((item, index, myArray) => (
                     <React.Fragment key={index}>
-                    { (index === 0 || (index > 0 && item.category !== myArray[index - 1].category)) && (
-                      <tr key={'header-'+item.envID} className="Table TGHR">
-                        <td colSpan={7} className="Table TGHR TC Left">{item.category}</td>
-                      </tr>
-                    )}
-                    <tr key={item.envID} className="TR">
-                      <td className="Table TC Left">{item.envelope}</td>
-                      <td className="Table TC Right">{formatCurrency(item.prevBudget)}</td>
-                      <td className="Table TC Right">
-                        <Link to={
-                          "/Transactions" +
-                          "/-1/" + item.envID + 
-                          "/1/" + new Date(year, month-1).getFullYear() + 
-                          "/" + new Date(year, month-1).getMonth()}>
-                          {formatCurrency(item.prevActual)}
-                        </Link>
-                      </td>
-                      <td className="Table BTC Right TCInput">
-                        <BudgetBalanceModal 
-                          balanceAmt={item.currBalance}
-                          category={item.category}
-                          envelope={item.envelope}
-                          envID={item.envID}
-                          transferEnvList={transferEnvList}
-                          callback={handleBalanceChangeTransfer}
-                        />
-                      </td>
-                      <td className="Table TC Right">
-                        <InputText
-                          in_ID={item.envID}
-                          in_value={item.currBudget}
-                          callback={(id, value) => {
-                            handleUpdateBudget({index, id, date: curMonth, value});
-                          }}
-                          className={"Curr"}
-                          style={{backgroundColor: set_color(item.currBudget, -1*item.monthlyAvg) }}
-                        />
-                      </td>
-                      <td className="Table TC Right"
-                        style={{backgroundColor: set_color(item.currBudget, -1*item.currActual) }}>
-                        <Link to={"/Transactions/-1/" + item.envID + "/1/" + year + "/" + month}>
-                          {formatCurrency(item.currActual)}
-                        </Link>
-                      </td>
-                      <td className="Table TC Right">
-                        <Link to={"/Charts/env" + item.envID}>
-                          {formatCurrency(item.monthlyAvg)}
-                        </Link>
-                      </td>
-                    </tr>
+                      { (index === 0 || (index > 0 && item.category !== myArray[index - 1].category)) && (
+                        <tr key={'header-'+item.envID} className="Table TGHR">
+                          <td colSpan={7} className="Table TGHR TC Left">{item.category}</td>
+                        </tr>
+                      )}
+                      <EnvelopeRow
+                        item={item}
+                        year={year}
+                        month={month}
+                        curMonth={curMonth}
+                        transferEnvList={transferEnvList}
+                        onRowUpdate={handleRowUpdate}
+                        onBalanceTransfer={handleBalanceTransfer}
+                      />
                     </React.Fragment>
                   ))}
                 </tbody>
