@@ -233,11 +233,15 @@ export const Envelopes: React.FC = () => {
     // Go through the data and store it into our table array
     const updatedData = budgetData.map((item) => {
       const match = rows.find((d) => d.envelopeID === item.envID);
-      if (match) {
-        myTotalCurr += match.totalAmt ?? 0; // Add to total if match is found
-        return { ...item, currActual: match.totalAmt ?? 0 }; // Set default value to 0 if undefined
+      return match ? { ...item, currActual: match.totalAmt ?? 0 } : item;
+    });
+
+    // Sum the totalAmt values from rows where no match is found in budgetData
+    rows.forEach((row) => {
+      const match = budgetData.find((item) => item.envID === row.envelopeID);
+      if (!match) {
+        myTotalCurr += row.totalAmt ?? 0;
       }
-      return item;
     });
   
     setCurTotalActualUndefined(myTotalCurr);
