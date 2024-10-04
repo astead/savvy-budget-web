@@ -330,7 +330,9 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
   } catch (error) {
     // handle error
     console.log('Error: ', error);
+    res.status(500).send('Internal Server Error');
   }
+  res.status(200).send('Added plaid account successfully');
 });
 
 app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
@@ -451,6 +453,7 @@ app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
         await remove_plaid_account_link(trx, userId, item.account_id);
       }
     });
+    res.status(200).send('Removed plaid login successfully');
   } catch (err) {
     console.error(err);
     res.status(500).send('Internal Server Error');
@@ -658,6 +661,7 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
     .catch((err) => console.log('Error: ' + err));
 
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+  res.status(200).send('Imported transactions successfully');
 });
 
 // TODO: this can probably be consolidated with the above function
@@ -766,6 +770,7 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
   }
 
   //event.sender.send(channels.UPLOAD_PROGRESS, 100);
+  res.status(200).send('Imported transactions successfully');
 });
 
 app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
@@ -1102,6 +1107,8 @@ app.post('/api/'+channels.UPDATE_BUDGET, async (req, res) => {
   const userId = await getUserId(auth0Id);
 
   await set_or_update_budget_item(userId, newEnvelopeID, newtxDate, newtxAmt);
+
+  res.status(200).send('Balance updated successfully');
 });
 
 app.post('/api/'+channels.UPDATE_BALANCE, async (req, res) => {
