@@ -1461,7 +1461,9 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
         .andOn('keyword.user_id', '=', db.raw(`?`, [userId]))
       })
       .where({ isBudget: 0, 'transaction.user_id': userId })
-      .orderBy('transaction.txDate', 'desc');
+      .orderBy('transaction.txDate', 'desc')
+      .orderBy('transaction.description')
+      .orderBy('transaction.txAmt');
 
     if (parseInt(filterEnvID) > -2) {
       query = query.andWhere({ 'transaction.envelopeID': filterEnvID });
