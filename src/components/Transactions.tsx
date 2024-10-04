@@ -20,6 +20,8 @@ import { TransactionTable } from './TransactionTable.tsx';
 import { EditText } from 'react-edit-text';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
+import { IconButton } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
 
 
 /*
@@ -99,6 +101,14 @@ export const Transactions: React.FC = () => {
 
   const isValidDate = (date: any): date is Dayjs | null => {
     return (dayjs.isDayjs(date) && date.isValid()) || date === null;
+  };
+  const clearStartDate = () => {
+    setFilterStartDate(null);
+    localStorage.removeItem('transaction-filter-startDate');
+  };
+  const clearEndDate = () => {
+    setFilterEndDate(null);
+    localStorage.removeItem('transaction-filter-endDate');
   };
 
   function LinearProgressWithLabel(props: LinearProgressProps & { value: number }) {
@@ -653,6 +663,7 @@ export const Transactions: React.FC = () => {
                   <span>Start Date: </span>
                 </td>
                 <td className="Left">
+                  <span className="filterSize">
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DatePicker
                       value={filterStartDate}
@@ -669,9 +680,13 @@ export const Transactions: React.FC = () => {
                           }
                         }
                       }}
-                      sx={{ width:250, pr:0 }}
+                      sx={{ border: 'none' }}
                     />
                   </LocalizationProvider>
+                  <IconButton onClick={clearStartDate} aria-label="clear date">
+                    <ClearIcon />
+                  </IconButton>
+                  </span>
                 </td>
                 <td width="50"></td>
                 <td className="Right">
@@ -685,7 +700,7 @@ export const Transactions: React.FC = () => {
                       setFilterDescTemp(e.target.value);
                     }}
                     onBlur={handleFilterDescChange}
-                    className="filterSize"
+                    className="inputField filterSize"
                   />
                 </td>
               </tr>
@@ -694,23 +709,28 @@ export const Transactions: React.FC = () => {
                   <span>End Date: </span>
                 </td>
                 <td className="Left">
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <DatePicker
-                      value={filterEndDate}
-                      onChange={(newValue) => {
-                        if (isValidDate(newValue)) {
-                          localStorage.setItem(
-                            'transaction-filter-endDate', 
-                            JSON.stringify({ filterEndDate: newValue?.format('YYYY-MM-DD')})
-                          );
-                          if (newValue) {
-                            setFilterEndDate(newValue);
+                  <span className="filterSize">
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker
+                        value={filterEndDate}
+                        onChange={(newValue) => {
+                          if (isValidDate(newValue)) {
+                            localStorage.setItem(
+                              'transaction-filter-endDate', 
+                              JSON.stringify({ filterEndDate: newValue?.format('YYYY-MM-DD')})
+                            );
+                            if (newValue) {
+                              setFilterEndDate(newValue);
+                            }
                           }
-                        }
-                      }}
-                      sx={{ width:250}}
-                    />
-                  </LocalizationProvider>
+                        }}
+                        sx={{ border: 'none' }}
+                      />
+                    </LocalizationProvider>
+                    <IconButton onClick={clearEndDate} aria-label="clear date">
+                      <ClearIcon />
+                    </IconButton>
+                  </span>
                 </td>
                 <td></td>
                 <td className="Right">
@@ -724,7 +744,7 @@ export const Transactions: React.FC = () => {
                         setFilterAmountTemp(e.target.value);
                       }}
                       onBlur={handleFilterAmountChange}
-                      className="filterSize"
+                      className="inputField filterSize"
                     />
                 </td>
               </tr>
@@ -738,7 +758,7 @@ export const Transactions: React.FC = () => {
                     selectedID={filterCatID}
                     optionData={filterCatList}
                     changeCallback={handleFilterCatChange}
-                    className="filterSize"
+                    className="selectField selectFilterSize"
                   />
                 </td>
                 <td></td>
@@ -751,7 +771,7 @@ export const Transactions: React.FC = () => {
                     selectedID={filterEnvID}
                     optionData={filterEnvList}
                     changeCallback={handleFilterEnvChange}
-                    className="filterSize"
+                    className="selectField selectFilterSize"
                   />
                 </td>
               </tr>
@@ -765,7 +785,7 @@ export const Transactions: React.FC = () => {
                     selectedID={filterAccID}
                     optionData={filterAccList}
                     changeCallback={handleFilterAccChange}
-                    className="filterSize"
+                    className="selectField selectFilterSize"
                   />
                 </td>
               </tr>
