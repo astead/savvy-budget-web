@@ -1179,7 +1179,8 @@ app.post('/api/'+channels.GET_CAT_ENV, async (req, res) => {
           .andOn('envelope.user_id', '=', db.raw(`?`, [userId]));
       })
       .where({ 'category.user_id': userId})
-      .orderBy('category.id');
+      .orderBy('category.id')
+      .orderBy('envelope.envelope');
 
     if (onlyActive === 1) {
       query.where('envelope.isActive', 1);
@@ -1217,7 +1218,8 @@ app.post('/api/'+channels.GET_BUDGET_ENV, async (req, res) => {
             .andOn('category.user_id', '=', db.raw(`?`, [userId]))
         })
         .where({ 'envelope.isActive': true, 'envelope.user_id': userId })
-        .orderBy('category.id');
+        .orderBy('category.id')
+        .orderBy('envelope.envelope');
       
       res.json(data);
     }

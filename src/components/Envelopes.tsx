@@ -11,6 +11,19 @@ import InputText from '../helpers/InputText.tsx';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
+interface Envelope {
+  envID: number;
+  envelope: string;
+  currBalance: number;
+  isActive: boolean;
+}
+
+interface CategoryGroup {
+  catID: number;
+  cat: string;
+  items: Envelope[];
+}
+
 /*
   TODO:
   - Don't really like how this is loading everything sequentially
@@ -65,12 +78,18 @@ export const Envelopes: React.FC = () => {
     return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   };
 
-  const compare = (a,b) => {
+  const compare = (a, b) => {
     if (a.category === 'Income' || b.category === 'Income') {
       if (a.category === 'Income' && b.category !== 'Income') {
         return -1;
       }
       if (a.category !== 'Income' && b.category === 'Income') {
+        return 1;
+      }
+      if (a.envelope < b.envelope) {
+        return -1;
+      }
+      if (a.envelope > b.envelope) {
         return 1;
       }
       return 0;
@@ -79,6 +98,12 @@ export const Envelopes: React.FC = () => {
         return -1;
       }
       if (a.category > b.category) {
+        return 1;
+      }
+      if (a.envelope < b.envelope) {
+        return -1;
+      }
+      if (a.envelope > b.envelope) {
         return 1;
       }
       return 0;

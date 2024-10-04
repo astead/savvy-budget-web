@@ -10,6 +10,19 @@ import NewEnvelope from '../helpers/NewEnvelope.tsx';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
+interface Envelope {
+  envID: number;
+  envelope: string;
+  currBalance: number;
+  isActive: boolean;
+}
+
+interface CategoryGroup {
+  catID: number;
+  cat: string;
+  items: Envelope[];
+}
+
 export const ConfigCatEnv = () => {
   const { config } = useAuthToken();
  
@@ -22,6 +35,12 @@ export const ConfigCatEnv = () => {
 
     // Receive the data
     const groupedData = categoryGroupBy(response.data, 'catID', 'category');
+
+    // Sort envelopes within each category
+    Object.values(groupedData).forEach(group => {
+      group.items.sort((a, b) => a.envelope.localeCompare(b.envelope));
+    });
+
     const sortedData = Object.values(groupedData).sort(compareCategory);
 
     setCatData([...sortedData]);
@@ -30,7 +49,7 @@ export const ConfigCatEnv = () => {
     }
   }
 
-  const categoryGroupBy = (data, key, label) => {
+  const categoryGroupBy = (data: any[], key: string, label: string): Record<number, CategoryGroup> => {
     return data.reduce(function(acc, item) {
       let groupKey = item[key];
       let groupLabel = item[label];
