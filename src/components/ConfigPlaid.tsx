@@ -64,12 +64,9 @@ export const ConfigPlaid = () => {
   }
 
   const createLinkToken = async () => {
-    console.log("createLinkToken ENTER");
     if (!config) return;
     const response = await axios.post(baseUrl + channels.PLAID_GET_TOKEN, null, config );
-    console.log("received response:");
-    console.log(response.data);
-
+    
     // Receive the data
     let data = response.data;
     if (data.link_token?.length) {
