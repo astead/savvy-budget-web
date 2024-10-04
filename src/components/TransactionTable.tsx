@@ -1,18 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
-import { KeywordSave } from '../helpers/KeywordSave.tsx';
-import * as dayjs from 'dayjs';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCopy, faEyeSlash, faTrash } from "@fortawesome/free-solid-svg-icons";
-import SplitTransactionModal from './SplitTransactionModal.tsx';
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import MenuItem from '@mui/material/MenuItem';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import Pagination from '@mui/material/Pagination';
-import { EditText } from 'react-edit-text';
-import { EditDate } from '../helpers/EditDate.tsx';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
+import { TransactionTableRow } from './TransactionTableRow.tsx';
 
 /*
  TODO:
@@ -32,8 +28,9 @@ interface TransactionNodeData {
   description: string;
   keywordEnvID: number;
   isDuplicate: number;
-  isVisible: number;
+  isVisible: boolean;
   isSplit: number;
+  isChecked: boolean;
 }
 
 export const TransactionTable = ({data, envList, callback}) => {  
@@ -43,8 +40,7 @@ export const TransactionTable = ({data, envList, callback}) => {
   const [changeAllEnvID, setChangeAllEnvID] = useState(-1);
 
   // Transaction data
-  const [txData, setTxData] = useState<TransactionNodeData[]>(data);
-  const [isChecked, setIsChecked] = useState<any[]>([]);
+  const [txData, setTxData] = useState<TransactionNodeData[]>(data.map(item => ({ ...item, isChecked: false })));
   const [isAllChecked, setIsAllChecked] = useState(false);
   const [dataReady, setDataReady] = useState(false);
   
@@ -72,123 +68,153 @@ export const TransactionTable = ({data, envList, callback}) => {
     setPagingPerPage(parseInt(event.target.value));
   };
 
-  const set_checkbox_array = (myArr) => {
-    // Set our array of checkboxes
-    let check_list = myArr.map((item, index) => {
-      return {txID: item.txID, isChecked: false, index: index};
-    });
-    setIsChecked([...check_list]);
-  }
-
   const look_for_dups = () => {
-    let filtered_nodes = txData.filter((item, index) => {
-      return (index < (pagingCurPage * pagingPerPage) &&
-      index >= ((pagingCurPage-1) * pagingPerPage));
-    });
+    const startIdx = (pagingCurPage - 1) * pagingPerPage;
+    const endIdx = pagingCurPage * pagingPerPage;
+
     let found = false;
-    filtered_nodes.forEach((item, index, myArr) => {
-      if (item.isDuplicate) {
+    const updatedData = txData.map((item, index) => {
+      if (index >= startIdx && index < endIdx && item.isDuplicate === 1) {
         found = true;
-        isChecked.find(n => n.txID === item.txID).isChecked = true;
+        return { ...item, isChecked: true };
       }
+      return item;
     });
+
     if (found) {
-      setIsChecked([...isChecked]);
+      setTxData(updatedData);
     } else {
-      filtered_nodes.forEach((item, index, myArr) => {
-        if (myArr.find((item2, index2) => {
-          return (item.txID !== item2.txID &&
-          item.txAmt === item2.txAmt &&
-          item.txDate === item2.txDate &&
-          item.description === item2.description &&
-          index2 > index);
+      const newUpdatedData = txData.map((item, index, myArr) => {
+        if (index >= startIdx && index < endIdx && myArr.find((item2, index2) => {
+          let isMatch = (
+            item.txID !== item2.txID &&
+            item.txAmt === item2.txAmt &&
+            item.txDate === item2.txDate &&
+            item.description === item2.description &&
+            index2 > index &&
+            index2 < endIdx);
+          return isMatch;
           })) {
-            isChecked.find(n => n.txID === item.txID).isChecked = true;
+          
+          found = true;
+          return { ...item, isChecked: true };
         }
+        return item;
       });
-      setIsChecked([...isChecked]);
+      if (found) {
+        setTxData(newUpdatedData);
+      }
     }
   }
 
   const look_for_invisible = () => {
-    let filtered_nodes = txData.filter((item, index) => {
-      return (index < (pagingCurPage * pagingPerPage) &&
-      index >= ((pagingCurPage-1) * pagingPerPage));
-    });
-    filtered_nodes.forEach((item, index, myArr) => {
-      if (!item.isVisible) {
-        isChecked.find(n => n.txID === item.txID).isChecked = true;
+    const startIdx = (pagingCurPage - 1) * pagingPerPage;
+    const endIdx = pagingCurPage * pagingPerPage;
+    
+    const updatedData = txData.map((item, index) => {
+      if (index >= startIdx && index < endIdx && !item.isVisible) {
+        return { ...item, isChecked: true };
       }
+      return item;
     });
-    setIsChecked([...isChecked]);
+
+    setTxData(updatedData);
   }
 
   const delete_checked_transactions = async () => {
-    let filtered_nodes = isChecked.filter((item) => item.isChecked);
+    const startIdx = (pagingCurPage - 1) * pagingPerPage;
+    const endIdx = pagingCurPage * pagingPerPage;
+
+    let filtered_nodes = txData.filter((item, index) => {
+      return item.isChecked && index >= startIdx && index < endIdx;
+    });
     // Signal we want to del data
     if (!config) return;
     await axios.post(baseUrl + channels.DEL_TX_LIST, { del_tx_list: filtered_nodes }, config);
-    
-    setIsAllChecked(false);
-    callback();
-  } 
   
-  const handleChangeAll = async ({id, new_value}) => {
-    setChangeAllEnvID(new_value);
-    let filtered_nodes = isChecked.filter((item) => item.isChecked);
-    
-    filtered_nodes.forEach((item) => {
-      txData[item.index].envID = new_value;
+    // Remove the deleted items from the local data set
+    const updatedData = txData.filter((item, index) => {
+      return !(item.isChecked && index >= startIdx && index < endIdx);
     });
+  
+    // Update the main data array
+    setTxData(updatedData);
+
+    // We want to ensure all items are unchecked, although
+    // this should be happening anyway.
     setIsAllChecked(false);
-
-    // Reset all checkboxes
-    setIsAllChecked(false);
-    isChecked.forEach((i) => i.isChecked = false);
-    setIsChecked([...isChecked]);
-
-    // Reset the main data array
-    setTxData([...txData]);
-
-    // Signal we want to del data
-    if (!config) return;
-    await axios.post(baseUrl + channels.UPDATE_TX_ENV_LIST, 
-      { new_value, filtered_nodes }, config);
-
-    // Reset the drop down to the default
-    setChangeAllEnvID(-1);
 
     // Probably don't need to call the callback since we 
     // already made the changes in the local data array above.
-    callback();
-  }; 
-  
-  const handleTxEnvChange = async ({id, new_value, new_text}) => {
-    // Request we update the DB
-    if (!config) return;
-    await axios.post(baseUrl + channels.UPDATE_TX_ENV, { txID: id, envID: new_value }, config);
-    callback();      
+    // Let's avoid the back and forth.
+    //callback();
+  }
+
+  const handleCheckAll = (e) => {
+    const checked = e.target.checked;
+    const startIdx = (pagingCurPage - 1) * pagingPerPage;
+    const endIdx = pagingCurPage * pagingPerPage;
+
+    const updatedData = txData.map((item, index) => {
+      if (index >= startIdx && index < endIdx) {
+        return { ...item, isChecked: checked };
+      }
+      return item;
+    });
+
+    setTxData(updatedData);
+    setIsAllChecked(checked);
   };
 
-  const toggleDuplicate = async ({txID, isDuplicate}) => {
-    // Request we update the DB
+  const handleChangeAllEnvID = async ({id, new_value}) => {
+    setChangeAllEnvID(new_value);
+    const startIdx = (pagingCurPage - 1) * pagingPerPage;
+    const endIdx = pagingCurPage * pagingPerPage;
+
+    const updatedData = txData.map((item, index) => {
+      if (index >= startIdx && index < endIdx && item.isChecked) {
+       return { ...item, envID: new_value };
+      }
+      return item;
+    });
+
+    // Update the main data array
+    setTxData(updatedData);
+
+    // Signal we want to change the envelope for checked items.
     if (!config) return;
-    await axios.post(baseUrl + channels.SET_DUPLICATE, { txID: txID, isDuplicate: isDuplicate }, config);
-    callback();
+    await axios.post(baseUrl + channels.UPDATE_TX_ENV_LIST, 
+      { new_value, filtered_nodes: updatedData.filter(item => item.isChecked) }, config);
+
+    // Intentionally leave the checkboxes checked incase
+    // we made a mistake and want to set those to something else
+    // or back to the original value.
+    //setIsAllChecked(false);
+
+    // Probably don't need to call the callback since we 
+    // already made the changes in the local data array above.
+    // Let's avoid the back and forth.
+    //callback();
   };
 
-  const toggleVisibility = async ({txID, isVisible}) => {
-    // Request we update the DB
-    if (!config) return;
-    await axios.post(baseUrl + channels.SET_VISIBILITY, { txID: txID, isVisible: isVisible }, config);
-    callback();
+  const handleRowUpdate = (updatedRow) => {
+    setTxData((prevData) =>
+      prevData.map((row) => (row.txID === updatedRow.txID ? updatedRow : row))
+    );
   };
 
   useEffect(() => {
+    const updatedData = txData.map(item => ({ ...item, isChecked: false }));
+    setTxData(updatedData);
+    setIsAllChecked(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagingCurPage, pagingPerPage, pagingTotalRecords]);
+
+  useEffect(() => {
     const oldNumPer = Math.ceil(pagingTotalRecords / pagingNumPages);
-    const oldItemIndex = (pagingCurPage-1) * oldNumPer;
-    const newItemIndex = Math.ceil(oldItemIndex / pagingPerPage)
-    setPagingCurPage(newItemIndex?newItemIndex:1);
+    const oldItemIndex = (pagingCurPage - 1) * oldNumPer;
+    const newItemIndex = Math.floor(oldItemIndex / pagingPerPage) + 1;
+    setPagingCurPage(newItemIndex > 0 ? newItemIndex : 1);
     
     setPagingNumPages(Math.ceil(pagingTotalRecords / pagingPerPage));
 
@@ -196,22 +222,21 @@ export const TransactionTable = ({data, envList, callback}) => {
   }, [pagingPerPage]);
   
   useEffect(() => {
-    const numtx = data?.length;
-    if (numtx > 0) {
-      setPagingTotalRecords(numtx);
-      setPagingNumPages(Math.ceil(numtx / pagingPerPage));
-    } else {
-      setPagingTotalRecords(0);
-      setPagingNumPages(1);
-    }
+    const numtx = data?.length || 0;
+    const oldnumtx = pagingTotalRecords;
+    
+    setPagingTotalRecords(numtx);
+    setPagingNumPages(Math.ceil(numtx / pagingPerPage));
+    
     const tmpData = [...data];
-    set_checkbox_array(tmpData);
     setTxData(tmpData);
     
-    // If we have new data, reset to page 1
-    // If we were only toggling something we likely don't want to do that.
-    // In those cases we shouldn't refresh the data.
-    if (pagingCurPage > Math.ceil(numtx / pagingPerPage)) {
+    // If our number of records changed, we likely have new data,
+    // so reset our current page to the first one.
+    // Also do this if our current page is past the max.
+    if (pagingCurPage > Math.ceil(numtx / pagingPerPage) ||
+        numtx !== oldnumtx) {
+
       setPagingCurPage(1);
     }
 
@@ -219,12 +244,12 @@ export const TransactionTable = ({data, envList, callback}) => {
   }, [data]);
 
   useEffect(() => {
-    if (txData?.length === isChecked?.length && txData?.length > 0) {
+    if (txData?.length > 0) {
       setDataReady(true);
     } else {
       setDataReady(false);
     }
-  }, [txData, isChecked]);
+  }, [txData]);
 
 
   return (
@@ -246,16 +271,11 @@ export const TransactionTable = ({data, envList, callback}) => {
             <div onClick={() => look_for_invisible()}>{' Vis '}</div>
           </th>
           <th className="Table THR THRC">
-            <input type="checkbox" onChange={(e) => {
-              for(let iter=((pagingCurPage-1) * pagingPerPage); 
-                iter < (pagingCurPage * pagingPerPage); iter++) {
-                if (isChecked[iter]) {
-                  isChecked[iter].isChecked = e.target.checked;
-                }
-              }
-              setIsChecked([...isChecked]);
-              setIsAllChecked(e.target.checked);
-            }} checked={isAllChecked}/>
+            <input
+              type="checkbox"
+              onChange={handleCheckAll}
+              checked={isAllChecked}
+            />
           </th>
         </tr>
       </thead>
@@ -266,89 +286,14 @@ export const TransactionTable = ({data, envList, callback}) => {
           txData.map((item, index) => (
             index < (pagingCurPage * pagingPerPage) &&
             index >= ((pagingCurPage-1) * pagingPerPage) &&
-            <tr key={"tx-" + item.txID} className={(item.isDuplicate === 1 ? "TR-duplicate":"TR")}>
-              <td className="Table TC">
-                <EditDate 
-                  in_ID={item.txID.toString()}
-                  in_value={dayjs(item.txDate).format('M/D/YYYY')}
-                  callback={({id, value}) => {
-                    if (!config) return;
-                    axios.post(baseUrl + channels.UPDATE_TX_DATE, { txID: item.txID, new_value: value }, config);
-                  }}
-                />
-              </td>
-              <td className="Table TC Left">{item.account}</td>
-              <td className="Table TC Left">
-                <EditText
-                  name={item.txID.toString()}
-                  defaultValue={item.description}
-                  onSave={({name, value, previousValue}) => {
-                    // Request we rename the account in the DB
-                    if (!config) return;
-                    axios.post(baseUrl + channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value }, config);
-                  }}
-                  style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
-                  className={"editableText"}
-                  inputClassName={"normalInput"}
-                />
-              </td>
-              <td className="Table TC Right">{formatCurrency(item.txAmt)}</td>
-              <td className="Table TC TCInput">
-                <DropDown 
-                  id={item.txID}
-                  selectedID={item.envID}
-                  optionData={envList}
-                  changeCallback={handleTxEnvChange}
-                  className={(!item.envID || item.envID.toString() === "-1") ? "envelopeDropDown-undefined":"envelopeDropDown"}
-                />
-              </td>
-              <td className="Table TC">
-                <SplitTransactionModal 
-                    txID={item.txID}
-                    txDate={item.txDate}
-                    txAmt={ ( !item.txAmt ) ? 0 : item.txAmt }
-                    txDesc={item.description}
-                    cat={item.category}
-                    env={item.envelope}
-                    envID={item.envID}
-                    isSplit={item.isSplit}
-                    envList={envList}
-                    callback={callback}
-                  />
-              </td>
-              <td className="Table TC">
-                  <KeywordSave
-                    txID={item.txID}
-                    acc={item.account}
-                    envID={item.envID}
-                    description={item.description}
-                    keywordEnvID={item.keywordEnvID} />
-              </td>
-              <td className="Table TC">
-                <div
-                  onClick={() => {
-                    toggleDuplicate({txID: item.txID, isDuplicate: (item.isDuplicate?0:1)});
-                  }}
-                  className={"Toggle" + (item.isDuplicate?" Toggle-active":"")}>
-                  <FontAwesomeIcon icon={faCopy} />
-                </div>
-              </td>
-              <td className="Table TC">
-                <div
-                  onClick={() => {
-                    toggleVisibility({txID: item.txID, isVisible: (item.isVisible?0:1)});
-                  }}
-                  className={"Toggle" + (!item.isVisible?" Toggle-active":"")}>
-                  <FontAwesomeIcon icon={faEyeSlash} />
-                </div>
-              </td>
-              <td className="Table TC">
-                <input type="checkbox" id={item.txID.toString()} onChange={(e) => {
-                  isChecked[index].isChecked = e.target.checked;
-                  setIsChecked([...isChecked]);
-                }} checked={isChecked[index].isChecked}/>
-              </td>
-            </tr>
+            <TransactionTableRow
+              key={"tx-" + item.txID}  
+              index={index}
+              item={item}
+              envList={envList}
+              onRowUpdate={handleRowUpdate}
+              callback={callback}
+            />
           ))
         //}
         }
@@ -370,7 +315,7 @@ export const TransactionTable = ({data, envList, callback}) => {
                   id={'change-all-selected-envelopes'}
                   selectedID={changeAllEnvID}
                   optionData={envList}
-                  changeCallback={handleChangeAll}
+                  changeCallback={handleChangeAllEnvID}
                   className="envelopeDropDown"
                 />
           </td>
