@@ -39,7 +39,6 @@ export const ConfigPlaid = () => {
   const [uploading, ] = useState(false);
   const [progress, ] = React.useState(0);
   const [token, setToken] = useState<string | null>(null);
-  const [tokenExpiration, setTokenExpiration] = useState<string | null>(null);
   const [getStart, setGetStart] = React.useState('');
   const [getEnd, setGetEnd] = React.useState('');
   const [getAcc, setGetAcc] = React.useState<any>(null);
@@ -64,10 +63,6 @@ export const ConfigPlaid = () => {
     lastTx: number;
   }
 
-
-
-
-
   const createLinkToken = async () => {
     console.log("createLinkToken ENTER");
     if (!config) return;
@@ -79,7 +74,6 @@ export const ConfigPlaid = () => {
     let data = response.data;
     if (data.link_token?.length) {
       setToken(data.link_token);
-      setTokenExpiration(data.expiration);
       setLink_Error(null);
     }
     if (data.error_message?.length) {
@@ -87,7 +81,6 @@ export const ConfigPlaid = () => {
       setLink_Error("Error: " + data.error_message);
     }
   };
-
 
   const getAccountList = async () => {
     await createLinkToken();
@@ -208,8 +201,6 @@ export const ConfigPlaid = () => {
     }
   };
 
-  
-
   const get_updated_login = async (updateToken) => {
     const updateConfig: PlaidLinkOptions = {
       token: updateToken,
@@ -272,29 +263,6 @@ export const ConfigPlaid = () => {
 
   return (
     <>
-    <table><tbody>
-    <tr>
-      <td className="txFilterLabelCell">
-        Link Token:
-      </td>
-      <td className="txFilterCell" align="left">
-        {token &&
-          <>
-            {
-              token.substring(0,20) + '... Expires: ' +
-              dayjs(tokenExpiration).toString()
-            }
-          </>
-        }
-        <button 
-          className='textButton'
-          onClick={() => createLinkToken()} >
-          {!token && 'Get'}{token && 'Update'} Link Token
-        </button>
-      </td>
-    </tr>
-  </tbody></table>
-  <br/>
   {link_Error && 
     <div className="Error"><br/>{link_Error}</div>
   }
