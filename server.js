@@ -10,7 +10,8 @@ require('module-alias/register');
 const { auth0data, channels } = require('@shared/constants.js');
 const dayjs = require('dayjs');
 const { auth, requiredScopes } = require('express-oauth2-jwt-bearer');
-
+const axios = require('axios');
+const crypto = require('crypto');
 
 
 // Authorization middleware. When used, the Access Token must
@@ -21,35 +22,82 @@ const checkJwt = auth({
   tokenSigningAlg: auth0data.tokenSigningAlg,
 });
 
+// Middleware to bypass JWT check for specific endpoint
+const bypassJwtCheck = (req, res, next) => {
+  if (req.path === `/api/${channels.AUTH0_GET_TOKENS}`) {
+    console.log("MIDDLEWARE: bypassing checkJwt since we are getting tokens.");
+    return next();
+  }
+  return checkJwt(req, res, next);
+};
+
 app.use(express.json());
 app.use(cors({ origin: auth0data.origin }));
-app.use(checkJwt);
+app.use(bypassJwtCheck);
 app.use(async (req, res, next) => {
+  if (req.path === '/api/' + channels.AUTH0_GET_TOKENS) {
+    console.log("MIDDLEWARE: bypassing our auth0 check since we are getting tokens.");
+    return next();
+  }
   try {
-    // Verify auth0 token
+    // Make sure auth0 token exists in the header
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).send('Unauthorized: Missing Authorization Header');
     }
+    console.log("MIDDLEWARE: authorization header exists.");
 
+    // Make sure we have a valid token
     const token = authHeader.split(' ')[1];
     const decodedToken = jwt.decode(token);
     if (!decodedToken) {
       return res.status(401).send('Unauthorized: Invalid Token');
     }
+    console.log("MIDDLEWARE: token is valid.");
 
-    req.auth0Id = decodedToken.sub; // Auth0 user ID
+    // Make sure the token is not expired
+    const expirationDate = new Date(decodedToken.exp * 1000);
+    console.log('Token expires on:', expirationDate.toLocaleString());
+    console.log('Current date/tim:', new Date().toLocaleString());
+    if (decodedToken.exp < Date.now() / 1000) {
+      console.log("MIDDLEWARE: Auth token is expired");
+      console.log("MIDDLEWARE: Getting refresh token from DB");
+      const my_refreshToken = await getRefreshTokenFromDB(decodedToken.sub);
+      console.log("MIDDLEWARE: Calling refreshToken");
+      const newTokens = await refreshToken(my_refreshToken);
+      if (!newTokens) {
+        return res.status(401).send('Unauthorized: Unable to refresh token');
+      }
 
-    // Set user ID as a session variable
+      // Store the new refresh token in the database
+      console.log("MIDDLEWARE: Storing refreshToken in DB");
+      await storeTokensInDB(decodedToken.sub, newTokens.access_token, newTokens.refresh_token);
+
+      console.log("MIDDLEWARE: setting access_token in header authorization");
+      res.setHeader('Authorization', `Bearer ${newTokens.access_token}`);
+      
+      console.log("MIDDLEWARE: setting new auth0Id from decoded access_token");
+      const newDecodedToken = jwt.decode(newTokens.access_token);
+      req.auth0Id = newDecodedToken.sub;
+    } else {
+      console.log("MIDDLEWARE: Auth token is NOT expired");
+      console.log("MIDDLEWARE: setting auth0Id");
+      req.auth0Id = decodedToken.sub;
+    }
+
+    // Make sure the UserID is not missing
     const userId = req.auth0Id;
     if (!userId) {
       return res.status(401).send('Unauthorized: Missing User ID');
     }
+    console.log("MIDDLEWARE: token has userID.");
 
+    // Set DB session with our authenticated userID
     await db.raw(`SET myapp.current_user_id = '${userId}'`);
     next();
+
   } catch (error) {
-    console.error('Error setting user session:', error);
+    console.error('MIDDLEWARE: Error setting user session:', error);
     res.status(500).send('Internal Server Error');
   }
 });
@@ -110,52 +158,173 @@ const getUserId = async (auth0Id) => {
   return user.id;
 };
 
-app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
-  const { user } = req.body;
-  console.log('AUTH0_CHECK_CREATE_USER ENTER');
-  const token = req.headers.authorization.split(' ')[1];
-  const decodedToken = jwt.decode(token);
-  const auth0Id = decodedToken.sub;
-
+async function refreshToken(refreshToken) {
+  console.log("refreshToken");
   try {
-    
-    await db('users')
-    .select('id')
-    .where('auth0_id', auth0Id)
-    .then(async function (rows) {
-      if (rows.length === 0) {
-        // no matching records found
-        return await db('users')
-          .insert({
-            auth0_id: auth0Id,
-            email: user.email,
-            name: user.name,
-          })
-          .then(async () => {
-            // Create default DB data
-            const userId = await getUserId(auth0Id);
-            await db('category').insert({ category: 'Uncategorized', user_id: userId }).then();
-            await db('category').insert({ category: 'Income', user_id: userId }).then();
-
-            res.status(201).json({ message: 'User created successfully' });
-          })
-          .catch((err) => {
-            console.log('Error creating user: ' + err);
-          });
-      } else {
-        // Already exists
-        res.status(200).json({ message: 'User already exists' });
-      }
-    })
-    .catch((err) => {
-      console.log('Error checking if user exists: ' + err);
+    const response = await axios.post(`https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`, {
+      grant_type: 'refresh_token',
+      client_id: process.env.REACT_APP_AUTH0_CLIENT_ID,
+      client_secret: process.env.REACT_APP_AUTH0_CLIENT_SECRET,
+      refresh_token: refreshToken,
     });
+
+    console.log("response: ", response);
+    return response.data;
+  } catch (err) {
+    console.error('Error refreshing token:', err);
+    return null;
+  }
+}
+
+async function getRefreshTokenFromDB(auth0Id) {
+  const user = await db('users').select('refresh_token').where('auth0_id', auth0Id).first();
+  return user ? user.refresh_token : null;
+}
+
+async function storeTokensInDB(auth0Id, accessToken, refreshToken) {
+  await db('users')
+    .where('auth0_id', auth0Id)
+    .update({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+}
+
+function base64URLEncode(str) {
+  return str.toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+}
+
+function sha256(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest();
+}
+
+app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
+  console.log('AUTH0_GET_TOKENS ENTER');
+  const { authorizationCode, codeVerifier } = req.body;
+  try {
+
+    const auth0Challenge = base64URLEncode(sha256(codeVerifier));
+    console.log('Auth0 Code Challenge:', auth0Challenge);
+
+    console.log("Trying to get tokens from auth0");
+    console.log("URL: ", `https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`);
+    console.log("body:");
+    const token_fetch_body = {
+      grant_type: 'authorization_code',
+      client_id: process.env.REACT_APP_AUTH0_CLIENT_ID,
+      client_secret: process.env.REACT_APP_AUTH0_CLIENT_SECRET,
+      code: authorizationCode,
+      redirect_uri: process.env.REACT_APP_AUTH0_CALLBACK_URL,
+      code_verifier: codeVerifier,
+    };
+    console.log(token_fetch_body);
+
+    // Exchange the authorization code for tokens
+    const tokenResponse = await fetch(`https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(token_fetch_body),
+    });
+
+    console.log("tokenResponse: ", tokenResponse);
+    const tokenData = await tokenResponse.json();
+    console.log("tokenData: ", tokenData);
+    const refreshToken = tokenData.refresh_token;
+    console.log('Refresh Token:', refreshToken);
+    console.log('Access Token:', tokenData.access_token);
+
+    // Get the user id from the access_token
+    console.log("Trying to get user info with access token");
+    console.log('id_token:', tokenData.id_token);
+    const decodedToken = jwt.decode(tokenData.id_token);
+    console.log('decoded id_token:', decodedToken);
+    const auth0Id = decodedToken.sub;
+
+    const { returnCode, message } = 
+      await auth0_check_or_create_user({ token: tokenData.access_token, refreshToken, auth0Id });
+    
+    res.status(returnCode).json({ message: message });
 
   } catch (error) {
     console.error('Error checking or creating user:', error);
     res.status(500).json({ message: 'Error checking or creating user' });
   }
 });
+
+app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
+  console.log('AUTH0_CHECK_CREATE_USER ENTER');
+  const { user, refreshToken } = req.body;
+  const token = req.headers.authorization.split(' ')[1];
+  const decodedToken = jwt.decode(token);
+  const auth0Id = decodedToken.sub;
+
+  console.log("token:", token);
+  console.log("refreshToken:", refreshToken);
+
+  const { returnCode, message } = await auth0_check_or_create_user({ token, refreshToken, auth0Id });
+  res.status(returnCode).json({ message: message });
+});
+
+async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
+  console.log("auth0_check_or_create_user ENTER");
+  console.log("token:", token);
+  console.log("refreshToken:", refreshToken);
+
+  try {
+    const existingUser = 
+      await db('users')
+        .select('id', 'access_token', 'refresh_token')
+        .where('auth0_id', auth0Id)
+        .first();
+    
+    // no matching records found
+    if (!existingUser) {
+      // Insert user and retrieve the user ID in one step
+      const [userId] = await db('users')
+        .insert({
+          auth0_id: auth0Id,
+          email: user.email,
+          name: user.name,
+          access_token: token,
+          refresh_token: refreshToken,
+        })
+        .returning('id');
+        
+      // Create default DB data
+      await db('category').insert({ category: 'Uncategorized', user_id: userId }).then();
+      await db('category').insert({ category: 'Income', user_id: userId }).then();
+
+      console.log('User created successfully');
+      //res.status(201).json({ message: 'User created successfully' });
+      return { returnCode: 200, message: 'User created successfully' };
+      
+    } else {
+      // Already exists
+      if (existingUser.access_token != token ||
+          existingUser.refresh_token != refreshToken) {
+        
+        await db('users')
+          .update({
+            access_token: token,
+            refresh_token: refreshToken,
+          })
+          .where('auth0_id', auth0Id);
+      }
+      console.log('User already exists');
+      //res.status(200).json({ message: 'User already exists' });
+      return { returnCode: 200, message: 'User already exists' };
+    }
+
+  } catch (error) {
+    console.error('Error checking or creating user:', error);
+    //res.status(500).json({ message: 'Error checking or creating user' });
+    return { returnCode: 500, message: 'Error checking or creating user' };
+  }
+}
+
 
 // PLAID stuff
 const {

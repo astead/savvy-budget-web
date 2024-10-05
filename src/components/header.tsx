@@ -42,7 +42,7 @@ export const Header = ({currTab}) => {
       { isAuthenticated && <Link to="/Envelopes" className={currTab === "Envelopes"?"menuLink menuLink-selected":"menuLink"}>Envelopes</Link> }
       { isAuthenticated && <Link to="/Configure" className={currTab === "Configure"?"menuLink menuLink-selected":"menuLink"}>Configure</Link> }
       <LoginButton/>
-      <Profile/>
+      
       <LogoutButton/>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { HashRouter as Router, Route, Routes } from 'react-router-dom';
-import { baseUrl, channels } from './shared/constants.js';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { baseUrl, channels, auth0data } from './shared/constants.js';
+import { Auth0Provider } from '@auth0/auth0-react';
 import { useAuth0 } from '@auth0/auth0-react';
 import axios from 'axios';
 import './includes/styles.css';
@@ -10,29 +11,36 @@ import { Charts } from './components/Charts.tsx';
 import { Transactions } from './components/Transactions.tsx';
 import { Envelopes } from './components/Envelopes.tsx';
 import { Configure } from './components/Configure.tsx';
+import { Callback } from './components/Callback.tsx';
 import { AuthTokenProvider } from './context/AuthTokenContext.tsx';
 
 
 export const App: React.FC = () => {
+  console.log("App");
 
   const [auth_token, setAuth_token] = useState<string | null>(null);
   const [config, setConfig] = useState<{ headers: { Authorization: string } } | null>(null);
 
   const { isLoading, user, isAuthenticated, getAccessTokenSilently } = useAuth0();
 
+  
   useEffect(() => {
+    console.log("App.tsx useEffect: [isAuthenticated, user, getAccessTokenSilently]");
+
     const checkOrCreateUser = async () => {
       if (isAuthenticated && user) {
-        const token = await getAccessTokenSilently();
+        const accessToken = await getAccessTokenSilently();
         const config = {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${accessToken }` }
         };
-        setAuth_token(token);
-        setConfig({ headers: { Authorization: `Bearer ${token}` } });
+        setAuth_token(accessToken );
+        setConfig({ headers: { Authorization: `Bearer ${accessToken}` } });
 
         try {
+          console.log("Calling AUTH0_CHECK_CREATE_USER from App.checkOrCreateUser");
           // Check or create user in a single API call
-          await axios.post(baseUrl + channels.AUTH0_CHECK_CREATE_USER, { user }, config);
+          await axios.post(baseUrl + channels.AUTH0_CHECK_CREATE_USER, 
+            { user, refreshToken: accessToken }, config);
         } catch (error) {
           console.error('Error checking or creating user:', error);
         }
@@ -42,13 +50,19 @@ export const App: React.FC = () => {
     checkOrCreateUser();
   }, [isAuthenticated, user, getAccessTokenSilently]);
 
-  if (isLoading) {
-    return <Loading />;
-  }
-  
   return (
-    <AuthTokenProvider auth_token={auth_token} config={config}>
-      <Router>
+    
+    <Auth0Provider
+      domain={auth0data.domain}
+      clientId={auth0data.clientId}
+      //useRefreshTokens={true}
+      //cacheLocation="localstorage"
+      authorizationParams={{
+        //redirect_uri: `${window.location.origin}/callback`,
+        audience: auth0data.audience,
+      }}
+    >
+      <AuthTokenProvider auth_token={auth_token} config={config}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/Charts/:in_envID" element={<Charts />} />
@@ -56,7 +70,8 @@ export const App: React.FC = () => {
           <Route path="/Envelopes" element={<Envelopes />} />
           <Route path="/Configure" element={<Configure />} />
         </Routes>
-      </Router>
-    </AuthTokenProvider>
+      </AuthTokenProvider>
+      </Auth0Provider>
+    
   );
 };

@@ -6,6 +6,7 @@ module.exports = {
     audience: 'http://localhost:3001',
     issuerBaseURL: 'https://dev-uzuzwxmdtzhadla7.us.auth0.com/',
     tokenSigningAlg: 'RS256',
+    redirectURL: 'http://localhost:3000/callback',
   },
   baseUrl: process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api/' : 'http://localhost:3001/api/',
   channels: {
@@ -140,5 +141,6 @@ module.exports = {
     DRIVE_STOP_USING: 'drive_stop_using',
 
     AUTH0_CHECK_CREATE_USER: 'auth0_check_or_create_user',
+    AUTH0_GET_TOKENS: 'auth0_get_tokens',
   },
 };
