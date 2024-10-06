@@ -28,7 +28,9 @@ export const App: React.FC = () => {
     console.log("App.tsx useEffect: [isAuthenticated, user, getAccessTokenSilently]");
 
     const checkOrCreateUser = async () => {
+      console.log("App.tsx checkOrCreateUser");
       if (isAuthenticated && user) {
+        console.log("authenticated and we have a user.");
         const accessToken = await getAccessTokenSilently();
         const config = {
           headers: { Authorization: `Bearer ${accessToken }` }
@@ -44,26 +46,22 @@ export const App: React.FC = () => {
         } catch (error) {
           console.error('Error checking or creating user:', error);
         }
+      } else {
+        console.log("isAuthenticated: ", isAuthenticated);
+        console.log("user: ", user);
       }
     };
 
     checkOrCreateUser();
+    //getAccessTokenSilently();
   }, [isAuthenticated, user, getAccessTokenSilently]);
 
   return (
     
-    <Auth0Provider
-      domain={auth0data.domain}
-      clientId={auth0data.clientId}
-      //useRefreshTokens={true}
-      //cacheLocation="localstorage"
-      authorizationParams={{
-        //redirect_uri: `${window.location.origin}/callback`,
-        audience: auth0data.audience,
-      }}
-    >
+    
       <AuthTokenProvider auth_token={auth_token} config={config}>
         <Routes>
+          <Route path="/callback" element={<Callback />} />
           <Route path="/" element={<HomePage />} />
           <Route path="/Charts/:in_envID" element={<Charts />} />
           <Route path="/Transactions/:in_catID/:in_envID/:in_force_date/:in_year/:in_month" element={<Transactions />} />
@@ -71,7 +69,6 @@ export const App: React.FC = () => {
           <Route path="/Configure" element={<Configure />} />
         </Routes>
       </AuthTokenProvider>
-      </Auth0Provider>
     
   );
 };

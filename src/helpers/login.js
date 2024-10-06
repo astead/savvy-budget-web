@@ -31,7 +31,7 @@ const generateCodeChallenge = async (verifier) => {
 
 const LoginButton = () => {
   console.log("LoginButton");
-  //const { loginWithRedirect } = useAuth0();
+  const { loginWithRedirect } = useAuth0();
   
   const handleLogin = async () => {
     console.log("handleLogin");
@@ -50,6 +50,7 @@ const LoginButton = () => {
       console.log('Code Verifier:', codeVerifier);
       console.log('Code Challenge:', codeChallenge);
 
+      
       const authUrl = 'https://'+ auth0data.domain + '/authorize?' +
       'response_type=code&' +
       'client_id='+ auth0data.clientId + '&' +
@@ -60,16 +61,25 @@ const LoginButton = () => {
 
       // Redirect to Auth0 authorization endpoint
       window.location.href = authUrl;
+      
       /*
       await loginWithRedirect({
         authorizationParams: {
+          response_type: 'code',
+          client_id: auth0data.clientId,
+          redirect_uri: `${window.location.origin}`,
           code_challenge: codeChallenge,
           code_challenge_method: 'S256',
-          redirect_uri: `${window.location.origin}/callback`,
           audience: auth0data.audience,
+          scope: 'offline_access openid profile',
         },
       });
       */
+      
+      
+
+
+
     } catch (error) {
       console.error('Error during login:', error);
     }

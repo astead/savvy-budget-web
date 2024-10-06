@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-//import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { baseUrl, channels } from '../shared/constants.js';
+import { baseUrl, channels, auth0data } from '../shared/constants.js';
 
 
 
@@ -24,7 +24,7 @@ const generateCodeChallenge = async (verifier) => {
 
 export const Callback = () => {
   console.log("Callback");
-  //const { handleRedirectCallback, user, getAccessTokenSilently } = useAuth0();
+  const { handleRedirectCallback, user, getAccessTokenSilently, loginWithRedirect, isAuthenticated } = useAuth0();
   const location = useLocation();
   const navigate = useNavigate();
 	const shouldRedirect = useRef(true);
@@ -70,7 +70,28 @@ export const Callback = () => {
               { authorizationCode: authorizationCode, codeVerifier: codeVerifier });
 
             console.log("We're back. Response is: ", response);
-            navigate('/');
+            
+            //navigate('/');
+            console.log('isAuthenticated: ', isAuthenticated);
+            console.log('user: ', user);
+/*
+            loginWithRedirect({
+              authorizationParams: {
+                client_id: auth0data.clientId,
+                redirect_uri: window.location.origin,
+                audience: auth0data.audience,
+              },
+            });
+*/
+            loginWithRedirect({
+              authorizationParams: {
+                response_type: 'token',
+                client_id: auth0data.clientId,
+                redirect_uri: `${window.location.origin}`,
+                audience: auth0data.audience,
+                scope: 'read:current_user',
+              },
+            });
           }
         }
       } catch (error) {
