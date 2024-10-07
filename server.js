@@ -1331,6 +1331,47 @@ app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
 });
 
 // Get the categories and envelopes
+app.post('/api/'+channels.GET_ENV_CAT, async (req, res) => {
+  console.log(channels.GET_ENV_CAT);
+
+  const { onlyActive } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  
+  try {
+    const userId = await getUserId(auth0Id);
+
+    let query = db
+      .select(
+        'category.id as catID',
+        'category.category',
+        'envelope.id as envID',
+        'envelope.envelope',
+        'envelope.balance as currBalance',
+        'envelope.isActive'
+      )
+      .from('envelope')
+      .leftJoin('category', function () {
+        this.on('category.id', '=', 'envelope.categoryID')
+          .andOn('envelope.user_id', '=', db.raw(`?`, [userId]));
+      })
+      .where({ 'category.user_id': userId})
+      .orderBy('category.id')
+      .orderBy('envelope.envelope');
+
+    if (onlyActive === 1) {
+      query.where('envelope.isActive', 1);
+    }
+
+    const data = await query;
+    res.json(data);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Get the categories and envelopes
 app.post('/api/'+channels.GET_CAT_ENV, async (req, res) => {
   console.log(channels.GET_CAT_ENV);
 

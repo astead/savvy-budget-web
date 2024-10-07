@@ -90,7 +90,7 @@ export const Charts: React.FC = () => {
   const load_envelope_list = async () => {
     // Signal we want to get data
     if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_CAT_ENV, {onlyActive: 1}, config);
+    const response = await axios.post(baseUrl + channels.GET_ENV_CAT, {onlyActive: 1}, config);
 
     // Receive the data
     let groupedItems = [{

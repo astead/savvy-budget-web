@@ -146,7 +146,7 @@ export const Transactions: React.FC = () => {
   const load_envelope_list = async () => {
     // Signal we want to get data
     if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_CAT_ENV, {onlyActive: 0}, config);
+    const response = await axios.post(baseUrl + channels.GET_ENV_CAT, {onlyActive: 0}, config);
 
     // Receive the data
     let firstID = -1;

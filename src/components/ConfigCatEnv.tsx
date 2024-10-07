@@ -56,7 +56,9 @@ export const ConfigCatEnv = () => {
       if (!acc[groupKey]) {
         acc[groupKey] = {catID:groupKey, cat:groupLabel, items:[]};
       }
-      acc[groupKey].items.push(item);
+      if (item.envID !== null && item.envelope !== null) {
+        acc[groupKey].items.push(item);
+      }
       return acc;
     }, {});
   };

@@ -10,7 +10,8 @@ module.exports = {
   },
   baseUrl: process.env.NODE_ENV === 'development' ? 'http://localhost:3001/api/' : 'http://localhost:3001/api/',
   channels: {
-    GET_CAT_ENV: 'get_categories_and_envelopes',
+    GET_CAT_ENV: 'get_categories_and_envelopes', // if a category has no envelopes, this will include it
+    GET_ENV_CAT: 'get_envelopes_and_categories', // if a category has no envelopes, this will not include it
     LIST_CAT_ENV: 'list_categories_and_envelopes',
     GET_ENV_LIST: 'get_envelope_list',
     LIST_ENV_LIST: 'list_envelope_list',
