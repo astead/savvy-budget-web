@@ -33,18 +33,31 @@ const style = {
 export const ConfigPlaid = () => {
   const { config } = useAuthToken();
   
+  // Modal popup variables when force getting transactions
   const [open, setOpen] = useState(false);
-  const [link_Error, setLink_Error] = useState<string | null>(null);
-  const [PLAIDAccounts, setPLAIDAccounts] = useState<PLAIDAccount[]>([]);
-  const [uploading, ] = useState(false);
-  const [progress, ] = React.useState(0);
-  const [token, setToken] = useState<string | null>(null);
   const [getStart, setGetStart] = React.useState('');
   const [getEnd, setGetEnd] = React.useState('');
   const [getAcc, setGetAcc] = React.useState<any>(null);
-  const [updateConfig, setUpdateConfig] = React.useState<any>(null);
-  //const isOAuthRedirect = window.location.href.includes('?oauth_state_id=');
+
+  // Hold any error messages
+  const [link_Error, setLink_Error] = useState<string | null>(null);
   
+  // List of all the acocunts
+  const [PLAIDAccounts, setPLAIDAccounts] = useState<PLAIDAccount[]>([]);
+  
+  // Get transactions progress bar
+  const [uploading, ] = useState(false);
+  const [progress, ] = React.useState(0);
+  
+  // PLAID link token
+  const [token, setToken] = useState<string | null>(null);
+  
+  // PLAID update config
+  const [updateConfig, setUpdateConfig] = React.useState<any>(null);
+  
+  // Used to track if the popup modal is open or closed.
+  // That modal is used to enter start/end dates to force
+  // get specific transactions.
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
