@@ -525,11 +525,6 @@ export const Envelopes: React.FC = () => {
             </div>
           </div>
         }
-        {!loaded &&
-          <div>
-            Data is loading...
-          </div>
-        }
       </div>
     </div>
   );
