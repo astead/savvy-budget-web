@@ -1,4 +1,5 @@
 const express = require('express');
+const session = require('express-session');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const app = express();
@@ -23,8 +24,11 @@ const checkJwt = auth({
 });
 
 // Middleware to bypass JWT check for specific endpoint
-const bypassJwtCheck = (req, res, next) => {
-  if (req.path === `/api/${channels.AUTH0_GET_TOKENS}`) {
+const bypassJwtCheck = async (req, res, next) => {
+  console.log("MIDDLEWARE: bypassJwtCheck");
+  if (req.path === `/api/${channels.AUTH0_GET_TOKENS}` ||
+      req.path === `/api/${channels.PROGRESS}`
+  ) {
     console.log("MIDDLEWARE: bypassing checkJwt since we are getting tokens.");
     return next();
   }
@@ -101,6 +105,11 @@ app.use(async (req, res, next) => {
     res.status(500).send('Internal Server Error');
   }
 });
+app.use(session({
+  secret: process.env.REACT_APP_SESSION_KEY,
+  resave: false,
+  saveUninitialized: true,
+}));
 
 let db = null;
 
@@ -149,6 +158,9 @@ const set_db = async () => {
 };
 
 set_db();
+
+// Store progress bar status
+const progressStatuses = {};
 
 const getUserId = async (auth0Id) => {
   const user = await db('users').where({ auth0_id: auth0Id }).first();
@@ -659,10 +671,29 @@ async function remove_plaid_account_link(trx, userId, account_id) {
 app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
   console.log(channels.PLAID_GET_TRANSACTIONS);
 
+  const sessionId = req.sessionID;
+  
+  // Initialize our progress status
+  progressStatuses[sessionId] = 0;
+  
+  // Send message back that we started and include the sessionId
+  res.status(200).send({ sessionId });
+
+  // Get our variables
   const { access_token, cursor } = req.body;
+  console.log('cursor: ', cursor);
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
   const userId = await getUserId(auth0Id);
 
+  // Start the process of getting transactions
+  get_transactions(access_token, cursor, userId, sessionId);
+});
+
+// TODO: Should we run this whole thing as a database transaction?
+async function get_transactions(access_token, cursor, userId, sessionId) {
+  console.log('get_transactions');
+
+  let accounts = 0;
   let added = [];
   let modified = [];
   let removed = [];
@@ -680,14 +711,13 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
     } catch (e) {
       console.log('Error: ', e.response.data.error_message);
       //event.sender.send(channels.UPLOAD_PROGRESS, 100);
-      res.json(e.response.data);
+      //res.json(e.response.data);
       return;
     }
-    console.log('Response: ' + response);
     const data = response.data;
-    console.log(' Response: ', data);
-
+    
     // Add this page of results
+    accounts = data.accounts.length;
     added = added.concat(data.added);
     modified = modified.concat(data.modified);
     removed = removed.concat(data.removed);
@@ -697,10 +727,16 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
     cursor_iter = data.next_cursor;
   }
 
-  console.log('Done getting the data, now processing');
+  console.log('Done getting the data:');
+  console.log('Accounts: ', accounts);
+  console.log('added: ', added.length);
+  console.log('modified: ', modified.length);
+  console.log('removed: ', removed.length);
 
-  //let total_records = added.length + modified.length + removed.length;
-  //let cur_record = 0;
+  console.log('Now processing');
+
+  let total_records = added.length + modified.length + removed.length;
+  let cur_record = 0;
 
   // Apply added
   const accountArr = [];
@@ -739,48 +775,43 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
 
     if (matchingRemoved) {
       // Update the existing transaction's transaction_id
-      await update_transaction_id(
-        userId,
-        access_token,
-        matchingRemoved.transaction_id, 
-        a.transaction_id,
-        -1 * a.amount,
-        a.date,
-        a.name
-      );
+      await update_transaction_id({
+        userId: userId,
+        accountID: accountID,
+        account_id: a.account_id,
+        old_transaction_id: matchingRemoved.transaction_id, 
+        transaction_id: a.transaction_id,
+        txAmt: -1 * a.amount,
+        txDate: a.date,
+        description: a.name,
+        envID: envID,
+        isDuplicate: isDuplicate,
+      });
     } else if (isDuplicate !== 1) {
-      await basic_insert_transaction_node(
-        userId,
-        accountID,
-        -1 * a.amount,
-        a.date,
-        a.name,
-        a.transaction_id,
-        envID
-      );
+      await basic_insert_transaction_node({
+        userId: userId,
+        accountID: accountID,
+        txAmt: -1 * a.amount,
+        txDate: a.date,
+        description: a.name,
+        refNumber: a.transaction_id,
+        envID: envID,
+      });
     }
 
-    /*
     cur_record++;
-    event.sender.send(
-      channels.UPLOAD_PROGRESS,
-      (cur_record * 100) / total_records
-    );
-    */
+    progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
+  console.log('Done processing added transactions.');
 
   // Apply removed
   for (const [i, r] of removed.entries()) {
-    await basic_remove_transaction_node(access_token, r.transaction_id);
+    await basic_remove_transaction_node({ userId, account_id: r.account_id, refNumber: r.transaction_id });
 
-    /*
     cur_record++;
-    event.sender.send(
-      channels.UPLOAD_PROGRESS,
-      (cur_record * 100) / total_records
-    );
-    */
+    progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
+  console.log('Done processing removed transactions.');
 
   // Apply modified
   for (const [i, m] of modified.entries()) {
@@ -801,40 +832,77 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
 
     let envID = await lookup_keyword(userId, accountID, m.name, m.date);
 
-    // Rather than modify it, just remove the old and the new
-    await basic_remove_transaction_node(access_token, m.transaction_id);
+    // Rather than modify it, just remove the old and add the new
+    await basic_remove_transaction_node({ userId, account_id: m.account_id, refNumber: m.transaction_id });
 
-    await basic_insert_transaction_node(
-      userId,
-      accountID,
-      -1 * m.amount,
-      m.date,
-      m.name,
-      m.transaction_id,
-      envID
-    );
+    await basic_insert_transaction_node({
+      userId: userId,
+      accountID: accountID,
+      txAmt: -1 * m.amount,
+      txDate: m.date,
+      description: m.name,
+      refNumber: m.transaction_id,
+      envID: envID
+    });
 
-    /*
     cur_record++;
-    event.sender.send(
-      channels.UPLOAD_PROGRESS,
-      (cur_record * 100) / total_records
-    );
-    */
+    progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
+  console.log('Done processing modifed transactions.');
 
   // Update cursor
+  /*
   db('plaid_account')
     .where({ access_token: access_token, user_id: userId })
     .update({ cursor: cursor_iter })
     .catch((err) => console.log('Error: ' + err));
+  */
+ 
+  console.log('Done with everything, setting progress to 100.');
+  progressStatuses[sessionId] = 100;
+  //res.status(200).send('Imported transactions successfully');
+};
 
-  //event.sender.send(channels.UPLOAD_PROGRESS, 100);
-  res.status(200).send('Imported transactions successfully');
+app.get('/api/' + channels.PROGRESS, async (req, res) => {
+  console.log('In progress check handler');
+
+  const sessionId = req.query.sessionId;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const sendProgress = () => {
+    let progress = progressStatuses[sessionId];
+    console.log('progressStatuses[sessionId]:', progressStatuses[sessionId]);
+  
+    if (progress === undefined) {
+      console.log('progressStatuses[sessionId] was undefined, so setting to 100');
+      progress = 100;
+    } else {
+      progress = Math.round(progress);
+    }
+
+    console.log('Sending back progress status of:', progress);
+    res.write(`data: ${JSON.stringify({ progress })}\n\n`);
+
+    if (progress >= 100) {
+      clearInterval(interval);
+      res.end();
+    }
+  };
+
+  const interval = setInterval(sendProgress, 1000);
+
+  req.on('close', () => {
+    clearInterval(interval);
+  });
 });
 
 // TODO: this can probably be consolidated with the above function
 //       pulling out common tasks to a helper function.
+// TODO: add progress bar
+// TODO: separate out actual function
+// TODO: separate out add transactions as a function to be shared with above.
 app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
   console.log('Try getting plaid account transactions ');
 
@@ -918,15 +986,15 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
     );
 
     if (isDuplicate !== 1) {
-      await basic_insert_transaction_node(
-        userId,
-        accountID,
-        -1 * a.amount,
-        a.date,
-        a.name,
-        a.transaction_id,
-        envID
-      );
+      await basic_insert_transaction_node({
+        userId: userId,
+        accountID: accountID,
+        txAmt: -1 * a.amount,
+        txDate: a.date,
+        description: a.name,
+        refNumber: a.transaction_id,
+        envID: envID
+      });
     }
 
     /*
@@ -1023,7 +1091,7 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
         await trx('envelope')
           .where({ id: data[0].envelopeID, user_id: userId })
           .update({
-            balance: db.raw('balance - ?', [data[0].txAmt])
+            balance: trx.raw('balance - ?', [data[0].txAmt])
           });
 
         // Loop through each new split
@@ -1051,7 +1119,7 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
           await trx('envelope')
             .where({ id: item.txEnvID, user_id: userId })
             .update({
-              balance: db.raw('balance + ?', [item.txAmt])
+              balance: trx.raw('balance + ?', [item.txAmt])
             });
         }
       }
@@ -1313,13 +1381,13 @@ app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
       await trx('envelope')
         .where({ id: fromID, user_id: userId })
         .update({
-          balance: db.raw('balance - ?', [transferAmt])
+          balance: trx.raw('balance - ?', [transferAmt])
         });
 
       await trx('envelope')
         .where({ id: toID, user_id: userId })
         .update({
-          balance: db.raw('balance + ?', [transferAmt])
+          balance: trx.raw('balance + ?', [transferAmt])
         });
     });
 
@@ -2674,15 +2742,15 @@ app.post('/api/'+channels.IMPORT_CSV, async (req, res) => {
                 accountArr.push({ name: account_str, id: accountID });
               }
 
-              await basic_insert_transaction_node(
-                userId,
-                accountID,
-                txAmt,
-                txDate,
-                description,
-                '',
-                envelopeID
-              );
+              await basic_insert_transaction_node({
+                userId: userId,
+                accountID: accountID,
+                txAmt: txAmt,
+                txDate: txDate,
+                description: description,
+                refNumber: '',
+                envID: envelopeID
+              });
             }
             //event.sender.send(channels.UPLOAD_PROGRESS, (i * 100) / totalNodes);
           }
@@ -2716,15 +2784,15 @@ app.post('/api/'+channels.IMPORT_CSV, async (req, res) => {
             accountArr.push({ name: account_str, id: accountID });
           }
 
-          await basic_insert_transaction_node(
-            userId,
-            accountID,
-            txAmt,
-            txDate,
-            description,
-            '',
-            envID
-          );
+          await basic_insert_transaction_node({
+            userId: userId,
+            accountID: accountID,
+            txAmt: txAmt,
+            txDate: txDate,
+            description: description,
+            refNumber: '',
+            envID: envID
+          });
         }
       }
       console.log('');
@@ -2764,7 +2832,7 @@ async function set_or_update_budget_item(userId, newEnvelopeID, newtxDate, newtx
         await trx('envelope')
           .where({ id: newEnvelopeID, user_id: userId })
           .update({
-            balance: db.raw('balance + ?', [newtxAmt])
+            balance: trx.raw('balance + ?', [newtxAmt])
           });
           
       } else {
@@ -2774,7 +2842,7 @@ async function set_or_update_budget_item(userId, newEnvelopeID, newtxDate, newtx
         await trx('envelope')
           .where({ id: newEnvelopeID, user_id: userId })
           .update({
-            balance: db.raw('balance + ?', [newtxAmt - oldTxAmt])
+            balance: trx.raw('balance + ?', [newtxAmt - oldTxAmt])
           });
 
         await trx('transaction')
@@ -2804,14 +2872,14 @@ async function update_tx_env(userId, txID, envID) {
           await trx('envelope')
           .where({ id: envelopeID, user_id: userId })
           .update({
-            balance: db.raw('"balance" - ?', [txAmt])
+            balance: trx.raw('"balance" - ?', [txAmt])
           });
         }
 
         await trx('envelope')
         .where({ id: envID, user_id: userId })
         .update({
-          balance: db.raw('"balance" + ?', [txAmt])
+          balance: trx.raw('"balance" + ?', [txAmt])
         });
 
         await trx('transaction')
@@ -3105,22 +3173,25 @@ async function update_env_balance(trx, userId, envID, amt) {
     await trx('envelope')
     .where({ id: envID, user_id: userId })
     .update({
-      balance: db.raw('balance + ?', [amt])
+      balance: trx.raw('balance + ?', [amt])
     });
   } catch (err) {
     console.error('Error updating envelope balance: ', err);
   }
 }
 
-async function update_transaction_id(
+async function update_transaction_id({
   userId,
-  access_token,
+  accountID,
+  account_id,
   old_transaction_id, 
-  new_transaction_id,
+  transaction_id,
   txAmt,
   txDate,
-  description
-) {
+  description,
+  envID,
+  isDuplicate
+}) {
   try {
     let my_txDate = dayjs(new Date(txDate + 'T00:00:00')).format('YYYY-MM-DD');
 
@@ -3129,14 +3200,14 @@ async function update_transaction_id(
         .select('transaction.id as id')
         .join('account', function() {
           this.on('account.plaid_id', '=', 'plaid_account.account_id')
-              .andOn('account.user_id', '=', db.raw('?', [userId]));
+              .andOn('account.user_id', '=', trx.raw('?', [userId]));
         })
         .join('transaction', function() {
           this.on('transaction.accountID', '=', 'account.id')
-              .andOn('transaction.user_id', '=', db.raw('?', [userId]));
+              .andOn('transaction.user_id', '=', trx.raw('?', [userId]));
         })
         .where({ 
-          access_token: access_token, 
+          account_id: account_id, 
           'transaction.refNumber': old_transaction_id, 
           'plaid_account.user_id': userId
         });
@@ -3144,11 +3215,11 @@ async function update_transaction_id(
       if (rows?.length) {
         const { id } = rows[0];
 
-        console.log(`Updating transaction id: ${id} -> ${new_transaction_id}`);
+        console.log(`Updating transaction id: ${id} -> ${transaction_id}`);
         await trx('transaction')
           .where({ id: id })
           .update({ 
-            refNumber: new_transaction_id,
+            refNumber: transaction_id,
             txAmt: txAmt,
             txDate: my_txDate,
             description: description
@@ -3156,7 +3227,19 @@ async function update_transaction_id(
         console.log('Successully updated former pending transaction refNumber. ');
                 
       } else {
-        console.log(`We were supposed to be updating a transaction's refNumber, but we couldn't find refNumber: ${old_transaction_id} and access_token: ${access_token}`);
+        console.log(`We were supposed to be updating a transaction's refNumber, but we couldn't find refNumber: ${old_transaction_id} and account_id: ${account_id}`);
+        if (isDuplicate !== 1) {
+          // in this case, we should just add the transaction as long as it isn't a duplicate
+          basic_insert_transaction_node({
+            userId: userId,
+            accountID: accountID,
+            txAmt: txAmt,
+            txDate: txDate,
+            description: description,
+            refNumber: transaction_id,
+            envID: envID
+          });
+        }
       }
     });
   } catch (err) {
@@ -3165,7 +3248,7 @@ async function update_transaction_id(
   process.stdout.write('.');
 };
 
-async function basic_insert_transaction_node(
+async function basic_insert_transaction_node({
   userId,
   accountID,
   txAmt,
@@ -3173,7 +3256,7 @@ async function basic_insert_transaction_node(
   description,
   refNumber,
   envID
-) {
+}) {
   let my_txDate = dayjs(new Date(txDate + 'T00:00:00')).format('YYYY-MM-DD');
 
   // Prepare the data node
@@ -3229,7 +3312,7 @@ async function remove_transaction(userId, txID) {
   }
 }
 
-async function basic_remove_transaction_node(userId, access_token, refNumber) {
+async function basic_remove_transaction_node({ userId, account_id, refNumber }) {
   try {
     await db.transaction(async (trx) => {
       const rows = await trx('plaid_account')
@@ -3240,14 +3323,14 @@ async function basic_remove_transaction_node(userId, access_token, refNumber) {
         )
         .join('account', function() {
           this.on('account.plaid_id', '=', 'plaid_account.account_id')
-              .andOn('account.user_id', '=', db.raw('?', [userId]));
+              .andOn('account.user_id', '=', trx.raw('?', [userId]));
         })
         .join('transaction', function() {
           this.on('transaction.accountID', '=', 'account.id')
-              .andOn('transaction.user_id', '=', db.raw('?', [userId]));
+              .andOn('transaction.user_id', '=', trx.raw('?', [userId]));
         })
         .where({ 
-          access_token: access_token, 
+          'plaid_account.account_id': account_id, 
           'plaid_account.user_id': userId,
           'transaction.refNumber': refNumber
         });
@@ -3264,7 +3347,7 @@ async function basic_remove_transaction_node(userId, access_token, refNumber) {
         await update_env_balance(trx, userId, envelopeID, -1 * txAmt);
       } else {
         console.log(
-          `No TX to delete, looking for refNumber: ${refNumber} and access_token: ${access_token}`
+          `No TX to delete, looking for refNumber: ${refNumber} and account_id: ${account_id}`
         );
       }
     });

@@ -44,10 +44,12 @@ export const ConfigPlaid = () => {
   
   // List of all the acocunts
   const [PLAIDAccounts, setPLAIDAccounts] = useState<PLAIDAccount[]>([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
   
   // Get transactions progress bar
-  const [uploading, ] = useState(false);
-  const [progress, ] = React.useState(0);
+  const [eventSource, setEventSource] = useState<EventSource | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [progress, setProgress] = React.useState(0);
   
   // PLAID link token
   const [token, setToken] = useState<string | null>(null);
@@ -142,28 +144,57 @@ export const ConfigPlaid = () => {
   const get_transactions = async (acc : PLAIDAccount) => {
     // Clear error message
     setLink_Error(null);
-
-    //setUploading(true);
     
-    // Get transactions
     if (!config) return;
+
+    // Get transactions
+    setDownloading(true);
     const response = await axios.post(baseUrl + channels.PLAID_GET_TRANSACTIONS, 
       {
         access_token: acc.access_token,
         cursor: acc.cursor,
       }, config);
     
-    //setProgress(data);
-    //setUploading(false);
-        
-    // Get new latest transaction dates
-    getAccountList();
-      
-    let data = response.data;
-    if (data.error_message?.length) {
-      console.log(data);
-      setLink_Error("Error: " + data.error_message);
+    if (response.status === 200) {
+      const sessionId = response.data.sessionId;
+      initializeEventSource(sessionId);
     }
+  };
+
+  
+  const initializeEventSource = (sessionId) => {
+    const es = new EventSource(`${baseUrl}${channels.PROGRESS}?sessionId=${sessionId}`);
+    setEventSource(es);
+
+    const handleMessage = (event) => {
+      const data = JSON.parse(event.data);
+      setProgress(data.progress);
+
+      if (data.progress >= 100) {
+        setDownloading(false);
+        es.close();
+        getAccountList();
+        setEventSource(null);
+      }
+    };
+
+    const handleError = (error) => {
+      es.close();
+      setDownloading(false);
+      setEventSource(null);
+    };
+
+    es.addEventListener('message', handleMessage);
+    es.addEventListener('error', handleError);
+
+    return () => {
+      if (eventSource) {
+        eventSource.removeEventListener('message', handleMessage);
+        eventSource.removeEventListener('error', handleError);
+        eventSource.close();
+        setDownloading(false);
+      }
+    };
   };
 
   const force_get_transactions = async (acc : PLAIDAccount, start_date, end_date) => {
@@ -265,7 +296,10 @@ export const ConfigPlaid = () => {
 
  
   useEffect(() => {
-    getAccountList();
+    if (!accountsLoaded) {
+      setAccountsLoaded(true);
+      getAccountList();
+    }
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -289,7 +323,7 @@ export const ConfigPlaid = () => {
                 </button>
               </td>
             </tr>
-          {uploading && 
+          {downloading && 
             <tr><td colSpan={2}>
             <Box sx={{ width: '100%' }}>
               <LinearProgressWithLabel value={progress} />
