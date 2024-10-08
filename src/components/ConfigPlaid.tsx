@@ -148,6 +148,7 @@ export const ConfigPlaid = () => {
     if (!config) return;
 
     // Get transactions
+    setProgress(0);
     setDownloading(true);
     const response = await axios.post(baseUrl + channels.PLAID_GET_TRANSACTIONS, 
       {
@@ -206,6 +207,7 @@ export const ConfigPlaid = () => {
     if (!config) return;
     
     // Get transactions
+    setProgress(0);
     setDownloading(true);
     const response = await axios.post(baseUrl + channels.PLAID_FORCE_TRANSACTIONS, 
       { access_token: acc.access_token,
@@ -327,7 +329,7 @@ export const ConfigPlaid = () => {
           {downloading && 
             <tr><td colSpan={2}>
             <Box sx={{ width: '100%' }}>
-              <LinearProgressWithLabel value={progress} />
+              <LinearProgressWithLabel variant="determinate" value={progress} />
             </Box>
             </td></tr>
           }
@@ -336,9 +338,8 @@ export const ConfigPlaid = () => {
               { (index === 0 || (index > 0 && acc.access_token !== myArray[index - 1].access_token)) && (
                 <React.Fragment>
                 <tr className="Table TGHR">
-                  <td className="Table THRC">
+                  <td className="Table THRC Left">
                     {acc.institution}
-                    {acc.access_token.includes('production')?' (prod)':' (dev)'}
                   </td>
                   <td className="Table THRC">
                     <button 
