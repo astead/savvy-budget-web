@@ -104,11 +104,9 @@ export const Transactions: React.FC = () => {
   };
   const clearStartDate = () => {
     setFilterStartDate(null);
-    localStorage.removeItem('transaction-filter-startDate');
   };
   const clearEndDate = () => {
     setFilterEndDate(null);
-    localStorage.removeItem('transaction-filter-endDate');
   };
 
   function LinearProgressWithLabel(props: LinearProgressProps & { value: number }) {
@@ -391,6 +389,28 @@ export const Transactions: React.FC = () => {
   }
 
   useEffect(() => {
+    if (filterStartDate) {
+      localStorage.setItem(
+        'transaction-filter-startDate',
+        JSON.stringify({ filterStartDate: filterStartDate.format('YYYY-MM-DD') })
+      );
+    } else {
+      localStorage.removeItem('transaction-filter-startDate');
+    }
+  }, [filterStartDate]);
+
+  useEffect(() => {
+    if (filterEndDate) {
+      localStorage.setItem(
+        'transaction-filter-endDate',
+        JSON.stringify({ filterEndDate: filterEndDate.format('YYYY-MM-DD') })
+      );
+    } else {
+      localStorage.removeItem('transaction-filter-endDate');
+    }
+  }, [filterEndDate]);
+
+  useEffect(() => {
     if (basicLoaded && accLoaded && envLoaded) {
       load_transactions();
     }
@@ -406,11 +426,7 @@ export const Transactions: React.FC = () => {
       const my_filter_startDate = JSON.parse(my_filter_startDate_str);
       if (my_filter_startDate?.filterStartDate) {
         const my_tmpStartDate = dayjs(my_filter_startDate.filterStartDate);
-        setFilterStartDate(my_tmpStartDate);
-        localStorage.setItem(
-          'transaction-filter-startDate', 
-          JSON.stringify({ filterStartDate: my_tmpStartDate?.format('YYYY-MM-DD')}));
-        
+        setFilterStartDate(my_tmpStartDate);        
       }
     }
 
@@ -420,9 +436,6 @@ export const Transactions: React.FC = () => {
       if (my_filter_endDate?.filterEndDate) {
         const my_tmpEndDate = dayjs(my_filter_endDate.filterEndDate);
         setFilterEndDate(my_tmpEndDate);
-        localStorage.setItem(
-          'transaction-filter-endDate', 
-          JSON.stringify({ filterEndDate: my_tmpEndDate?.format('YYYY-MM-DD')}));
       }
     }
 
@@ -670,11 +683,7 @@ export const Transactions: React.FC = () => {
                       onChange={(newValue) => {
                         if (isValidDate(newValue)) {
                           setFilterStartDate(newValue)
-                          localStorage.setItem(
-                            'transaction-filter-startDate', 
-                            JSON.stringify({ filterStartDate: newValue?.format('YYYY-MM-DD')})
-                          );
-                          
+                                                    
                           if (filterEndDate && newValue && filterEndDate.diff(newValue) <= 0 ) {
                             setFilterEndDate(newValue?.add(1, 'day'));
                           }
@@ -715,13 +724,7 @@ export const Transactions: React.FC = () => {
                         value={filterEndDate}
                         onChange={(newValue) => {
                           if (isValidDate(newValue)) {
-                            localStorage.setItem(
-                              'transaction-filter-endDate', 
-                              JSON.stringify({ filterEndDate: newValue?.format('YYYY-MM-DD')})
-                            );
-                            if (newValue) {
-                              setFilterEndDate(newValue);
-                            }
+                            setFilterEndDate(newValue);
                           }
                         }}
                         sx={{ border: 'none' }}
