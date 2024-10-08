@@ -200,22 +200,23 @@ export const ConfigPlaid = () => {
   const force_get_transactions = async (acc : PLAIDAccount, start_date, end_date) => {
     handleClose();
 
-    // Get transactions
+    // Clear error message
+    setLink_Error(null);
+    
     if (!config) return;
+    
+    // Get transactions
+    setDownloading(true);
     const response = await axios.post(baseUrl + channels.PLAID_FORCE_TRANSACTIONS, 
       { access_token: acc.access_token,
         start_date: start_date,
         end_date: end_date
       }, config
     );
-
-    getAccountList();
-
-    // TODO: This is never being sent, why do we have this?
-    let data = response.data;
-    if (data.error_message?.length) {
-      console.log(data);
-      setLink_Error("Error: " + data.error_message);
+    
+    if (response.status === 200) {
+      const sessionId = response.data.sessionId;
+      initializeEventSource(sessionId);
     }
   };
 

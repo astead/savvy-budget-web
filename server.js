@@ -437,7 +437,6 @@ app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
     } catch (error) {
       console.log(error);
       // handle error
-      console.log('Error: ', error.response.data.error_message);
       console.log('Error: ', error.message);
 
       res.json(error.response.data);
@@ -699,7 +698,6 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
   let cursor_iter = cursor;
 
   while (hasMore) {
-    console.log('Making the call ');
     let response = null;
     try {
       response = await client.transactionsSync({
@@ -737,7 +735,7 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
 
   // Apply added
   const accountArr = [];
-  ({ accountArr } = await apply_added_transactions({ added, userId, cur_record, total_records, sessionId, accountArr }));
+  await apply_added_transactions({ added, removed, userId, cur_record, total_records, sessionId, accountArr });
   cur_record += added.length;
   console.log('Done processing added transactions.');
 
@@ -751,7 +749,7 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
   console.log('Done processing removed transactions.');
 
   // Apply modified
-  ({ accountArr } = await apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr }));
+  await apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr });
   cur_record += modified.length;
   console.log('Done processing modifed transactions.');
 
@@ -760,33 +758,32 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
     .where({ access_token: access_token, user_id: userId })
     .update({ cursor: cursor_iter })
     .catch((err) => console.log('Error: ' + err));
- 
   console.log('Done with everything, setting progress to 100.');
   progressStatuses[sessionId] = 100;
 };
 
-async function account_name_lookup_with_cache_array({ accountArr, account_str }) {
+async function account_name_lookup_with_cache_array({ accountArr, account_str, userId }) {
   let accountID = '';
   if (accountArr?.length) {
     const found = accountArr.find((e) => e.name === account_str);
     if (found) {
       accountID = found.id;
     } else {
-      accountID = await lookup_plaid_account(userId, account_str);
+      accountID = await lookup_plaid_account({ userId, account_str });
       accountArr.push({ name: account_str, id: accountID });
     }
   } else {
-    accountID = await lookup_plaid_account(userId, account_str);
+    accountID = await lookup_plaid_account({ userId, account_str });
     accountArr.push({ name: account_str, id: accountID });
   }
-  return { accountID, accountArr };
+  return accountID;
 }
 
-async function apply_added_transactions({ added, userId, cur_record, total_records, sessionId, accountArr }) {
+async function apply_added_transactions({ added, removed, userId, cur_record, total_records, sessionId, accountArr }) {
   for (const [i, a] of added.entries()) {
-    const { accountID, accountArr } = account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id });
+    const accountID = await account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id, userId });
     
-    let envID = await lookup_keyword(userId, accountID, a.name, a.date);
+    let envID = await lookup_keyword({ userId, accountID, description: a.name, txDate: a.date });
 
     // Check if this is a duplicate
     let isDuplicate = await lookup_if_duplicate(
@@ -799,9 +796,12 @@ async function apply_added_transactions({ added, userId, cur_record, total_recor
     );
 
     // Check for matching removed transaction
-    let matchingRemoved = removed.find(r => 
-      r.transaction_id === a.pending_transaction_id
-    );
+    let matchingRemoved = false;
+    if (removed?.length) {
+      matchingRemoved = removed.find(r => 
+        r.transaction_id === a.pending_transaction_id
+      );
+    }
 
     if (matchingRemoved) {
       // Update the existing transaction's transaction_id
@@ -832,14 +832,13 @@ async function apply_added_transactions({ added, userId, cur_record, total_recor
     cur_record++;
     progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
-  return { accountArr };
 }
 
-async function apply_modified_transactions({ modifed, userId, cur_record, total_records, sessionId, accountArr }) {
+async function apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr }) {
   for (const [i, m] of modified.entries()) {
-    const { accountID, accountArr } = account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id });
-
-    let envID = await lookup_keyword(userId, accountID, m.name, m.date);
+    const accountID = await account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id, userId });
+    
+    let envID = await lookup_keyword({ userId, accountID, description: m.name, txDate: m.date });
 
     // Rather than modify it, just remove the old and add the new
     await basic_remove_transaction_node({ userId, account_id: m.account_id, refNumber: m.transaction_id });
@@ -857,12 +856,9 @@ async function apply_modified_transactions({ modifed, userId, cur_record, total_
     cur_record++;
     progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
-  return { accountArr };
 }
 
 app.get('/api/' + channels.PROGRESS, async (req, res) => {
-  console.log('In progress check handler');
-
   const sessionId = req.query.sessionId;
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -870,16 +866,13 @@ app.get('/api/' + channels.PROGRESS, async (req, res) => {
 
   const sendProgress = () => {
     let progress = progressStatuses[sessionId];
-    console.log('progressStatuses[sessionId]:', progressStatuses[sessionId]);
   
     if (progress === undefined) {
-      console.log('progressStatuses[sessionId] was undefined, so setting to 100');
       progress = 100;
     } else {
       progress = Math.round(progress);
     }
 
-    console.log('Sending back progress status of:', progress);
     res.write(`data: ${JSON.stringify({ progress })}\n\n`);
 
     if (progress >= 100) {
@@ -895,21 +888,30 @@ app.get('/api/' + channels.PROGRESS, async (req, res) => {
   });
 });
 
-// TODO: this can probably be consolidated with the above function
-//       pulling out common tasks to a helper function.
-// TODO: add progress bar
-// TODO: separate out actual function
-// TODO: separate out add transactions as a function to be shared with above.
 app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
   console.log('Try getting plaid account transactions ');
+  
+  const sessionId = req.sessionID;
+  
+  // Initialize our progress status
+  progressStatuses[sessionId] = 0;
 
+  // Send message back that we started and include the sessionId
+  res.status(200).send({ sessionId });
+
+  // Get our variables
   const { access_token, start_date, end_date } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
   const userId = await getUserId(auth0Id);
 
+  force_get_transactions(access_token, start_date, end_date, userId, sessionId);
+});
+
+// TODO: Should we run this whole thing as a database transaction?
+async function force_get_transactions(access_token, start_date, end_date, userId, sessionId) {
+  console.log('force_get_transactions');
   let added = [];
 
-  console.log('Making the call ');
   let response = null;
   try {
     response = await client.transactionsGet({
@@ -919,7 +921,7 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
     });
   } catch (e) {
     console.log('Error: ', e.response.data.error_message);
-    res.json(e.response.data);
+    progressStatuses[sessionId] = 100;
     return;
   }
   let transactions = response.data.transactions;
@@ -942,70 +944,20 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
     added = added.concat(paginatedResponse.data.transactions);
   }
 
-  console.log(added);
-  console.log(
-    'Done getting the data, now processing: ',
-    added.length,
-    ' transaction(s)'
-  );
-
-  //let total_records = added.length;
-  //let cur_record = 0;
+  console.log('Done getting the data:');
+  console.log('added: ', added.length);
+  console.log('Now processing');
+  
+  let total_records = added.length;
+  let cur_record = 0;
 
   // Apply added
   const accountArr = [];
-  for (const [i, a] of added.entries()) {
-    let account_str = a.account_id;
-    let accountID = '';
-    if (accountArr?.length) {
-      const found = accountArr.find((e) => e.name === account_str);
-      if (found) {
-        accountID = found.id;
-      } else {
-        accountID = await lookup_plaid_account(userId, account_str);
-        accountArr.push({ name: account_str, id: accountID });
-      }
-    } else {
-      accountID = await lookup_plaid_account(userId, account_str);
-      accountArr.push({ name: account_str, id: accountID });
-    }
-
-    let envID = await lookup_keyword(userId, accountID, a.name, a.date);
-
-    // Check if this is a duplicate
-    let isDuplicate = await lookup_if_duplicate(
-      userId,
-      accountID,
-      a.transaction_id,
-      a.date,
-      -1 * a.amount,
-      a.name
-    );
-
-    if (isDuplicate !== 1) {
-      await basic_insert_transaction_node({
-        userId: userId,
-        accountID: accountID,
-        txAmt: -1 * a.amount,
-        txDate: a.date,
-        description: a.name,
-        refNumber: a.transaction_id,
-        envID: envID
-      });
-    }
-
-    /*
-    cur_record++;
-    event.sender.send(
-      channels.UPLOAD_PROGRESS,
-      (cur_record * 100) / total_records
-    );
-    */
-  }
-
-  //event.sender.send(channels.UPLOAD_PROGRESS, 100);
-  res.status(200).send('Imported transactions successfully');
-});
+  await apply_added_transactions({ added, removed: [], userId, cur_record, total_records, sessionId, accountArr });
+  cur_record += added.length;
+  console.log('Done processing added transactions.');
+  progressStatuses[sessionId] = 100;
+};
 
 app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
   console.log(channels.UPDATE_TX_ENV_LIST);
@@ -2935,7 +2887,6 @@ async function lookup_account(userId, account) {
       if (data?.length) {
         // If the account exists, use the existing ID
         accountID = data[0].id;
-        console.log('Account found: ', accountID);
       } else {
         // If the account does not exist, insert a new one
         const result = await trx('account')
@@ -2949,7 +2900,6 @@ async function lookup_account(userId, account) {
 
         if (result?.length) {
           accountID = result[0];
-          console.log('New account created: ', accountID);
         }
       }
     });
@@ -2960,14 +2910,14 @@ async function lookup_account(userId, account) {
   return accountID;
 }
 
-async function lookup_plaid_account(userId, account) {
+async function lookup_plaid_account({ userId, account_str }) {
   console.log("lookup_plaid_account");
 
   // Initialize accountID to -1 to indicate no account found
   let accountID = -1;
 
   // Early return if account is empty or undefined
-  if (!account?.length) {
+  if (!account_str?.length) {
     console.log('No account provided');
     return accountID;
   }
@@ -2979,20 +2929,19 @@ async function lookup_plaid_account(userId, account) {
       const data = await trx('account')
         .select('id', 'account', 'refNumber')
         .orderBy('account')
-        .where({ plaid_id: account, user_id: userId });
+        .where({ plaid_id: account_str, user_id: userId });
       
         if (data?.length) {
           // If the account exists, use the existing ID
           accountID = data[0].id;
-          console.log('Account found: ', accountID);
         } else {
           
           // If the account does not exist, insert a new one
           const result = await trx('account')
             .insert({
               account: 'New Account',
-              refNumber: account,
-              plaid_id: account,
+              refNumber: account_str,
+              plaid_id: account_str,
               isActive: true,
               user_id: userId,
             })
@@ -3000,7 +2949,6 @@ async function lookup_plaid_account(userId, account) {
 
           if (result?.length) {
             accountID = result[0];
-            console.log('New account created: ', accountID);
           }
         }
     });
@@ -3078,7 +3026,7 @@ async function lookup_uncategorized(userId) {
   }
 }
 
-async function lookup_keyword(userId, accountID, description, txDate) {
+async function lookup_keyword({ userId, accountID, description, txDate }) {
   // Initialize envelopeID to -1 to indicate no envelope found
   let envID = -1;
   
@@ -3373,7 +3321,7 @@ async function insert_transaction_node(
   }
 
   // Check if this matches a keyword
-  let envID = await lookup_keyword(userId, accountID, description, my_txDate);
+  let envID = await lookup_keyword({ userId, accountID, description, txDate: my_txDate });
 
   // Check if this is a duplicate
   isDuplicate = await lookup_if_duplicate(
