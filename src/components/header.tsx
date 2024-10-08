@@ -41,9 +41,8 @@ export const Header = ({currTab}) => {
       { isAuthenticated && <Link to={"/Transactions/-1/-3/0/"+year+"/"+month} className={currTab === "Transactions"?"menuLink menuLink-selected":"menuLink"}>Transactions</Link> }
       { isAuthenticated && <Link to="/Envelopes" className={currTab === "Envelopes"?"menuLink menuLink-selected":"menuLink"}>Envelopes</Link> }
       { isAuthenticated && <Link to="/Configure" className={currTab === "Configure"?"menuLink menuLink-selected":"menuLink"}>Configure</Link> }
-      <LoginButton/>
-      
-      <LogoutButton/>
+      { !isAuthenticated && <LoginButton/> }
+      { isAuthenticated && <LogoutButton/> }
     </div>
   );
 };
