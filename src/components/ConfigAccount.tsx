@@ -35,7 +35,7 @@ export const ConfigAccount = () => {
   const handleAccountVisibility = async (id, isActive) => {
     // Request we delete the account in the DB
     if (!config) return;
-    await axios.post(baseUrl + channels.VIS_ACCOUNT, { id, value: ( isActive===0 ? true : false ) }, config);
+    await axios.post(baseUrl + channels.VIS_ACCOUNT, { id, value: ( isActive ? false : true ) }, config);
     load_accounts();
   };
 
