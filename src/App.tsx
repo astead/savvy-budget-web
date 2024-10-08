@@ -42,7 +42,7 @@ export const App: React.FC = () => {
           console.log("Calling AUTH0_CHECK_CREATE_USER from App.checkOrCreateUser");
           // Check or create user in a single API call
           await axios.post(baseUrl + channels.AUTH0_CHECK_CREATE_USER, 
-            { user, refreshToken: accessToken }, config);
+            { user }, config);
         } catch (error) {
           console.error('Error checking or creating user:', error);
         }

@@ -14,6 +14,8 @@ const { auth, requiredScopes } = require('express-oauth2-jwt-bearer');
 const axios = require('axios');
 const crypto = require('crypto');
 
+let isRefreshing = false;
+let refreshSubscribers = [];
 
 // Authorization middleware. When used, the Access Token must
 // exist and be verified against the Auth0 JSON Web Key Set.
@@ -32,17 +34,7 @@ const bypassJwtCheck = async (req, res, next) => {
     console.log("MIDDLEWARE: bypassing checkJwt since we are getting tokens.");
     return next();
   }
-  return checkJwt(req, res, next);
-};
 
-app.use(express.json());
-app.use(cors({ origin: auth0data.origin }));
-app.use(bypassJwtCheck);
-app.use(async (req, res, next) => {
-  if (req.path === '/api/' + channels.AUTH0_GET_TOKENS) {
-    console.log("MIDDLEWARE: bypassing our auth0 check since we are getting tokens.");
-    return next();
-  }
   try {
     // Make sure auth0 token exists in the header
     const authHeader = req.headers.authorization;
@@ -58,37 +50,103 @@ app.use(async (req, res, next) => {
       return res.status(401).send('Unauthorized: Invalid Token');
     }
     console.log("MIDDLEWARE: token is valid.");
+    console.log("decodedToken: ", decodedToken);
 
     // Make sure the token is not expired
     const expirationDate = new Date(decodedToken.exp * 1000);
     console.log('Token expires on:', expirationDate.toLocaleString());
     console.log('Current date/tim:', new Date().toLocaleString());
+
+//    if ((decodedToken.exp < Date.now() / 1000) ||
+//        (req.path === `/api/${channels.GET_CAT_ENV}`)) {
     if (decodedToken.exp < Date.now() / 1000) {
+        
       console.log("MIDDLEWARE: Auth token is expired");
-      console.log("MIDDLEWARE: Getting refresh token from DB");
-      const my_refreshToken = await getRefreshTokenFromDB(decodedToken.sub);
-      console.log("MIDDLEWARE: Calling refreshToken");
-      const newTokens = await refreshToken(my_refreshToken);
-      if (!newTokens) {
-        return res.status(401).send('Unauthorized: Unable to refresh token');
+
+      // If another request is using/updating the refresh token, we
+      // need to wait in line.
+      if (isRefreshing) {
+        console.log('MIDDLEWARE: Waiting for someone else to get the refresh token.');
+        return new Promise((resolve) => {
+          addRefreshSubscriber(token => {
+            req.headers.authorization = `Bearer ${token}`;
+            resolve(checkJwt(req, res, next));
+          });
+        });
       }
+      isRefreshing = true;
+      console.log('MIDDLEWARE: I am getting the refresh token.');
 
-      // Store the new refresh token in the database
-      console.log("MIDDLEWARE: Storing refreshToken in DB");
-      await storeTokensInDB(decodedToken.sub, newTokens.access_token, newTokens.refresh_token);
+      try {
+        console.log("MIDDLEWARE: Getting refresh token from DB");
+        const my_refreshToken = await getRefreshTokenFromDB(decodedToken.sub);
+        console.log("MIDDLEWARE: Calling refreshToken");
+        const newTokens = await refreshToken(my_refreshToken);
+        if (!newTokens) {
+          return res.status(401).send('Unauthorized: Unable to refresh token');
+        }
 
-      console.log("MIDDLEWARE: setting access_token in header authorization");
-      res.setHeader('Authorization', `Bearer ${newTokens.access_token}`);
-      
-      console.log("MIDDLEWARE: setting new auth0Id from decoded access_token");
-      const newDecodedToken = jwt.decode(newTokens.access_token);
-      req.auth0Id = newDecodedToken.sub;
-    } else {
-      console.log("MIDDLEWARE: Auth token is NOT expired");
-      console.log("MIDDLEWARE: setting auth0Id");
-      req.auth0Id = decodedToken.sub;
+        console.log("decoded refresh_token:");
+        console.log(jwt.decode(newTokens.refresh_token));
+        
+        console.log("decoded access_token:");
+        console.log(jwt.decode(newTokens.access_token));
+                
+        console.log("decoded id_token:");
+        console.log(jwt.decode(newTokens.id_token));
+
+        // Store the new refresh token in the database
+        console.log("MIDDLEWARE: Storing refreshToken in DB");
+        await storeTokensInDB(decodedToken.sub, newTokens.access_token, newTokens.refresh_token);
+
+        // Update the request headers with the new tokens
+        req.headers.authorization = `Bearer ${newTokens.access_token}`;
+
+        console.log("MIDDLEWARE: setting access_token in header authorization");
+        res.setHeader('Authorization', `Bearer ${newTokens.access_token}`);
+        
+        
+
+        onRefreshed(newTokens.access_token);
+      } catch (error) {
+        console.error('MIDDLEWARE: Error refreshing token:', error);
+        return res.status(401).send('Unauthorized: Unable to refresh token');
+      } finally {
+        isRefreshing = false;
+        refreshSubscribers = [];
+      }
+    } 
+
+  } catch (error) {
+    console.error('MIDDLEWARE: Error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+
+  return checkJwt(req, res, next);
+};
+
+app.use(express.json());
+app.use(cors({ origin: auth0data.origin }));
+app.use(bypassJwtCheck);
+app.use(async (req, res, next) => {
+  console.log("MIDDLEWARE: Custom");
+  if (req.path === '/api/' + channels.AUTH0_GET_TOKENS ||
+      req.path === `/api/${channels.PROGRESS}`
+  ) {
+    console.log("MIDDLEWARE: bypassing our auth0 check since we are getting tokens.");
+    return next();
+  }
+  try {
+    // Make sure we have a valid token
+    const authHeader = req.headers.authorization;
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.decode(token);
+    if (!decodedToken) {
+      return res.status(401).send('Unauthorized: Invalid Token');
     }
-
+    console.log("MIDDLEWARE: setting auth0Id");
+    req.auth0Id = decodedToken.sub;
+    
     // Make sure the UserID is not missing
     const userId = req.auth0Id;
     if (!userId) {
@@ -170,17 +228,31 @@ const getUserId = async (auth0Id) => {
   return user.id;
 };
 
+function onRefreshed(token) {
+  refreshSubscribers.map(callback => callback(token));
+}
+
+function addRefreshSubscriber(callback) {
+  refreshSubscribers.push(callback);
+}
+
 async function refreshToken(refreshToken) {
   console.log("refreshToken");
   try {
-    const response = await axios.post(`https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`, {
+    const params = {
       grant_type: 'refresh_token',
       client_id: process.env.REACT_APP_AUTH0_CLIENT_ID,
       client_secret: process.env.REACT_APP_AUTH0_CLIENT_SECRET,
       refresh_token: refreshToken,
-    });
 
-    console.log("response: ", response);
+    };
+
+    console.log("params: ", params);
+    const response = await axios.post(`https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`, params);
+
+    //console.log("response: ", response);
+    console.log("New tokens:");
+    console.log(response.data);
     return response.data;
   } catch (err) {
     console.error('Error refreshing token:', err);
@@ -235,14 +307,10 @@ app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
     console.log(token_fetch_body);
 
     // Exchange the authorization code for tokens
-    const tokenResponse = await fetch(`https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(token_fetch_body),
-    });
-
-    console.log("tokenResponse: ", tokenResponse);
-    const tokenData = await tokenResponse.json();
+    const tokenResponse = await axios.post(`https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`, token_fetch_body);
+    
+    //console.log("tokenResponse: ", tokenResponse.data);
+    const tokenData = await tokenResponse.data;
     console.log("tokenData: ", tokenData);
     const refreshToken = tokenData.refresh_token;
     console.log('Refresh Token:', refreshToken);
@@ -257,7 +325,7 @@ app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
 
     const { returnCode, message } = 
       await auth0_check_or_create_user({ token: tokenData.access_token, refreshToken, auth0Id });
-    
+
     res.status(returnCode).json({ message: message });
 
   } catch (error) {
@@ -268,7 +336,7 @@ app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
 
 app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   console.log('AUTH0_CHECK_CREATE_USER ENTER');
-  const { user, refreshToken } = req.body;
+  const { user } = req.body;
   const token = req.headers.authorization.split(' ')[1];
   const decodedToken = jwt.decode(token);
   const auth0Id = decodedToken.sub;
@@ -276,7 +344,7 @@ app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   console.log("token:", token);
   console.log("refreshToken:", refreshToken);
 
-  const { returnCode, message } = await auth0_check_or_create_user({ token, refreshToken, auth0Id });
+  const { returnCode, message } = await auth0_check_or_create_user({ token, refreshToken: null, auth0Id });
   res.status(returnCode).json({ message: message });
 });
 
@@ -315,17 +383,28 @@ async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
       
     } else {
       // Already exists
+      console.log('User already exists, checking if tokens match');
+      console.log("existingUser.access_token: ", existingUser.access_token);
+      console.log("token :                    ", token);
+      console.log("existingUser.refresh_token: ", existingUser.refresh_token);
+      console.log("refreshToken:               ", refreshToken);
       if (existingUser.access_token != token ||
-          existingUser.refresh_token != refreshToken) {
-        
-        await db('users')
-          .update({
-            access_token: token,
-            refresh_token: refreshToken,
-          })
+          (existingUser.refresh_token != refreshToken && refreshToken)) {
+        console.log("tokens do not match, updating them.");
+        console.log("will only update refresh token if new one is not null.");
+        let query = db('users')
+          .update({ access_token: token })
           .where('auth0_id', auth0Id);
+        
+          if (refreshToken) {
+          query = query.update({ refresh_token: refreshToken });
+        }
+        await query;
+          
+      } else {
+        console.log("tokens match.");
       }
-      console.log('User already exists');
+      
       //res.status(200).json({ message: 'User already exists' });
       return { returnCode: 200, message: 'User already exists' };
     }

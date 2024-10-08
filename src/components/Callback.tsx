@@ -69,8 +69,10 @@ export const Callback = () => {
             const response = await axios.post(baseUrl + channels.AUTH0_GET_TOKENS, 
               { authorizationCode: authorizationCode, codeVerifier: codeVerifier });
 
-            console.log("We're back. Response is: ", response);
-            
+            console.log("We're back. Response is: ");
+            console.log(response);
+            console.log(response.data);
+
             //navigate('/');
             console.log('isAuthenticated: ', isAuthenticated);
             console.log('user: ', user);
