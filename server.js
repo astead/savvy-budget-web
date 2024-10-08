@@ -666,8 +666,6 @@ async function remove_plaid_account_link(trx, userId, account_id) {
     .where({ plaid_id: account_id, user_id: userId });
 }
 
-// TODO: refactor this a bit better with try / catch, and combine with function below
-// maybe pull out components to separate functions?
 app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
   console.log(channels.PLAID_GET_TRANSACTIONS);
 
@@ -710,8 +708,7 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
       });
     } catch (e) {
       console.log('Error: ', e.response.data.error_message);
-      //event.sender.send(channels.UPLOAD_PROGRESS, 100);
-      //res.json(e.response.data);
+      progressStatuses[sessionId] = 100;
       return;
     }
     const data = response.data;
@@ -740,22 +737,55 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
 
   // Apply added
   const accountArr = [];
-  for (const [i, a] of added.entries()) {
-    let account_str = a.account_id;
-    let accountID = '';
-    if (accountArr?.length) {
-      const found = accountArr.find((e) => e.name === account_str);
-      if (found) {
-        accountID = found.id;
-      } else {
-        accountID = await lookup_plaid_account(userId, account_str);
-        accountArr.push({ name: account_str, id: accountID });
-      }
+  ({ accountArr } = await apply_added_transactions({ added, userId, cur_record, total_records, sessionId, accountArr }));
+  cur_record += added.length;
+  console.log('Done processing added transactions.');
+
+  // Apply removed
+  for (const [i, r] of removed.entries()) {
+    await basic_remove_transaction_node({ userId, account_id: r.account_id, refNumber: r.transaction_id });
+
+    cur_record++;
+    progressStatuses[sessionId] = (cur_record * 100) / total_records;
+  }
+  console.log('Done processing removed transactions.');
+
+  // Apply modified
+  ({ accountArr } = await apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr }));
+  cur_record += modified.length;
+  console.log('Done processing modifed transactions.');
+
+  // Update cursor
+  db('plaid_account')
+    .where({ access_token: access_token, user_id: userId })
+    .update({ cursor: cursor_iter })
+    .catch((err) => console.log('Error: ' + err));
+ 
+  console.log('Done with everything, setting progress to 100.');
+  progressStatuses[sessionId] = 100;
+};
+
+async function account_name_lookup_with_cache_array({ accountArr, account_str }) {
+  let accountID = '';
+  if (accountArr?.length) {
+    const found = accountArr.find((e) => e.name === account_str);
+    if (found) {
+      accountID = found.id;
     } else {
       accountID = await lookup_plaid_account(userId, account_str);
       accountArr.push({ name: account_str, id: accountID });
     }
+  } else {
+    accountID = await lookup_plaid_account(userId, account_str);
+    accountArr.push({ name: account_str, id: accountID });
+  }
+  return { accountID, accountArr };
+}
 
+async function apply_added_transactions({ added, userId, cur_record, total_records, sessionId, accountArr }) {
+  for (const [i, a] of added.entries()) {
+    const { accountID, accountArr } = account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id });
+    
     let envID = await lookup_keyword(userId, accountID, a.name, a.date);
 
     // Check if this is a duplicate
@@ -802,33 +832,12 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
     cur_record++;
     progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
-  console.log('Done processing added transactions.');
+  return { accountArr };
+}
 
-  // Apply removed
-  for (const [i, r] of removed.entries()) {
-    await basic_remove_transaction_node({ userId, account_id: r.account_id, refNumber: r.transaction_id });
-
-    cur_record++;
-    progressStatuses[sessionId] = (cur_record * 100) / total_records;
-  }
-  console.log('Done processing removed transactions.');
-
-  // Apply modified
+async function apply_modified_transactions({ modifed, userId, cur_record, total_records, sessionId, accountArr }) {
   for (const [i, m] of modified.entries()) {
-    let account_str = m.account_id;
-    let accountID = '';
-    if (accountArr?.length) {
-      const found = accountArr.find((e) => e.name === account_str);
-      if (found) {
-        accountID = found.id;
-      } else {
-        accountID = await lookup_plaid_account(userId, account_str);
-        accountArr.push({ name: account_str, id: accountID });
-      }
-    } else {
-      accountID = await lookup_plaid_account(userId, account_str);
-      accountArr.push({ name: account_str, id: accountID });
-    }
+    const { accountID, accountArr } = account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id });
 
     let envID = await lookup_keyword(userId, accountID, m.name, m.date);
 
@@ -848,20 +857,8 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
     cur_record++;
     progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
-  console.log('Done processing modifed transactions.');
-
-  // Update cursor
-  /*
-  db('plaid_account')
-    .where({ access_token: access_token, user_id: userId })
-    .update({ cursor: cursor_iter })
-    .catch((err) => console.log('Error: ' + err));
-  */
- 
-  console.log('Done with everything, setting progress to 100.');
-  progressStatuses[sessionId] = 100;
-  //res.status(200).send('Imported transactions successfully');
-};
+  return { accountArr };
+}
 
 app.get('/api/' + channels.PROGRESS, async (req, res) => {
   console.log('In progress check handler');
