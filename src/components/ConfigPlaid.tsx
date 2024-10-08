@@ -364,7 +364,7 @@ export const ConfigPlaid = () => {
                         get_transactions(acc)
                       }} 
                       disabled={!token}>
-                      Update
+                      Get
                     </button>
                     <button 
                       className='textButton'
