@@ -1283,6 +1283,8 @@ app.post('/api/'+channels.COPY_BUDGET, async (req, res) => {
   for (let item of budget_values) {
     await set_or_update_budget_item(userId, item.envID, newtxDate, item.value);
   }
+
+  res.status(200).send('Copied budget successfully');
 });
 
 app.post('/api/'+channels.UPDATE_BUDGET, async (req, res) => {
