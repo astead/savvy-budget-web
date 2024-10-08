@@ -143,5 +143,7 @@ module.exports = {
 
     AUTH0_CHECK_CREATE_USER: 'auth0_check_or_create_user',
     AUTH0_GET_TOKENS: 'auth0_get_tokens',
+
+    PROGRESS: 'progress',
   },
 };
