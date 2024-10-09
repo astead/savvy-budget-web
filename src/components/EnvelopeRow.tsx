@@ -12,6 +12,7 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
   const { config } = useAuthToken();
 
   const [cellColors, setCellColors] = useState({
+    currBalanceColor: 'transparent',
     currBudgetColor: 'transparent',
     currActualColor: 'transparent',
   });
@@ -19,11 +20,12 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
   useEffect(() => {
     // Update cell colors based on rowData
     const newColors = {
+      currBalanceColor: item.currBalance < 0 ? red_color : 'transparent',
       currBudgetColor: -1*item.monthlyAvg > item.currBudget ? red_color : 'transparent',
       currActualColor: -1*item.currActual > item.currBudget ? red_color : 'transparent',
     };
     setCellColors(newColors);
-  }, [item.currBudget, item.currActual, item.monthlyAvg]);
+  }, [item.currBalance, item.currBudget, item.currActual, item.monthlyAvg]);
 
   function formatCurrency(currencyNumber:number) {
     return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
@@ -60,7 +62,8 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
           {formatCurrency(item.prevActual)}
         </Link>
       </td>
-      <td className="Table BTC Right TCInput">
+      <td className="Table BTC Right TCInput"
+        style={{ backgroundColor: cellColors.currBalanceColor }}>
         <BudgetBalanceModal 
           balanceAmt={item.currBalance}
           category={item.category}
