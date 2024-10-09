@@ -30,35 +30,6 @@ export const TransactionTableRow = ({ index, item, envList, onRowUpdate, callbac
   const [duplicateStyle, setDuplicateStyle] = useState('Toggle');
   const [visibleStyle, setVisibleStyle] = useState('Toggle');
 
-  useEffect(() => {
-    // Update cell colors based on rowData
-    if (!item.envID || item.envID.toString() === "-1") {
-      setEnvStyle("envelopeDropDown-undefined");
-    } else {
-      setEnvStyle("envelopeDropDown");
-    }
-  }, [item.envID]);
-
-  useEffect(() => {
-    // Update cell colors based on rowData
-    if (item.isDuplicate === 1) {
-      setRowStyle("TR-duplicate");
-      setDuplicateStyle('Toggle Toggle-active');
-    } else {
-      setRowStyle("TR");
-      setDuplicateStyle('Toggle');
-    }
-  }, [item.isDuplicate]);
-
-  useEffect(() => {
-    // Update cell colors based on rowData
-    if (!item.isVisible) {
-      setVisibleStyle('Toggle Toggle-active');
-    } else {
-      setVisibleStyle('Toggle');
-    }
-  }, [item.isVisible]);
-
   const handleTxEnvChange = async ({id, new_value, new_text}) => {
     // Request we update the DB
     if (!config) return;
@@ -90,6 +61,35 @@ export const TransactionTableRow = ({ index, item, envList, onRowUpdate, callbac
     onRowUpdate(item);
   };
 
+  useEffect(() => {
+    // Update cell colors based on rowData
+    if (!item.envID || item.envID.toString() === "-1") {
+      setEnvStyle("envelopeDropDown-undefined");
+    } else {
+      setEnvStyle("envelopeDropDown");
+    }
+  }, [item.envID]);
+
+  useEffect(() => {
+    // Update cell colors based on rowData
+    if (item.isDuplicate === 1) {
+      setRowStyle("TR-duplicate");
+      setDuplicateStyle('Toggle Toggle-active');
+    } else {
+      setRowStyle("TR");
+      setDuplicateStyle('Toggle');
+    }
+  }, [item.isDuplicate]);
+
+  useEffect(() => {
+    // Update cell colors based on rowData
+    if (!item.isVisible) {
+      setVisibleStyle('Toggle Toggle-active');
+    } else {
+      setVisibleStyle('Toggle');
+    }
+  }, [item.isVisible]);
+
   return (
     <tr className={rowStyle}>
       <td className="Table TC">
@@ -107,19 +107,21 @@ export const TransactionTableRow = ({ index, item, envList, onRowUpdate, callbac
           <span>{item.account}</span>
         </Tooltip>
       </td>
-      <td className="Table TC Left">
-        <EditText
-          name={item.txID.toString()}
-          defaultValue={item.description}
-          onSave={({name, value, previousValue}) => {
-            // Request we rename the account in the DB
-            if (!config) return;
-            axios.post(baseUrl + channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value }, config);
-          }}
-          style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
-          className={"editableText"}
-          inputClassName={"normalInput"}
-        />
+      <td className="Table TC Left" style={{ minWidth: 200, maxWidth: '35vw', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Tooltip title={item.description} arrow><span>
+          <EditText
+            name={item.txID.toString()}
+            defaultValue={item.description}
+            onSave={({name, value, previousValue}) => {
+              // Request we rename the account in the DB
+              if (!config) return;
+              axios.post(baseUrl + channels.UPDATE_TX_DESC, { txID: item.txID, new_value: value }, config);
+            }}
+            style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
+            className={"editableText"}
+            inputClassName={"normalInput"}
+          />
+        </span></Tooltip>
       </td>
       <td className="Table TC Right">{formatCurrency(item.txAmt)}</td>
       <td className="Table TC TCInput">
