@@ -350,29 +350,29 @@ export const Charts: React.FC = () => {
         {<Header currTab="Charts"/>}
       </header>
       <div className="mainContent">
-        {filterEnvListLoaded &&
+        { filterTimeFrameLoaded && filterEnvListLoaded &&
+          <>
           <div className="chart-filter-container">
-            <span>Envelope: </span>
+              <label className="chart-filter-label">Envelope:</label>
             <DropDown 
               id={-1}
               selectedID={filterEnvID}
               optionData={filterEnvList}
               changeCallback={handleFilterEnvChange}
-              className=""
+              className="selectField"
             />
           </div>
-        }
-        {filterTimeFrameLoaded && filterEnvListLoaded &&
           <div className="chart-filter-container">
-            <span>Time: </span>
+              <label className="chart-filter-label">Time Frame:</label>
             <DropDown 
               id={1}
               selectedID={filterTimeFrameID}
               optionData={filterTimeFrame}
               changeCallback={handleFilterTimeFrameChange}
-              className=""
+              className="selectField"
             />
           </div>
+          </>
         }
         {haveChartData &&
           <div className="chartContainer">
