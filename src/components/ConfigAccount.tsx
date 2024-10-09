@@ -93,7 +93,7 @@ export const ConfigAccount = () => {
               </div>
             </td>
             <td className="Table TC">
-              {!numTx &&
+              { numTx === '0' &&
                 <button 
                   className="trash"
                   onClick={() => handleAccountDelete(id)}>

@@ -2342,7 +2342,13 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
         // for all accounts of this institution.
         // Seems like it would be best to disconnect
         // the plaid account from this account, and
-        // let the user remove the plaid portion from the configPlaid page.
+        // let the user remove the plaid portion from the configPlaid page, but
+        // they can't just remove a single account.
+        // TODO: Also not sure what happens if they delete this and then
+        // pull transactions from plaid? Will the pulling of transactions
+        // re-create the account?
+        // Might be best to popup a warning asking them to delete plaid-link,
+        // or re-do the login and not include this account?
         //if (data[0].plaid_id?.length) {
         // delete the plaid account if it exists
         //await trx('plaid_account')
