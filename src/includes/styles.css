@@ -598,6 +598,8 @@ select.envelopeDropDown-undefined {
   align-items: left;
   padding: 0px;
   width: auto;
+  flex: 1 0;
+  padding-right: 10px;
 }
 
 .account-details {

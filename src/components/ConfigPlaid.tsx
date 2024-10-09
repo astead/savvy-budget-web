@@ -359,10 +359,14 @@ export const ConfigPlaid = () => {
                 <Box className="account-list">
                 {PLAIDAccounts.filter(acc => acc.institution === institution).map(acc => (
                   <Box key={acc.account_name + '-' + acc.mask} className="account-details">
-                    <Typography variant="body1">{ acc.account_name + '-' + acc.mask }</Typography>
-                    <Typography variant="body2" color="textSecondary" sx={{ marginLeft: 5 }}>{ acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }</Typography>
+                    <Typography variant="body1" sx={{ flex: '1 0', textAlign: 'left' }}>
+                      { acc.account_name }{ acc.mask && ('-' + acc.mask )}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary" sx={{ marginLeft: 5, width: 'fit-content', flex: '0 0' }}>
+                      { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
+                    </Typography>
                     { acc.lastTx && (
-                      <Tooltip title="Last transaction date">
+                      <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
                         <InfoIcon fontSize="small" sx={{ marginLeft: 0.5, color: 'grey.500', opacity: 0.7 }} />
                       </Tooltip>
                     )}
