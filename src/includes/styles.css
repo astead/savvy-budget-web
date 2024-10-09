@@ -105,6 +105,7 @@ a {
   padding-left: 10px;
   padding-right: 10px;
   background: #d2d2d2;
+  cursor: pointer;
 }
 
 .menuLink:hover {
