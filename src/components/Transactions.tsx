@@ -296,14 +296,16 @@ export const Transactions: React.FC = () => {
     }
     
     if (!config) return;
-    await axios.post(baseUrl + channels.ADD_TX, 
-      {
-        txDate: newTxDate?.format('YYYY-MM-DD'),
-        txAmt: newTxAmount,
-        txEnvID: newTxEnvID,
-        txAccID: newTxAccID,
-        txDesc: newTxDesc
-      }, config);
+    const params =  
+    {
+      txDate: newTxDate?.format('YYYY-MM-DD'),
+      txAmt: newTxAmount,
+      txEnvID: newTxEnvID,
+      txAccID: newTxAccID,
+      txDesc: newTxDesc
+    };
+    console.log(params);
+    await axios.post(baseUrl + channels.ADD_TX, params, config);
 
     load_transactions();      
   }
@@ -558,48 +560,32 @@ export const Transactions: React.FC = () => {
                           selectedID={newTxAccID}
                           optionData={newTxAccList}
                           changeCallback={({id, new_value, new_text}) => setNewTxAccID(new_value)}
-                          className=""
+                          className="selectField"
                         />
                     </td>
                     <td>
-                    <EditText
-                      name="newTxDescTemp"
-                      style={{
-                        border: '1px solid #999', 
-                        padding: '0px', 
-                        margin: '0px', 
-                        minHeight: '1.1rem', 
-                        width: '250px',
-                        height: '1.1rem'
-                      }}
-                      defaultValue={newTxDescTemp}
-                      onSave={({name, value, previousValue}) => {
-                        setNewTxDesc(value);
-                        setNewError("");
-                      }}
-                      className={"editableText"}
-                      inputClassName={"normalInput"}
+                      <input
+                        name="newTxDescTemp"
+                        style={{ width: '250px', }}
+                        defaultValue={newTxDescTemp}
+                        onBlur={(e) => {
+                          setNewTxDesc(e.target.value);
+                          setNewError("");
+                        }}
+                        className={"inputField"}
                       />
                     </td>
                     <td>
-                      <EditText
+                      <input
                         name="newTxAmountTemp"
-                        style={{
-                          border: '1px solid #999', 
-                          padding: '0px', 
-                          margin: '0px', 
-                          minHeight: '1.1rem', 
-                          width: '100px',
-                          height: '1.1rem'
-                        }}
+                        style={{ width: '100px', paddingRight: '5px' }}
                         defaultValue={newTxAmountTemp}
-                        onSave={({name, value, previousValue}) => {
-                          setNewTxAmount(value);
+                        onBlur={(e) => {
+                          setNewTxAmount(e.target.value);
                           setNewError("");
                         }}
-                        className={"Right editableText"}
-                        inputClassName={"Right normalInput"}
-                        />
+                        className={"inputField Right"}
+                      />
                     </td>
                     <td>
                       <DropDown 
@@ -607,7 +593,7 @@ export const Transactions: React.FC = () => {
                           selectedID={newTxEnvID}
                           optionData={newTxEnvList}
                           changeCallback={({id, new_value, new_text}) => setNewTxEnvID(new_value)}
-                          className=""
+                          className="selectField"
                         />
                     </td>
                     <td>

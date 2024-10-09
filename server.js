@@ -1831,7 +1831,7 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
 app.post('/api/'+channels.ADD_TX, async (req, res) => {
   console.log(channels.ADD_TX);
 
-  const { data } = req.body;
+  const { txDate, txAmt, txEnvID, txAccID, txDesc } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
   
   try {
@@ -1839,16 +1839,16 @@ app.post('/api/'+channels.ADD_TX, async (req, res) => {
 
     // Prepare the data node
     const myNode = {
-      envelopeID: data.txEnvID,
-      txAmt: data.txAmt,
-      txDate: data.txDate,
-      description: data.txDesc,
+      envelopeID: txEnvID,
+      txAmt: txAmt,
+      txDate: txDate,
+      description: txDesc,
       refNumber: '',
       isBudget: 0,
       origTxID: 0,
       isDuplicate: 0,
       isSplit: 0,
-      accountID: data.txAccID,
+      accountID: txAccID,
       isVisible: true,
       user_id: userId,
     };
@@ -1858,7 +1858,7 @@ app.post('/api/'+channels.ADD_TX, async (req, res) => {
       await trx('transaction').insert(myNode);
 
       // Update the envelope balance
-      await update_env_balance(trx, userId, data.txEnvID, data.txAmt);
+      await update_env_balance(trx, userId, txEnvID, txAmt);
     });
 
     res.status(200).send('Added transaction successfully.');
