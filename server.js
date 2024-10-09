@@ -1797,10 +1797,10 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
       query = query.andWhere({'account.account': filterAccID });
     }
     if (filterDesc?.length) {
-      filterDesc = '%' + filterDesc + '%';
+      let myfilterDesc = '%' + filterDesc + '%';
       query = query.andWhereRaw(
-        `"transaction"."description" LIKE ?`,
-        [filterDesc]
+        `"transaction"."description" ILIKE ?`,
+        [myfilterDesc]
       );
     }
     if (filterStartDate) {
