@@ -14,6 +14,7 @@ import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import Tooltip from '@mui/material/Tooltip';
 import InfoIcon from '@mui/icons-material/Info';
+import { EditText } from 'react-edit-text';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -114,7 +115,7 @@ export const ConfigPlaid = () => {
           full_account_name: item.account_name + (item.mask ? ('-' + item.mask ) : ''),
         };
       });
-
+  
       setPLAIDAccounts(transformedData);
 
       setInstitutions(Array.from(new Set(myAccounts.map(acc => acc.institution))));
@@ -384,7 +385,18 @@ export const ConfigPlaid = () => {
                         },
                       }}>
                       <Typography variant="body1" sx={{ flex: '1 0', textAlign: 'left' }}>
-                        { acc.account_name }
+                        <EditText
+                          name={ acc.id.toString() }
+                          defaultValue={ acc.common_name }
+                          onSave={({name, value, previousValue}) => {
+                            // Request we rename the account in the DB
+                            if (!config) return;
+                            axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
+                          }}
+                          style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
+                          className={"editableText"}
+                          inputClassName={"normalInput"}
+                        />
                       </Typography>
                     </Tooltip>
                     <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>

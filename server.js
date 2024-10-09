@@ -2282,8 +2282,8 @@ app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
   try {
     const userId = await getUserId(auth0Id);
 
-    await db('account')
-      .update({ account: new_value })
+    await db('plaid_account')
+      .update({ common_name: new_value })
       .where({ id: id, user_id: userId });
 
     res.status(200).send('Updated account successfully');
