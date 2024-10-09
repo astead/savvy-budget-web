@@ -333,9 +333,9 @@ export const ConfigPlaid = () => {
       <Box>
         
           { updateConfig && <UpdatePlaid/>}
-          <button className='textButton' onClick={() => openLink()} disabled={!readyLink} style={{ marginBottom: '20px' }}>
+          <Button variant="contained" className='textButton' onClick={() => openLink()} disabled={!readyLink} style={{ marginBottom: '20px' }}>
             Connect a new bank account
-          </button>
+          </Button>
 
           { downloading && 
             <Box sx={{ width: '100%' }}>
@@ -347,11 +347,10 @@ export const ConfigPlaid = () => {
               <Box className="institution-header">
                 <Typography variant="h6">{institution}</Typography>
                 <Box>
-                  <Button className='textButton' onClick={() => remove_login(institution)} disabled={!token}>
+                  <Button variant="contained" className='textButton' onClick={() => remove_login(institution)} disabled={!token} style={{ marginRight: '10px' }}>
                     Remove
                   </Button>
-                  |
-                  <Button className='textButton' onClick={() => update_login(institution)} disabled={!token}>
+                  <Button variant="contained" className='textButton' onClick={() => update_login(institution)} disabled={!token}>
                     Update Login
                   </Button>
                 </Box>
@@ -371,10 +370,10 @@ export const ConfigPlaid = () => {
                 ))}
                 </Box>
                 <Box className="account-buttons">
-                  <button className='plaid-update-button' onClick={() => get_transactions(institution)} disabled={!token}>
+                  <Button variant="outlined" className='plaid-update-button' onClick={() => get_transactions(institution)} disabled={!token}  style={{ marginBottom: '5px' }}>
                     Update Latest
-                  </button>
-                  <button 
+                  </Button>
+                  <Button variant="outlined" 
                     className='plaid-update-button'
                     onClick={() => {
                       // Get the latest transaction date for this account
@@ -394,7 +393,7 @@ export const ConfigPlaid = () => {
                     }} 
                     disabled={!token}>
                     Update by Date
-                  </button>
+                  </Button>
                 </Box>
               </Box>
             </Paper>
