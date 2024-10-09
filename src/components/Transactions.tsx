@@ -304,7 +304,6 @@ export const Transactions: React.FC = () => {
       txAccID: newTxAccID,
       txDesc: newTxDesc
     };
-    console.log(params);
     await axios.post(baseUrl + channels.ADD_TX, params, config);
 
     load_transactions();      
