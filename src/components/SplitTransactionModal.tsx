@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import Box from '@mui/material/Box';
-import Modal from '@mui/material/Modal';
+import { Button, Box, Modal } from '@mui/material';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShareNodes, faPlus, faMinus } from "@fortawesome/free-solid-svg-icons";
 import * as dayjs from 'dayjs'
@@ -222,7 +221,7 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
                       selectedID={item.txEnvID}
                       optionData={envList}
                       changeCallback={handleTxEnvIDChange}
-                      className=""
+                      className="selectField"
                       />
                   </td>
                   <td className="Table TC Right">
@@ -231,7 +230,7 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
                       in_value={item.txAmt.toFixed(2)}
                       callback={handleTxAmtChange}
                       className="Small Right"
-                      style={{}}
+                      style={{ paddingRight:'1px' }}
                     />
                   </td>
                   <td className="Table TC Smallest">
@@ -245,7 +244,7 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
               <tr className="Table THR">
                 <td className="Table TC Right"></td>
                 <td className="Table TC Left"></td>
-                <td className="Table TC Left"></td>
+                <td className="Table TC Right"> Split total:</td>
                 <td className="Table TC Right">
                   <span className={ 
                     ( // TODO: For some reason some of these reduce functions are returning null
@@ -259,10 +258,10 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
               </tr>
             </tbody>
           </table>
-          <button className="textButton"
+          <Button variant="contained" className='textButton'
             onClick={handleSaveNewValue}>
               All Done, Split it!
-          </button>
+          </Button>
           <br/>
           {error?.length > 0 &&
             <span className="Red">
