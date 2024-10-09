@@ -646,7 +646,8 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
         'plaid_account.verification_status',
         'plaid_account.item_id',
         'plaid_account.access_token',
-        'plaid_account.cursor'
+        'plaid_account.cursor',
+        'plaid_account.common_name'
       )
       .max({ lastTx: 'txDate' })
       .from('plaid_account')

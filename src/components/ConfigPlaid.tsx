@@ -79,6 +79,8 @@ export const ConfigPlaid = () => {
     access_token: string;
     cursor: number;
     lastTx: number;
+    full_account_name: string;
+    common_name: string;
   }
 
   const createLinkToken = async () => {
@@ -104,7 +106,16 @@ export const ConfigPlaid = () => {
       const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS, null, config );
       // Receive the data
       const myAccounts = response.data as PLAIDAccount[];
-      setPLAIDAccounts(myAccounts);
+  
+      // Set the full_account_name
+      const transformedData = myAccounts.map(item => {
+        return {
+          ...item,
+          full_account_name: item.account_name + (item.mask ? ('-' + item.mask ) : ''),
+        };
+      });
+
+      setPLAIDAccounts(transformedData);
 
       setInstitutions(Array.from(new Set(myAccounts.map(acc => acc.institution))));
 
@@ -359,15 +370,29 @@ export const ConfigPlaid = () => {
                 <Box className="account-list">
                 {PLAIDAccounts.filter(acc => acc.institution === institution).map(acc => (
                   <Box key={acc.account_name + '-' + acc.mask} className="account-details">
-                    <Typography variant="body1" sx={{ flex: '1 0', textAlign: 'left' }}>
-                      { acc.account_name }{ acc.mask && ('-' + acc.mask )}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary" sx={{ marginLeft: 5, width: 'fit-content', flex: '0 0' }}>
+                    <Tooltip title={ acc.full_account_name } placement="top" sx={{ flex: '1 0' }}
+                      slotProps={{
+                        popper: {
+                          modifiers: [
+                            {
+                              name: 'offset',
+                              options: {
+                                offset: [0, -14],
+                              },
+                            },
+                          ],
+                        },
+                      }}>
+                      <Typography variant="body1" sx={{ flex: '1 0', textAlign: 'left' }}>
+                        { acc.account_name }
+                      </Typography>
+                    </Tooltip>
+                    <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
                       { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
                     </Typography>
                     { acc.lastTx && (
                       <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
-                        <InfoIcon fontSize="small" sx={{ marginLeft: 0.5, color: 'grey.500', opacity: 0.7 }} />
+                        <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
                       </Tooltip>
                     )}
                   </Box>
