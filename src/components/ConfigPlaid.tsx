@@ -334,12 +334,12 @@ export const ConfigPlaid = () => {
         
           { updateConfig && <UpdatePlaid/>}
           <Button variant="contained" className='textButton' onClick={() => openLink()} disabled={!readyLink} style={{ marginBottom: '20px' }}>
-            Connect a new bank account
+            Connect a new account
           </Button>
 
           { downloading && 
             <Box sx={{ width: '100%' }}>
-              <LinearProgressWithLabel variant="determinate" value={progress} />
+              <LinearProgressWithLabel variant="determinate" value={progress} style={{ marginBottom: '20px' }} />
             </Box>
           }
           { institutions.map(institution => (
