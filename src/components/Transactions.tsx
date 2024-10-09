@@ -396,7 +396,9 @@ export const Transactions: React.FC = () => {
         JSON.stringify({ filterStartDate: filterStartDate.format('YYYY-MM-DD') })
       );
     } else {
-      localStorage.removeItem('transaction-filter-startDate');
+      if (basicLoaded) {
+        localStorage.removeItem('transaction-filter-startDate');
+      }
     }
   }, [filterStartDate]);
 
@@ -407,7 +409,9 @@ export const Transactions: React.FC = () => {
         JSON.stringify({ filterEndDate: filterEndDate.format('YYYY-MM-DD') })
       );
     } else {
-      localStorage.removeItem('transaction-filter-endDate');
+      if (basicLoaded) {
+        localStorage.removeItem('transaction-filter-endDate');
+      }
     }
   }, [filterEndDate]);
 
