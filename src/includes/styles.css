@@ -568,3 +568,55 @@ td.TCInput {
 select.envelopeDropDown-undefined {
  background-color: salmon;
 }
+
+.institution-header {
+  background-color: #f0f0f0; /* Adjust the color as needed */
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.account-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 10px;
+  width: auto;
+}
+
+.account-list {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: left;
+  padding: 0px;
+  width: auto;
+}
+
+.account-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: left;
+  padding: 2px;
+  width: auto;
+}
+
+.account-buttons {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  
+  margin-left: auto; /* Pushes the buttons to the right */
+  width: auto;
+}
+
+.plaid-update-button {
+  width: 150px; /* Adjust the width as needed */
+  margin: 5px;
+  
+  padding-left: 4px;
+  padding-right: 4px;
+  /* Add any other styling you need */
+}

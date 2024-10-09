@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
 import * as dayjs from 'dayjs';
-import Box from '@mui/material/Box';
+import { Button, Box, Typography, Grid, Paper } from '@mui/material';
 import Modal from '@mui/material/Modal';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers';
@@ -12,6 +12,8 @@ import { PlaidLinkOptions, usePlaidLink,
   PlaidLinkOnExit } from 'react-plaid-link';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
+import Tooltip from '@mui/material/Tooltip';
+import InfoIcon from '@mui/icons-material/Info';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -44,6 +46,7 @@ export const ConfigPlaid = () => {
   
   // List of all the acocunts
   const [PLAIDAccounts, setPLAIDAccounts] = useState<PLAIDAccount[]>([]);
+  const [institutions, setInstitutions] = useState<string[]>([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   
   // Get transactions progress bar
@@ -100,13 +103,20 @@ export const ConfigPlaid = () => {
       if (!config) return;
       const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS, null, config );
       // Receive the data
-      setPLAIDAccounts(response.data as PLAIDAccount[]);
+      const myAccounts = response.data as PLAIDAccount[];
+      setPLAIDAccounts(myAccounts);
+
+      setInstitutions(Array.from(new Set(myAccounts.map(acc => acc.institution))));
+
     } catch (error) {
       console.error("Error creating link token:", error);
     }
   };
 
-  const update_login = async (acc : PLAIDAccount) => {
+  const update_login = async (institution: string) => {
+    const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
+    const acc = filtered[0];
+
     if (!config) return;
     const response = await axios.post(baseUrl + channels.PLAID_UPDATE_LOGIN, { access_token: acc.access_token }, config);
     
@@ -120,7 +130,9 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const remove_login = async (acc : PLAIDAccount) => {
+  const remove_login = async (institution: string) => {
+    const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
+    const acc = filtered[0];
     if (token) {
       if (acc.access_token.includes('production') && !token.includes('production')) {
         setLink_Error('You are trying to remove a production login but you have development link token.');
@@ -141,7 +153,10 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const get_transactions = async (acc : PLAIDAccount) => {
+  const get_transactions = async (institution: string) => {
+    const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
+    const acc = filtered[0];
+
     // Clear error message
     setLink_Error(null);
     
@@ -315,93 +330,76 @@ export const ConfigPlaid = () => {
   }
   <>
     {token &&
-      <div>
-        <table className="Table" cellSpacing={1} cellPadding={1}>
-          <tbody>
-            <tr>
-              <td colSpan={2} align="left">
-                {updateConfig && <UpdatePlaid/>}
-                <button className='textButton' onClick={() => openLink()} disabled={!readyLink}>
-                  Connect a new bank account
-                </button>
-              </td>
-            </tr>
-          {downloading && 
-            <tr><td colSpan={2}>
+      <Box>
+        
+          { updateConfig && <UpdatePlaid/>}
+          <button className='textButton' onClick={() => openLink()} disabled={!readyLink} style={{ marginBottom: '20px' }}>
+            Connect a new bank account
+          </button>
+
+          { downloading && 
             <Box sx={{ width: '100%' }}>
               <LinearProgressWithLabel variant="determinate" value={progress} />
             </Box>
-            </td></tr>
           }
-          { PLAIDAccounts.map((acc, index, myArray) => (
-            <React.Fragment key={index}>
-              { (index === 0 || (index > 0 && acc.access_token !== myArray[index - 1].access_token)) && (
-                <React.Fragment>
-                <tr className="Table TGHR">
-                  <td className="Table THRC Left">
-                    {acc.institution}
-                  </td>
-                  <td className="Table THRC">
-                    <button 
-                      className='textButton'
-                      onClick={() => {
-                        remove_login(acc)
-                      }} 
-                      disabled={!token}>
-                      Remove
-                    </button>
-                    <button 
-                      className='textButton'
-                      onClick={() => {
-                        update_login(acc)
-                      }} 
-                      disabled={!token}>
-                      Update Login
-                    </button>
-                    <button 
-                      className='textButton'
-                      onClick={() => {
-                        get_transactions(acc)
-                      }} 
-                      disabled={!token}>
-                      Get
-                    </button>
-                    <button 
-                      className='textButton'
-                      onClick={() => {
-                        // Get the latest transaction date for this account
-                        const filtered = PLAIDAccounts.filter((a) => a.access_token === acc.access_token);
-                        const only_dates = filtered.map((a) => new Date(a.lastTx + 'T00:00:00').getTime());
-                        const max_date = Math.max(...only_dates);
-                        const max_date_str = dayjs(max_date).format('YYYY-MM-DD');
-                        if (max_date_str) {
-                          setGetStart(max_date_str);
-                        } else {
-                          setGetStart(dayjs().startOf('month').format("YYYY-MM-DD"));
-                        }
-                        setGetEnd(dayjs().format("YYYY-MM-DD"));
-                        setGetAcc(acc);
-                        
-                        handleOpen();
-                      }} 
-                      disabled={!token}>
-                      Force Get
-                    </button>
-                  </td>
-                </tr>
-                </React.Fragment>
-              )}
-              <tr key={index}>
-                <td align='left'>
-                  {acc.account_name + '-' + acc.mask}
-                </td>
-                <td align='right'>
-                  {acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY')}
-                </td>
-              </tr>
-            </React.Fragment>
+          { institutions.map(institution => (
+            <Paper key={institution} style={{ marginBottom: '20px' }}>
+              <Box className="institution-header">
+                <Typography variant="h6">{institution}</Typography>
+                <Box>
+                  <Button className='textButton' onClick={() => remove_login(institution)} disabled={!token}>
+                    Remove
+                  </Button>
+                  |
+                  <Button className='textButton' onClick={() => update_login(institution)} disabled={!token}>
+                    Update Login
+                  </Button>
+                </Box>
+              </Box>
+              <Box className="account-container">
+                <Box className="account-list">
+                {PLAIDAccounts.filter(acc => acc.institution === institution).map(acc => (
+                  <Box key={acc.account_name + '-' + acc.mask} className="account-details">
+                    <Typography variant="body1">{ acc.account_name + '-' + acc.mask }</Typography>
+                    <Typography variant="body2" color="textSecondary" sx={{ marginLeft: 5 }}>{ acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }</Typography>
+                    { acc.lastTx && (
+                      <Tooltip title="Last transaction date">
+                        <InfoIcon fontSize="small" sx={{ marginLeft: 0.5, color: 'grey.500', opacity: 0.7 }} />
+                      </Tooltip>
+                    )}
+                  </Box>
+                ))}
+                </Box>
+                <Box className="account-buttons">
+                  <button className='plaid-update-button' onClick={() => get_transactions(institution)} disabled={!token}>
+                    Update Latest
+                  </button>
+                  <button 
+                    className='plaid-update-button'
+                    onClick={() => {
+                      // Get the latest transaction date for this account
+                      const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
+                      const only_dates = filtered.map((a) => new Date(a.lastTx + 'T00:00:00').getTime());
+                      const max_date = Math.max(...only_dates);
+                      const max_date_str = dayjs(max_date).format('YYYY-MM-DD');
+                      if (max_date_str) {
+                        setGetStart(max_date_str);
+                      } else {
+                        setGetStart(dayjs().startOf('month').format("YYYY-MM-DD"));
+                      }
+                      setGetEnd(dayjs().format("YYYY-MM-DD"));
+                      setGetAcc(filtered[0]);
+                      
+                      handleOpen();
+                    }} 
+                    disabled={!token}>
+                    Update by Date
+                  </button>
+                </Box>
+              </Box>
+            </Paper>
           ))}
-        </tbody></table>
+        
         <Modal
           open={open}
           onClose={handleClose}
@@ -453,7 +451,7 @@ export const ConfigPlaid = () => {
             </button>
           </Box>
         </Modal>
-      </div>
+      </Box>
     }
   </>
   </>
