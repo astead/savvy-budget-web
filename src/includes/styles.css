@@ -182,7 +182,8 @@ div.new-envelope {
   margin: 0;
   display: flex;
   flex-direction:row ;
-  align-items: top;
+  align-items: center; /* Vertically centers items */
+  justify-content: center; /* Horizontally centers items */
   background-color: none;
   border: none;
 }
