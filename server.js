@@ -1735,6 +1735,7 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
         'envelope.envelope as envelope',
         'transaction.accountID as accountID',
         'account.account as account',
+        'account.refNumber as refNumber',
         'transaction.txDate as txDate',
         'transaction.txAmt as txAmt',
         'transaction.description as description',

@@ -10,6 +10,7 @@ import { EditText } from 'react-edit-text';
 import { EditDate } from '../helpers/EditDate.tsx';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
+import { Tooltip } from '@mui/material';
 
 function formatCurrency(currencyNumber:number) {
   if (currencyNumber === null) {
@@ -101,7 +102,11 @@ export const TransactionTableRow = ({ index, item, envList, onRowUpdate, callbac
           }}
         />
       </td>
-      <td className="Table TC Left">{item.account}</td>
+      <td className="Table TC Left">
+        <Tooltip title={item.refNumber} arrow>
+          <span>{item.account}</span>
+        </Tooltip>
+      </td>
       <td className="Table TC Left">
         <EditText
           name={item.txID.toString()}
