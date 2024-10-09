@@ -146,7 +146,10 @@ div.NavBar {
   justify-content: space-between;
   padding-left:10px;
   padding-right:10px;
-  margin-bottom: 15px;
+  position: fixed; /* Fixes the NavBar at the top */
+  top: 0; /* Positions it at the top of the viewport */
+  width: 100%; /* Ensures it spans the full width of the viewport */
+  z-index: 1000; /* Ensures it stays above other content */
 }
  
 div.App {
@@ -165,6 +168,7 @@ div.mainContent {
   width:fit-content;
   padding-left: 20px;
   margin:auto;
+  margin-top: 45px;
 }
 
 div.new-category-container{
