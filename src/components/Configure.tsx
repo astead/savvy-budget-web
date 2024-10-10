@@ -90,7 +90,7 @@ export const Configure = () => {
                   backgroundColor: "black"
                 }
               }}
-              sx={{ padding: 0, margin: 0, height: 30, minHeight:30, width: 800}}>
+              sx={{ padding: 0, margin: 0, height: 30, minHeight:30, width: '100%', minWidth: '800px'}}>
               <Tab label="Categories" {...a11yProps(0)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
               <Tab label="Key Words" {...a11yProps(1)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
               <Tab label="Accounts" {...a11yProps(2)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
