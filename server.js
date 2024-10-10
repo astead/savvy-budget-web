@@ -608,6 +608,39 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   }
 });
 
+app.post('/api/'+channels.ADD_ACCOUNT, async (req, res) => {
+  console.log(channels.ADD_ACCOUNT);
+  const { name } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+
+  try {
+    const userId = await getUserId(auth0Id);
+  
+    await db('plaid_account')
+      .insert({
+        institution: null,
+        account_id: null,
+        mask: null,
+        account_name: null,
+        account_subtype: null,
+        account_type: null,
+        verification_status: null,
+        item_id: null,
+        access_token: null,
+        cursor: null,
+        user_id: userId,
+        common_name: name,
+        full_account_name: name,
+      });
+    
+    console.log('Added Unlinked Account');
+    res.status(200).send('Added Unlinked Account');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   console.log(channels.PLAID_GET_ACCOUNTS);
   
