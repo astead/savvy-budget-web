@@ -362,7 +362,7 @@ export const ConfigPlaid = () => {
               <Box className="account-container">
                 <Box className="account-list">
                 {PLAIDAccounts.filter(acc => acc.institution === institution).map(acc => (
-                  <Box key={acc.account_name + '-' + acc.mask} className="account-details">
+                  <Box key={acc.id} className="account-details">
                     <Box sx={{ flex: '1 0', textAlign: 'left' }}>
                       <Tooltip title={ acc.full_account_name } placement="top"
                         slotProps={{
