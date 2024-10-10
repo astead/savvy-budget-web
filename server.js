@@ -3096,7 +3096,7 @@ async function lookup_plaid_account({ userId, account_str }) {
       const data = await trx('plaid_account')
         .select('id')
         .orderBy('id')
-        .where({ plaid_id: account_str, user_id: userId });
+        .where({ account_id: account_str, user_id: userId });
       
         if (data?.length) {
           // If the PLAID Account exists, use the existing ID
