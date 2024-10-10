@@ -2391,7 +2391,7 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
       .where({ user_id: userId })
       .where({ account: trx('plaid_account')
         .select('common_name')
-        .where({ id: account_id, user_id: userId })
+        .where({ id: id, user_id: userId })
         .first()})
       .update({ account: 'All' });
       
