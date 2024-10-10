@@ -2129,7 +2129,7 @@ app.post('/api/'+channels.GET_ACCOUNT_NAMES, async (req, res) => {
 
     const data = await db('plaid_account')
       .select('common_name')
-      .where({ user_id: userId })
+      .where({ user_id: userId, isActive: true })
       .orderBy('common_name')
       .groupBy('common_name');
     
@@ -2152,7 +2152,7 @@ app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
     const find_date = dayjs(new Date()).format('YYYY-MM-DD');
 
     let query = db('plaid_account')
-      .select('plaid_account.id', 'plaid_account.account_name', 'common_name')
+      .select('plaid_account.id', 'plaid_account.account_name', 'common_name', 'isActive')
       .max({ lastTx: 'txDate' })
       .count({ numTx: 'txDate' })
       .leftJoin('transaction', function () {
@@ -2168,7 +2168,7 @@ app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
       })
       .where({ 'plaid_account.user_id': userId})
       .orderBy('plaid_account.id')
-      .groupBy('plaid_account.id', 'plaid_account.account_name', 'common_name');
+      .groupBy('plaid_account.id', 'plaid_account.account_name', 'common_name', 'isActive');
     
     const data = await query;
     res.json(data);

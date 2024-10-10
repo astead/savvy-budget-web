@@ -205,12 +205,17 @@ export const Transactions: React.FC = () => {
     });
     
     let firstID = -1;
-    setNewTxAccList([...(tmpFiltered.map((i, index) => {
-      if (index === 0) {
-        firstID = i.id;
-      }
-      return { id: i.id, text: i.common_name }
-    }))]);
+    setNewTxAccList(
+      [...(
+        tmpFiltered.map(i => {
+          if (firstID === -1 && i.isActive) {
+            firstID = i.id;
+          }
+          return { id: i.id, text: i.common_name, isActive: i.isActive }
+        })
+        .filter(i => i.isActive))
+      ]
+    );
     setNewTxAccID(firstID);
     setNewTxAccListLoaded(true);
     
