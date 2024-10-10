@@ -363,34 +363,36 @@ export const ConfigPlaid = () => {
                 <Box className="account-list">
                 {PLAIDAccounts.filter(acc => acc.institution === institution).map(acc => (
                   <Box key={acc.account_name + '-' + acc.mask} className="account-details">
-                    <Tooltip title={ acc.full_account_name } placement="top" sx={{ flex: '1 0' }}
-                      slotProps={{
-                        popper: {
-                          modifiers: [
-                            {
-                              name: 'offset',
-                              options: {
-                                offset: [0, -14],
+                    <Box sx={{ flex: '1 0', textAlign: 'left' }}>
+                      <Tooltip title={ acc.full_account_name } placement="top"
+                        slotProps={{
+                          popper: {
+                            modifiers: [
+                              {
+                                name: 'offset',
+                                options: {
+                                  offset: [0, -14],
+                                },
                               },
-                            },
-                          ],
-                        },
-                      }}>
-                      <Typography variant="body1" sx={{ flex: '1 0', textAlign: 'left' }}>
-                        <EditText
-                          name={ acc.id.toString() }
-                          defaultValue={ acc.common_name }
-                          onSave={({name, value, previousValue}) => {
-                            // Request we rename the account in the DB
-                            if (!config) return;
-                            axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
-                          }}
-                          style={{padding: '0px', margin: '0px', minHeight: '1rem'}}
-                          className={"editableText"}
-                          inputClassName={"normalInput"}
-                        />
-                      </Typography>
-                    </Tooltip>
+                            ],
+                          },
+                        }}>
+                        <Typography variant="body1">
+                          <EditText
+                            name={ acc.id.toString() }
+                            defaultValue={ acc.common_name }
+                            onSave={({name, value, previousValue}) => {
+                              // Request we rename the account in the DB
+                              if (!config) return;
+                              axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
+                            }}
+                            style={{padding: '0px', margin: '0px', minHeight: '1rem', width: 'fit-content'}}
+                            className={"editableText"}
+                            inputClassName={"normalInput"}
+                          />
+                        </Typography>
+                      </Tooltip>
+                    </Box>
                     <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
                       { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
                     </Typography>
