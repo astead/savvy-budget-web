@@ -14,10 +14,10 @@ import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import Tooltip from '@mui/material/Tooltip';
 import InfoIcon from '@mui/icons-material/Info';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { EditText } from 'react-edit-text';
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEyeSlash, faTrash } from "@fortawesome/free-solid-svg-icons";
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -331,6 +331,27 @@ export const ConfigPlaid = () => {
     await axios.post(baseUrl + channels.DEL_ACCOUNT, {id}, config);
     getAccountList();
   };
+
+  const handleAccountDeactivate = async ({ id, set_active }) => {
+    // Request we delete the account in the DB
+    if (!config) return;
+    const res = await axios.post(baseUrl + channels.VIS_ACCOUNT, { id, set_active }, config);
+
+    if (res.status === 200) {
+      // Update our local dataset, no need for the round trip.
+      setPLAIDAccounts([...PLAIDAccounts.map((i) => {
+        if (i.id === id) {
+          return ({...i, isActive: set_active});
+        } else {
+          return i;
+        }
+      })])
+
+      //getAccountList();
+    } else {
+      console.log('Error trying to set account visibility.');
+    }
+  };
  
   useEffect(() => {
     if (!accountsLoaded) {
@@ -412,13 +433,23 @@ export const ConfigPlaid = () => {
                       { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
                     </Typography>
                     { acc.lastTx && (
+                      <>
                       <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
                         <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
                       </Tooltip>
+                      <Tooltip title="Toggle if account is currently active" sx={{ width: 'fit-content', flex: '0 0' }}>
+                      <Button 
+                        className={ acc.isActive ? "" : "trash" } sx={{ margin: '0px', marginLeft: '5px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto', verticalAlign:'middle' }}
+                        onClick={() => handleAccountDeactivate({ id: acc.id, set_active: acc.isActive ? false : true })}>
+                            {acc.isActive && <VisibilityIcon fontSize="small" />}
+                            {!acc.isActive && <VisibilityOffIcon fontSize="small" />}
+                      </Button>
+                      </Tooltip>
+                      </>
                     )}
                     { !acc.lastTx && (
                       <Button 
-                        className="trash" sx={{ margin: '0px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto' }}
+                        className="trash" sx={{ margin: '0px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto', verticalAlign:'middle' }}
                         onClick={() => handleAccountDelete(acc.id)}>
                             <DeleteForeverIcon fontSize="small" />
                       </Button>
@@ -497,9 +528,19 @@ export const ConfigPlaid = () => {
                       { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
                     </Typography>
                     { acc.lastTx && (
+                      <>
                       <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
                         <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
                       </Tooltip>
+                      <Tooltip title="Toggle if account is currently active" sx={{ width: 'fit-content', flex: '0 0' }}>
+                      <Button 
+                        className={ acc.isActive ? "" : "trash" } sx={{ margin: '0px', marginLeft: '5px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto', verticalAlign:'middle' }}
+                        onClick={() => handleAccountDeactivate({ id: acc.id, set_active: acc.isActive ? false : true })}>
+                            {acc.isActive && <VisibilityIcon fontSize="small" />}
+                            {!acc.isActive && <VisibilityOffIcon fontSize="small" />}
+                      </Button>
+                      </Tooltip>
+                      </>
                     )}
                     { !acc.lastTx && (
                       <Button 

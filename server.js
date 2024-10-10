@@ -2355,18 +2355,17 @@ app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
   }
 });
 
-/* TODO: This is all old and doesn't work anymore
 app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
   console.log(channels.VIS_ACCOUNT);
 
-  const { id, value } = req.body;
+  const { id, set_active } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
   
   try {
     const userId = await getUserId(auth0Id);
 
     await db('plaid_account')
-    .update({ isActive: value })
+    .update({ isActive: set_active })
     .where({ id: id, user_id: userId });
 
     res.status(200).send('Updated plaid_account visibility successfully');
@@ -2376,7 +2375,6 @@ app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
-*/
 
 app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
   console.log(channels.DEL_ACCOUNT);

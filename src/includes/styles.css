@@ -605,7 +605,7 @@ select.envelopeDropDown-undefined {
 .account-details {
   display: flex;
   justify-content: space-between;
-  align-items: left;
+  align-items: center;
   padding: 2px;
   width: auto;
 }
