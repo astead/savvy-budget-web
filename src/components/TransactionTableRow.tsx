@@ -103,8 +103,8 @@ export const TransactionTableRow = ({ index, item, envList, onRowUpdate, callbac
         />
       </td>
       <td className="Table TC Left">
-        <Tooltip title={item.refNumber} arrow>
-          <span>{item.account}</span>
+        <Tooltip title={item.full_account_name} arrow>
+          <span>{item.common_name}</span>
         </Tooltip>
       </td>
       <td className="Table TC Left" style={{ minWidth: 200, maxWidth: '35vw', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

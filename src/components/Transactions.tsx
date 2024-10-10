@@ -17,7 +17,6 @@ import LinearProgress, { LinearProgressProps } from '@mui/material/LinearProgres
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { TransactionTable } from './TransactionTable.tsx';
-import { EditText } from 'react-edit-text';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import { IconButton } from '@mui/material';
@@ -201,7 +200,7 @@ export const Transactions: React.FC = () => {
     let acct_list = acct_response.data;
     const tmpFiltered = acct_list.filter((item) => {
       return (acct_list.find((i) => {
-        return (i.account === item.account);
+        return (i.common_name === item.common_name);
       }).id === item.id);
     });
     
@@ -210,7 +209,7 @@ export const Transactions: React.FC = () => {
       if (index === 0) {
         firstID = i.id;
       }
-      return { id: i.id, text: i.account }
+      return { id: i.id, text: i.common_name }
     }))]);
     setNewTxAccID(firstID);
     setNewTxAccListLoaded(true);
@@ -223,7 +222,7 @@ export const Transactions: React.FC = () => {
     setFilterAccList([{
       id: "All", text: "All"
     }, ...(acct_name_response.data.map((i) => {
-      return { id: i.account, text: i.account }
+      return { id: i.common_name, text: i.common_name }
     }))]);
     setFilterAccListLoaded(true);
     setAccLoaded(true);
@@ -400,6 +399,7 @@ export const Transactions: React.FC = () => {
         localStorage.removeItem('transaction-filter-startDate');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterStartDate]);
 
   useEffect(() => {
@@ -413,6 +413,7 @@ export const Transactions: React.FC = () => {
         localStorage.removeItem('transaction-filter-endDate');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterEndDate]);
 
   useEffect(() => {

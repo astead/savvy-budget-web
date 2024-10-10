@@ -94,7 +94,6 @@ export const Configure = () => {
               <Tab label="Categories" {...a11yProps(0)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
               <Tab label="Key Words" {...a11yProps(1)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
               <Tab label="Accounts" {...a11yProps(2)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
-              <Tab label="PLAID" {...a11yProps(3)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
             </Tabs>
           </Box>
           <CustomTabPanel tabValue={tabValue} index={0}>
@@ -104,9 +103,6 @@ export const Configure = () => {
             <ConfigKeyword />
           </CustomTabPanel>
           <CustomTabPanel tabValue={tabValue} index={2}>
-            <ConfigAccount />
-          </CustomTabPanel>
-          <CustomTabPanel tabValue={tabValue} index={3}>
             <ConfigPlaid />
           </CustomTabPanel>
       </div>

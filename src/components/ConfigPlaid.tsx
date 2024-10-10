@@ -108,15 +108,7 @@ export const ConfigPlaid = () => {
       // Receive the data
       const myAccounts = response.data as PLAIDAccount[];
   
-      // Set the full_account_name
-      const transformedData = myAccounts.map(item => {
-        return {
-          ...item,
-          full_account_name: item.account_name + (item.mask ? ('-' + item.mask ) : ''),
-        };
-      });
-  
-      setPLAIDAccounts(transformedData);
+      setPLAIDAccounts(myAccounts);
 
       setInstitutions(Array.from(new Set(myAccounts.map(acc => acc.institution))));
 

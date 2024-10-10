@@ -53,7 +53,7 @@ export const ConfigKeyword = () => {
     setAccList([{
       id: "All", text: "All"
     }, ...(response.data.map((i) => {
-      return { id: i.account, text: i.account }
+      return { id: i.common_name, text: i.common_name }
     }))]);
   }
 

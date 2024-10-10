@@ -545,44 +545,27 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
     const itemID = response.data.item_id;
     console.log('itemPublicTokenExchange return:', response.data);
 
-    metadata.accounts.forEach((account, index) => {
-      db('account')
+    metadata.accounts.forEach((p_account, index) => {
+      db('plaid_account')
         .insert({
-          account:
-            metadata.institution.name +
-            '-' +
-            account.name +
-            '-' +
-            account.mask,
-          refNumber:
-            metadata.institution.name +
-            '-' +
-            account.name +
-            '-' +
-            account.mask,
-          plaid_id: account.id,
-          isActive: true,
+          institution: metadata.institution.name,
+          account_id: p_account.id,
+          mask: p_account.mask,
+          account_name: p_account.name,
+          account_subtype: p_account.subtype,
+          account_type: p_account.type,
+          verification_status: p_account.verification_status,
+          item_id: itemID,
+          access_token: access_token,
+          cursor: null,
           user_id: userId,
+          common_name: metadata.institution.name + '-' +
+            p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
+          full_account_name: metadata.institution.name + '-' +
+            p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
         })
         .then(() => {
-          db('plaid_account')
-            .insert({
-              institution: metadata.institution.name,
-              account_id: account.id,
-              mask: account.mask,
-              account_name: account.name,
-              account_subtype: account.subtype,
-              account_type: account.type,
-              verification_status: account.verification_status,
-              item_id: itemID,
-              access_token: access_token,
-              cursor: null,
-              user_id: userId,
-            })
-            .then(() => {
-              console.log('Added PLAID account ');
-            })
-            .catch((err) => console.log('Error: ' + err));
+          console.log('Added PLAID Account ');
         })
         .catch((err) => console.log('Error: ' + err));
     });
@@ -591,7 +574,7 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
     console.log('Error: ', error);
     res.status(500).send('Internal Server Error');
   }
-  res.status(200).send('Added plaid account successfully');
+  res.status(200).send('Added PLAID Account successfully');
 });
 
 app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
@@ -647,22 +630,23 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
         'plaid_account.item_id',
         'plaid_account.access_token',
         'plaid_account.cursor',
-        'plaid_account.common_name'
+        'plaid_account.common_name',
+        'plaid_account.full_account_name',
       )
       .max({ lastTx: 'txDate' })
       .from('plaid_account')
-      .join('account', 'plaid_account.account_id', 'account.plaid_id')
       .leftJoin('transaction', function () {
-        this.on('account.id', '=', 'transaction.accountID')
+        this.on('plaid_account.id', '=', 'transaction.accountID')
           .andOn('transaction.isBudget', '=', 0)
           .andOn('transaction.isDuplicate', '=', 0)
-          .andOn('account.user_id', '=', db.raw(`?`, [userId]))
+          .andOn('plaid_account.user_id', '=', db.raw(`?`, [userId]))
           .andOn('transaction.user_id', '=', db.raw(`?`, [userId]));
           // PostgreSQL specific
           this.on(db.raw(`?::date - "txDate" >= 0`, [find_date]));
           this.on(db.raw(`"transaction"."isVisible" = true`));
       })
       .where({ 'plaid_account.user_id': userId })
+      .whereNotNull('plaid_account.account_id')
       .orderBy('institution', 'public_token')
       .groupBy(
         'plaid_account.id',
@@ -675,7 +659,9 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
         'plaid_account.verification_status',
         'plaid_account.item_id',
         'plaid_account.access_token',
-        'plaid_account.cursor'
+        'plaid_account.cursor',
+        'plaid_account.common_name',
+        'plaid_account.full_account_name'
       );
 
     const data = await query;
@@ -688,7 +674,7 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
 });
 
 app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
-  console.log('Removing plaid account login ');
+  console.log('Removing PLAID Account login ');
 
   const { access_token } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -699,18 +685,15 @@ app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
     await remove_plaid_login(access_token);
 
     await db.transaction(async (trx) => {
-      // Get the account info
+      // Get the Account info
       const data = await trx
         .select('account_id')
         .from('plaid_account')
         .where({ access_token: access_token, user_id: userId });
 
       for (const item of data) {
-        // Remove the plaid account from the database
+        // Remove the PLAID Account from the database
         await remove_plaid_account(trx, userId, item.account_id);
-
-        // If there was a regular account, disconnect it from a plaid account
-        await remove_plaid_account_link(trx, userId, item.account_id);
       }
     });
     res.status(200).send('Removed plaid login successfully');
@@ -734,15 +717,20 @@ async function remove_plaid_login(access_token) {
 }
 
 async function remove_plaid_account(trx, userId, account_id) {
+  /*  Instead of deleting this PLAID Account, convert it to a regular one.
   await trx('plaid_account')
     .delete()
     .where({ account_id: account_id, user_id: userId });
-}
-
-async function remove_plaid_account_link(trx, userId, account_id) {
-  await trx('account')
-    .update({ plaid_id: null })
-    .where({ plaid_id: account_id, user_id: userId });
+  */
+  await trx('plaid_account')
+    .update({
+      account_id: null,
+      verification_status: null,
+      item_id: null,
+      access_token: null,
+      cursor: null,
+    })
+    .where({ account_id: account_id, user_id: userId });
 }
 
 app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
@@ -815,7 +803,10 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
 
   // Apply added
   const accountArr = [];
-  await apply_added_transactions({ added, removed, userId, cur_record, total_records, sessionId, accountArr });
+  const ret_add = await apply_added_transactions({ added, removed, userId, cur_record, total_records, sessionId, accountArr });
+  if (ret_add === -1) {
+    return -1;
+  }
   cur_record += added.length;
   console.log('Done processing added transactions.');
 
@@ -829,7 +820,10 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
   console.log('Done processing removed transactions.');
 
   // Apply modified
-  await apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr });
+  const ret_mod = await apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr });
+  if (ret_mod === -1) {
+    return -1;
+  }
   cur_record += modified.length;
   console.log('Done processing modifed transactions.');
 
@@ -840,6 +834,7 @@ async function get_transactions(access_token, cursor, userId, sessionId) {
     .catch((err) => console.log('Error: ' + err));
   console.log('Done with everything, setting progress to 100.');
   progressStatuses[sessionId] = 100;
+  return 0;
 };
 
 async function account_name_lookup_with_cache_array({ accountArr, account_str, userId }) {
@@ -863,6 +858,10 @@ async function apply_added_transactions({ added, removed, userId, cur_record, to
   for (const [i, a] of added.entries()) {
     const accountID = await account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id, userId });
     
+    if (accountID === -1) {
+      return -1;
+    }
+
     let envID = await lookup_keyword({ userId, accountID, description: a.name, txDate: a.date });
 
     // Check if this is a duplicate
@@ -912,12 +911,17 @@ async function apply_added_transactions({ added, removed, userId, cur_record, to
     cur_record++;
     progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
+  return 0;
 }
 
 async function apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr }) {
   for (const [i, m] of modified.entries()) {
     const accountID = await account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id, userId });
     
+    if (accountID === -1) {
+      return -1;
+    }
+
     let envID = await lookup_keyword({ userId, accountID, description: m.name, txDate: m.date });
 
     // Rather than modify it, just remove the old and add the new
@@ -936,6 +940,7 @@ async function apply_modified_transactions({ modified, userId, cur_record, total
     cur_record++;
     progressStatuses[sessionId] = (cur_record * 100) / total_records;
   }
+  return 0;
 }
 
 app.get('/api/' + channels.PROGRESS, async (req, res) => {
@@ -969,7 +974,7 @@ app.get('/api/' + channels.PROGRESS, async (req, res) => {
 });
 
 app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
-  console.log('Try getting plaid account transactions ');
+  console.log('Try getting PLAID Account transactions for date range');
   
   const sessionId = req.sessionID;
   
@@ -1033,10 +1038,15 @@ async function force_get_transactions(access_token, start_date, end_date, userId
 
   // Apply added
   const accountArr = [];
-  await apply_added_transactions({ added, removed: [], userId, cur_record, total_records, sessionId, accountArr });
+  const ret = await apply_added_transactions({ added, removed: [], userId, cur_record, total_records, sessionId, accountArr });
+  if (ret === -1) {
+    return ret;
+  }
+
   cur_record += added.length;
   console.log('Done processing added transactions.');
   progressStatuses[sessionId] = 100;
+  return 0;
 };
 
 app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
@@ -1735,8 +1745,8 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
         'category.category as category',
         'envelope.envelope as envelope',
         'transaction.accountID as accountID',
-        'account.account as account',
-        'account.refNumber as refNumber',
+        'plaid_account.common_name as common_name',
+        'plaid_account.full_account_name as full_account_name',
         'transaction.txDate as txDate',
         'transaction.txAmt as txAmt',
         'transaction.description as description',
@@ -1754,9 +1764,9 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
         this.on('category.id', '=', 'envelope.categoryID')
           .andOn('category.user_id', '=', db.raw(`?`, [userId]))
       })
-      .leftJoin('account', function () {
-        this.on('account.id', '=', 'transaction.accountID')
-        .andOn('account.user_id', '=', db.raw(`?`, [userId]))
+      .leftJoin('plaid_account', function () {
+        this.on('plaid_account.id', '=', 'transaction.accountID')
+        .andOn('plaid_account.user_id', '=', db.raw(`?`, [userId]))
       })
       .leftJoin('keyword', function () {
         //this.on('keyword.description', '=', 'transaction.description');
@@ -1764,6 +1774,8 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
         TODO: This is pulling in multiple instances on multiple keyword matches
         Right now that could happen on a keyword rename.
         Keyword insert is disabled if a keyword already matches.
+        Might be able to add a group by for what should be unique values
+        and get only the first keyword match.
         */
         this.on(
           'transaction.description',
@@ -1773,7 +1785,7 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
         .andOn(function () {
           this
             .onVal('keyword.account', '=', 'All')
-            .orOn('keyword.account','account.account');
+            .orOn('keyword.account','plaid_account.common_name');
         })
         .andOn('keyword.user_id', '=', db.raw(`?`, [userId]))
       })
@@ -1796,7 +1808,7 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
       query = query.andWhere({'envelope.categoryID': filterCatID });
     }
     if (filterAccID !== -1 && filterAccID !== '-1' && filterAccID !== 'All') {
-      query = query.andWhere({'account.account': filterAccID });
+      query = query.andWhere({'plaid_account.common_name': filterAccID });
     }
     if (filterDesc?.length) {
       let myfilterDesc = '%' + filterDesc + '%';
@@ -2090,11 +2102,11 @@ app.post('/api/'+channels.GET_ACCOUNT_NAMES, async (req, res) => {
   try {
     const userId = await getUserId(auth0Id);
 
-    const data = await db('account')
-      .select('account')
+    const data = await db('plaid_account')
+      .select('common_name')
       .where({ user_id: userId })
-      .orderBy('account')
-      .groupBy('account');
+      .orderBy('common_name')
+      .groupBy('common_name');
     
     res.json(data);
   
@@ -2114,13 +2126,13 @@ app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
 
     const find_date = dayjs(new Date()).format('YYYY-MM-DD');
 
-    let query = db('account')
-      .select('account.id', 'account.refNumber', 'account', 'isActive')
+    let query = db('plaid_account')
+      .select('plaid_account.id', 'plaid_account.account_name', 'common_name')
       .max({ lastTx: 'txDate' })
       .count({ numTx: 'txDate' })
       .leftJoin('transaction', function () {
         this
-          .on('account.id', '=', 'transaction.accountID')
+          .on('plaid_account.id', '=', 'transaction.accountID')
           .andOn('transaction.user_id', '=', db.raw(`?`, [userId]))
           .andOn('transaction.isBudget', '=', 0)
           .andOn('transaction.isDuplicate', '=', 0);
@@ -2129,9 +2141,9 @@ app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
         this.andOn(db.raw(`?::date - "txDate" >= 0`, [find_date]));
         this.andOn(db.raw(`"transaction"."isVisible" = true`));
       })
-      .where({ 'account.user_id': userId})
-      .orderBy('account.id')
-      .groupBy('account.id', 'account.refNumber', 'account', 'isActive');
+      .where({ 'plaid_account.user_id': userId})
+      .orderBy('plaid_account.id')
+      .groupBy('plaid_account.id', 'plaid_account.account_name', 'common_name');
     
     const data = await query;
     res.json(data);
@@ -2204,15 +2216,13 @@ app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
           .whereRaw(`"description" LIKE ?`, [data[0].description])
           .andWhere({ user_id: userId });
 
+        // TODO: Need to test this.
         if (data[0].account !== 'All') {
-          const accountID = await trx('account')
-            .select('id')
-            .where({ 'account': data[0].account, user_id: userId })
-            .first();
-
-          if (accountID) {
-            query = query.andWhere({ accountID: accountID.id });
-          }
+          query = query.andWhere({ 
+            accountID: trx('plaid_account')
+              .select('id')
+              .where({ 'common_name': data[0].account, user_id: userId }),
+          });
         }
 
         if (force === 0) {
@@ -2286,7 +2296,7 @@ app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
       .update({ common_name: new_value })
       .where({ id: id, user_id: userId });
 
-    res.status(200).send('Updated account successfully');
+    res.status(200).send('Updated Account common name successfully');
   
   } catch (err) {
     console.error(err);
@@ -2294,6 +2304,7 @@ app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
   }
 });
 
+/* TODO: This is all old and doesn't work anymore
 app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
   console.log(channels.VIS_ACCOUNT);
 
@@ -2303,18 +2314,20 @@ app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
   try {
     const userId = await getUserId(auth0Id);
 
-    await db('account')
+    await db('plaid_account')
     .update({ isActive: value })
     .where({ id: id, user_id: userId });
 
-    res.status(200).send('Updated account visibility successfully');
+    res.status(200).send('Updated plaid_account visibility successfully');
   
   } catch (err) {
     console.error(err);
     res.status(500).send('Internal Server Error');
   }
 });
+*/
 
+/*  TODO: This is all old and doesn't work anymore
 app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
   console.log(channels.DEL_ACCOUNT);
 
@@ -2325,33 +2338,33 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
     const userId = await getUserId(auth0Id);
 
     await db.transaction(async (trx) => {
-      // Get the account info
+      // Get the Account info
       const data = await trx
-        .select('id', 'account', 'refNumber', 'plaid_id')
-        .from('account')
+        .select('id', 'Account', 'refNumber', 'plaid_id')
+        .from('plaid_account')
         .where({ id: id, user_id: userId });
         
       if (data?.length) {
         // Delete the original
-        await trx('account')
+        await trx('plaid_account')
           .delete()
           .where({ id: id, user_id: userId });
           
-        // TODO: Not sure if we want to delete the plaid account
-        // We would be leaving the account login
-        // If we delete the account login as well, it would remove the login
+        // TODO: Not sure if we want to delete the plaid Account
+        // We would be leaving the Account login
+        // If we delete the Account login as well, it would remove the login
         // for all accounts of this institution.
         // Seems like it would be best to disconnect
-        // the plaid account from this account, and
+        // the plaid Account from this Account, and
         // let the user remove the plaid portion from the configPlaid page, but
-        // they can't just remove a single account.
+        // they can't just remove a single Account.
         // TODO: Also not sure what happens if they delete this and then
         // pull transactions from plaid? Will the pulling of transactions
-        // re-create the account?
+        // re-create the Account?
         // Might be best to popup a warning asking them to delete plaid-link,
-        // or re-do the login and not include this account?
+        // or re-do the login and not include this Account?
         //if (data[0].plaid_id?.length) {
-        // delete the plaid account if it exists
+        // delete the plaid Account if it exists
         //await trx('plaid_account')
         //  .delete()
         //  .where({ account_id: data[0].plaid_id });
@@ -2359,13 +2372,14 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
       }        
     });
     
-    res.status(200).send('Deleted account successfully');
+    res.status(200).send('Deleted Account successfully');
   
   } catch (err) {
     console.error(err);
     res.status(500).send('Internal Server Error');
   }
 });
+*/
 
 app.post('/api/'+channels.GET_ENV_CHART_DATA, async (req, res) => {
   console.log(channels.GET_ENV_CHART_DATA);
@@ -2702,7 +2716,7 @@ app.post('/api/'+channels.IMPORT_CSV, async (req, res) => {
               }
 
               // Original Description
-              // We don't do anything with this, but need to account
+              // We don't do anything with this, but need to deal with
               // for commas.
               j += 1;
               if (tx_values[j]?.startsWith('"')) {
@@ -2955,35 +2969,45 @@ async function adjust_balance(userId, txID, add_or_remove) {
   }
 }
 
-async function lookup_account(userId, account) {
-  // Initialize accountID to -1 to indicate no account found
+// This should only be used the the import functions
+async function lookup_account(userId, account_str) {
+  // Initialize accountID to -1 to indicate no account_str found
   let accountID = -1;
 
-  // Early return if account is empty or undefined
-  if (!account?.length) {
-    console.log('No account provided');
+  // Early return if account_str is empty or undefined
+  if (!account_str?.length) {
+    console.log('No account_str provided');
     return accountID;
   }
   
   try {
     await db.transaction(async (trx) => {
-      // Check if the account already exists
-      const data = await trx('account')
-        .select('id', 'account', 'refNumber')
-        .orderBy('account')
-        .where({ refNumber: account, user_id: userId });
+      // Check if the account_str already exists
+      const data = await trx('plaid_account')
+        .select('id', 'common_name', 'account_name')
+        .orderBy('account_name')
+        .where({ account_name: account_str, accont_id: null, user_id: userId });
 
       if (data?.length) {
-        // If the account exists, use the existing ID
+        // If the account_str exists, use the existing ID
         accountID = data[0].id;
       } else {
-        // If the account does not exist, insert a new one
-        const result = await trx('account')
+        console.log("Creating unlinked PLAID Account");
+        // If the Account does not exist, insert a new one
+        const result = await trx('plaid_account')
           .insert({
-            account: 'New Account',
-            refNumber: account,
-            isActive: true,
+            institution: null,
+            account_id: null,
+            mask: null,
+            account_name: account_str,
+            account_subtype: null,
+            account_type: null,
+            verification_status: null,
+            item_id: null,
+            access_token: null,
+            cursor: null,
             user_id: userId,
+            common_name: account_str,
           })
           .returning('id');
 
@@ -2993,7 +3017,7 @@ async function lookup_account(userId, account) {
       }
     });
   } catch (err) {
-    console.error('Error looking up or creating account:', err);
+    console.error('Error looking up or creating unlinked PLAID Account:', err);
   }
 
   return accountID;
@@ -3002,47 +3026,31 @@ async function lookup_account(userId, account) {
 async function lookup_plaid_account({ userId, account_str }) {
   console.log("lookup_plaid_account");
 
-  // Initialize accountID to -1 to indicate no account found
+  // Initialize accountID to -1 to indicate no PLAID Account found
   let accountID = -1;
 
-  // Early return if account is empty or undefined
+  // Early return if account_str is empty or undefined
   if (!account_str?.length) {
-    console.log('No account provided');
+    console.log('No account_str provided');
     return accountID;
   }
 
   // Lookup if we've already use this one
   try {
     await db.transaction(async (trx) => {
-      // Check if the account already exists
-      const data = await trx('account')
-        .select('id', 'account', 'refNumber')
-        .orderBy('account')
+      // Check if the PLAID Account already exists
+      const data = await trx('plaid_account')
+        .select('id')
+        .orderBy('id')
         .where({ plaid_id: account_str, user_id: userId });
       
         if (data?.length) {
-          // If the account exists, use the existing ID
+          // If the PLAID Account exists, use the existing ID
           accountID = data[0].id;
-        } else {
-          
-          // If the account does not exist, insert a new one
-          const result = await trx('account')
-            .insert({
-              account: 'New Account',
-              refNumber: account_str,
-              plaid_id: account_str,
-              isActive: true,
-              user_id: userId,
-            })
-            .returning('id');
-
-          if (result?.length) {
-            accountID = result[0];
-          }
         }
     });
   } catch (err) {
-    console.error('Error looking up or creating plaid account:', err);
+    console.error('Error looking up or creating PLAID Account:', err);
   }
 
   return accountID;
@@ -3061,7 +3069,7 @@ async function lookup_envelope(userId, envelope, defaultCategoryID) {
   // Lookup if we've already use this one
   try {
     await db.transaction(async (trx) => {
-      // Check if the account already exists
+      // Check if the envelope already exists
       const data = await trx('envelope')
         .select('id', 'envelope')
         .orderBy('id')
@@ -3072,7 +3080,7 @@ async function lookup_envelope(userId, envelope, defaultCategoryID) {
           envelopeID = data[0].id;
           console.log('Envelope found: ', envelopeID);
         } else {
-          // If the account does not exist, insert a new one
+          // If the envelope does not exist, insert a new one
           const result = await trx('envelope')
             .insert({
               envelope: envelope,
@@ -3135,8 +3143,8 @@ async function lookup_keyword({ userId, accountID, description, txDate }) {
       query = query.andWhere(function () {
         this.where('account', 'All')
           .orWhere({ 
-            account: trx('account')
-              .select('account')
+            account: trx('plaid_account')
+              .select('common_name')
               .where({ id: accountID, user_id: userId }),
           });
       });
@@ -3232,12 +3240,8 @@ async function update_transaction_id({
     await db.transaction(async (trx) => {
       const rows = trx('plaid_account')
         .select('transaction.id as id')
-        .join('account', function() {
-          this.on('account.plaid_id', '=', 'plaid_account.account_id')
-              .andOn('account.user_id', '=', trx.raw('?', [userId]));
-        })
         .join('transaction', function() {
-          this.on('transaction.accountID', '=', 'account.id')
+          this.on('transaction.accountID', '=', 'plaid_account.id')
               .andOn('transaction.user_id', '=', trx.raw('?', [userId]));
         })
         .where({ 
@@ -3355,12 +3359,8 @@ async function basic_remove_transaction_node({ userId, account_id, refNumber }) 
           'transaction.envelopeID as envelopeID',
           'transaction.txAmt as txAmt',
         )
-        .join('account', function() {
-          this.on('account.plaid_id', '=', 'plaid_account.account_id')
-              .andOn('account.user_id', '=', trx.raw('?', [userId]));
-        })
         .join('transaction', function() {
-          this.on('transaction.accountID', '=', 'account.id')
+          this.on('transaction.accountID', '=', 'plaid_account.id')
               .andOn('transaction.user_id', '=', trx.raw('?', [userId]));
         })
         .where({ 

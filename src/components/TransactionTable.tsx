@@ -22,7 +22,8 @@ interface TransactionNodeData {
   category: string;
   envelope: string; 
   accountID: number;  
-  account: string;
+  common_name: string;
+  full_account_name: string;
   txAmt: number;
   txDate: number;
   description: string;
