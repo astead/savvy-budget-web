@@ -14,7 +14,10 @@ import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import Tooltip from '@mui/material/Tooltip';
 import InfoIcon from '@mui/icons-material/Info';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { EditText } from 'react-edit-text';
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEyeSlash, faTrash } from "@fortawesome/free-solid-svg-icons";
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -82,6 +85,7 @@ export const ConfigPlaid = () => {
     lastTx: number;
     full_account_name: string;
     common_name: string;
+    isActive: boolean;
   }
 
   const createLinkToken = async () => {
@@ -316,6 +320,12 @@ export const ConfigPlaid = () => {
     onExit: onExit,
   });
 
+  const handleAccountDelete = async (id) => {
+    // Request we delete the account in the DB
+    if (!config) return;
+    await axios.post(baseUrl + channels.DEL_ACCOUNT, {id}, config);
+    getAccountList();
+  };
  
   useEffect(() => {
     if (!accountsLoaded) {
@@ -400,6 +410,13 @@ export const ConfigPlaid = () => {
                       <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
                         <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
                       </Tooltip>
+                    )}
+                    { !acc.lastTx && (
+                      <Button 
+                        className="trash" sx={{ margin: '0px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto' }}
+                        onClick={() => handleAccountDelete(acc.id)}>
+                            <DeleteForeverIcon fontSize="small" />
+                      </Button>
                     )}
                   </Box>
                 ))}

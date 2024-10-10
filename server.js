@@ -632,6 +632,7 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
         'plaid_account.cursor',
         'plaid_account.common_name',
         'plaid_account.full_account_name',
+        'plaid_account.isActive',
       )
       .max({ lastTx: 'txDate' })
       .from('plaid_account')
@@ -647,7 +648,9 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
       })
       .where({ 'plaid_account.user_id': userId })
       .whereNotNull('plaid_account.account_id')
-      .orderBy('institution', 'public_token')
+      .orderBy('plaid_account.institution')
+      .orderBy('plaid_account.common_name')
+      .orderBy('plaid_account.id')
       .groupBy(
         'plaid_account.id',
         'plaid_account.institution',
@@ -2327,51 +2330,35 @@ app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
 });
 */
 
-/*  TODO: This is all old and doesn't work anymore
 app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
   console.log(channels.DEL_ACCOUNT);
 
   const { id } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
-  
   try {
     const userId = await getUserId(auth0Id);
 
     await db.transaction(async (trx) => {
-      // Get the Account info
-      const data = await trx
-        .select('id', 'Account', 'refNumber', 'plaid_id')
-        .from('plaid_account')
-        .where({ id: id, user_id: userId });
+      // Delete the original
+      const rows = await trx('transaction')
+        .where({ accountID: id, user_id: userId })
+        .first();
         
-      if (data?.length) {
-        // Delete the original
+      if (rows === undefined) {
         await trx('plaid_account')
-          .delete()
-          .where({ id: id, user_id: userId });
-          
-        // TODO: Not sure if we want to delete the plaid Account
-        // We would be leaving the Account login
-        // If we delete the Account login as well, it would remove the login
-        // for all accounts of this institution.
-        // Seems like it would be best to disconnect
-        // the plaid Account from this Account, and
-        // let the user remove the plaid portion from the configPlaid page, but
-        // they can't just remove a single Account.
-        // TODO: Also not sure what happens if they delete this and then
-        // pull transactions from plaid? Will the pulling of transactions
-        // re-create the Account?
-        // Might be best to popup a warning asking them to delete plaid-link,
-        // or re-do the login and not include this Account?
-        //if (data[0].plaid_id?.length) {
-        // delete the plaid Account if it exists
-        //await trx('plaid_account')
-        //  .delete()
-        //  .where({ account_id: data[0].plaid_id });
-        //}
-      }        
+          .where({ id: id, user_id: userId })
+          .delete();
+      } else {
+        throw new Error('Cannot delete plaid account, transactions exist.');
+      }
     });
     
+    // TODO: Also not sure what happens if they delete this and then
+    // pull transactions from plaid? Will the pulling of transactions
+    // re-create the Account?
+    // Might be best to popup a warning asking them to delete plaid-link,
+    // or re-do the login and not include this Account?
+   
     res.status(200).send('Deleted Account successfully');
   
   } catch (err) {
@@ -2379,7 +2366,6 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
-*/
 
 app.post('/api/'+channels.GET_ENV_CHART_DATA, async (req, res) => {
   console.log(channels.GET_ENV_CHART_DATA);

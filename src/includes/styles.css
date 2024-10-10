@@ -594,7 +594,7 @@ select.envelopeDropDown-undefined {
 .account-list {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: left;
   padding: 0px;
   width: auto;
@@ -608,6 +608,10 @@ select.envelopeDropDown-undefined {
   align-items: left;
   padding: 2px;
   width: auto;
+}
+
+.account-details:hover {
+  background: #d3d3d3;
 }
 
 .account-buttons {
