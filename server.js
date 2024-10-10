@@ -722,10 +722,20 @@ async function remove_plaid_account(trx, userId, account_id) {
   // Check if there are existing transactions
   // if not, then we can delete
   // if there are, then make it a regular account, maybe with active = false?
-  
   const rows = await trx('transaction')
+    .select('id')
     .where({ accountID: id, user_id: userId })
     .first();
+
+  // Check if there are any keywords. If so, set them to 'All'
+  // The other option is to delete the keyword.
+  await trx('keyword')
+    .where({ user_id: userId })
+    .where({ account: trx('plaid_account')
+      .select('common_name')
+      .where({ id: account_id, user_id: userId })
+      .first()})
+    .update({ account: 'All' });
     
   if (rows === undefined) {
     // There are no existing transactions
@@ -733,6 +743,8 @@ async function remove_plaid_account(trx, userId, account_id) {
       .where({ id: account_id, user_id: userId })
       .delete();
   } else {
+    // If we have transactions under this account,
+    // set it to an unlinked and inactive account.
     await trx('plaid_account')
       .update({
         account_id: null,
@@ -2349,16 +2361,29 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
     const userId = await getUserId(auth0Id);
 
     await db.transaction(async (trx) => {
-      // Delete the original
+      // Check if there are any keywords. If so, set them to 'All'
+      // The other option is to delete the keyword.
+      await trx('keyword')
+      .where({ user_id: userId })
+      .where({ account: trx('plaid_account')
+        .select('common_name')
+        .where({ id: account_id, user_id: userId })
+        .first()})
+      .update({ account: 'All' });
+      
+      // Check if there are any transactions for this account
       const rows = await trx('transaction')
         .where({ accountID: id, user_id: userId })
         .first();
-        
+      
       if (rows === undefined) {
+        // If no transactions we can delete it.
         await trx('plaid_account')
           .where({ id: id, user_id: userId })
           .delete();
       } else {
+        // If there are transactions,
+        // set it to an unlinked and inactive account.
         await trx('plaid_account')
           .update({
             account_id: null,
