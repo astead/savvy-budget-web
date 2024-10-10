@@ -2316,10 +2316,36 @@ app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
   
   try {
     const userId = await getUserId(auth0Id);
+    
+    await db.transaction(async (trx) => {
+      // Need to check for any orphaned keywords and 
+      // update them to 'All'.
+      let rows = await trx('plaid_account')
+        .select('id')
+        .where({ user_id: userId })
+        .whereNot('id', id)
+        .where({ account: trx('plaid_account')
+          .select('common_name')
+          .where({ id: id, user_id: userId })
+        })
+        .first();
+      
+      if (rows === undefined) {
+        await trx('keyword')
+          .where({ user_id: userId })
+          .where({ account: trx('plaid_account')
+            .select('common_name')
+            .where({ id: account_id, user_id: userId })
+            .first()})
+          .update({ account: 'All' });
+      }
 
-    await db('plaid_account')
-      .update({ common_name: new_value })
-      .where({ id: id, user_id: userId });
+      // Now we can update the common name.
+      await trx('plaid_account')
+        .update({ common_name: new_value })
+        .where({ id: id, user_id: userId });
+
+    });
 
     res.status(200).send('Updated Account common name successfully');
   
