@@ -44,6 +44,10 @@ export const ConfigPlaid = () => {
   const [getStart, setGetStart] = React.useState('');
   const [getEnd, setGetEnd] = React.useState('');
   const [getAcc, setGetAcc] = React.useState<any>(null);
+  
+  // Modal popup to create a new unlinked account
+  const [openNewAccount, setOpenNewAccount] = useState(false);
+  const [newAccountName, setNewAccountName] = React.useState('');
 
   // Hold any error messages
   const [link_Error, setLink_Error] = useState<string | null>(null);
@@ -70,6 +74,8 @@ export const ConfigPlaid = () => {
   // get specific transactions.
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
+  const handleOpenNewAccount = () => setOpenNewAccount(true);
+  const handleCloseNewAccount = () => setOpenNewAccount(false);
 
   interface PLAIDAccount {
     id: number; 
@@ -325,6 +331,14 @@ export const ConfigPlaid = () => {
     onExit: onExit,
   });
 
+  const create_new_unlinked_account = async () => {
+    // Request we create the account in the DB
+    if (!config) return;
+    handleCloseNewAccount();
+    await axios.post(baseUrl + channels.ADD_ACCOUNT, { name: newAccountName }, config);
+    getAccountList();
+  }
+
   const handleAccountDelete = async (id) => {
     // Request we delete the account in the DB
     if (!config) return;
@@ -373,8 +387,12 @@ export const ConfigPlaid = () => {
       <Box>
         
           { updateConfig && <UpdatePlaid/>}
-          <Button variant="contained" className='textButton' onClick={() => openLink()} disabled={!readyLink} style={{ marginBottom: '20px' }}>
-            Connect a new account
+          <Button variant="contained" className='textButton' onClick={() => handleOpenNewAccount()} style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
+            Create a new unlinked account
+          </Button>
+
+          <Button variant="contained" className='textButton' onClick={() => openLink()} disabled={!readyLink} style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
+            Connect a new linked account
           </Button>
 
           { downloading && 
@@ -603,6 +621,35 @@ export const ConfigPlaid = () => {
               disabled={!token}>
               Get Those Transactions!
             </button>
+          </Box>
+        </Modal>
+        <Modal
+          open={openNewAccount}
+          onClose={handleCloseNewAccount}
+          aria-labelledby="modal-modal-title"
+          aria-describedby="modal-modal-description"
+        >
+          <Box sx={style}>
+            Create a new unlinked account<br/>
+            <br/>
+            <input
+                id="new-account"
+                defaultValue={newAccountName}
+                onBlur={(e) => {
+                  setNewAccountName(e.target.value);
+                }}
+                placeholder="Enter new account name"
+                className={"inputField"}
+            />
+            <br/><br/>
+            <Button 
+              variant="contained" className='textButton'
+              onClick={() => {
+                create_new_unlinked_account();
+              }} 
+              disabled={!token}>
+              Create
+            </Button>
           </Box>
         </Modal>
       </Box>

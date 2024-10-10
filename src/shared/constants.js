@@ -90,6 +90,7 @@ module.exports = {
     SET_ALL_KEYWORD: 'set_all_keyword',
     UPDATE_KEYWORD: 'update_keyword',
 
+    ADD_ACCOUNT: 'add_account',
     GET_ACCOUNTS: 'get_accounts',
     LIST_ACCOUNTS: 'list_accounts',
     GET_ACCOUNT_NAMES: 'get_account_names',
