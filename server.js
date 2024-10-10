@@ -720,20 +720,31 @@ async function remove_plaid_login(access_token) {
 }
 
 async function remove_plaid_account(trx, userId, account_id) {
-  /*  Instead of deleting this PLAID Account, convert it to a regular one.
-  await trx('plaid_account')
-    .delete()
-    .where({ account_id: account_id, user_id: userId });
-  */
-  await trx('plaid_account')
-    .update({
-      account_id: null,
-      verification_status: null,
-      item_id: null,
-      access_token: null,
-      cursor: null,
-    })
-    .where({ account_id: account_id, user_id: userId });
+  // Check if there are existing transactions
+  // if not, then we can delete
+  // if there are, then make it a regular account, maybe with active = false?
+  
+  const rows = await trx('transaction')
+    .where({ accountID: id, user_id: userId })
+    .first();
+    
+  if (rows === undefined) {
+    // There are no existing transactions
+    await trx('plaid_account')
+      .where({ id: account_id, user_id: userId })
+      .delete();
+  } else {
+    await trx('plaid_account')
+      .update({
+        account_id: null,
+        verification_status: null,
+        item_id: null,
+        access_token: null,
+        cursor: null,
+        isActive: false,
+      })
+      .where({ account_id: account_id, user_id: userId });
+  }
 }
 
 app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
@@ -2349,7 +2360,16 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
           .where({ id: id, user_id: userId })
           .delete();
       } else {
-        throw new Error('Cannot delete plaid account, transactions exist.');
+        await trx('plaid_account')
+          .update({
+            account_id: null,
+            verification_status: null,
+            item_id: null,
+            access_token: null,
+            cursor: null,
+            isActive: false,
+          })
+          .where({ account_id: account_id, user_id: userId });
       }
     });
     
