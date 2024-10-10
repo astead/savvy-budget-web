@@ -647,7 +647,6 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
           this.on(db.raw(`"transaction"."isVisible" = true`));
       })
       .where({ 'plaid_account.user_id': userId })
-      .whereNotNull('plaid_account.account_id')
       .orderBy('plaid_account.institution')
       .orderBy('plaid_account.common_name')
       .orderBy('plaid_account.id')

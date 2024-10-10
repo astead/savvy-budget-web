@@ -50,6 +50,7 @@ export const ConfigPlaid = () => {
   
   // List of all the acocunts
   const [PLAIDAccounts, setPLAIDAccounts] = useState<PLAIDAccount[]>([]);
+  const [NormAccounts, setNormAccounts] = useState<PLAIDAccount[]>([]);
   const [institutions, setInstitutions] = useState<string[]>([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   
@@ -114,7 +115,11 @@ export const ConfigPlaid = () => {
   
       setPLAIDAccounts(myAccounts);
 
-      setInstitutions(Array.from(new Set(myAccounts.map(acc => acc.institution))));
+      const filteredInstitutions = Array.from(new Set(myAccounts
+        .map(acc => acc.institution)
+        .filter(institution => institution !== null && institution !== '')
+      ));
+      setInstitutions(filteredInstitutions);
 
     } catch (error) {
       console.error("Error creating link token:", error);
@@ -450,7 +455,64 @@ export const ConfigPlaid = () => {
               </Box>
             </Paper>
           ))}
-        
+          <Paper key='_Unlinked_Accounts' style={{ marginBottom: '20px' }}>
+              <Box className="institution-header">
+                <Typography variant="h6">Unlinked Accounts</Typography>
+              </Box>
+              <Box className="account-container">
+                <Box className="account-list">
+                {PLAIDAccounts.filter(acc => (acc.institution === null || acc.institution === '')).map(acc => (
+                  <Box key={acc.id} className="account-details">
+                    <Box sx={{ flex: '1 0', textAlign: 'left' }}>
+                      <Tooltip title={ acc.full_account_name } placement="top"
+                        slotProps={{
+                          popper: {
+                            modifiers: [
+                              {
+                                name: 'offset',
+                                options: {
+                                  offset: [0, -14],
+                                },
+                              },
+                            ],
+                          },
+                        }}>
+                        <Typography variant="body1">
+                          <EditText
+                            name={ acc.id.toString() }
+                            defaultValue={ acc.common_name }
+                            onSave={({name, value, previousValue}) => {
+                              // Request we rename the account in the DB
+                              if (!config) return;
+                              axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
+                            }}
+                            style={{padding: '0px', margin: '0px', minHeight: '1rem', width: 'fit-content'}}
+                            className={"editableText"}
+                            inputClassName={"normalInput"}
+                          />
+                        </Typography>
+                      </Tooltip>
+                    </Box>
+                    <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
+                      { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
+                    </Typography>
+                    { acc.lastTx && (
+                      <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
+                        <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
+                      </Tooltip>
+                    )}
+                    { !acc.lastTx && (
+                      <Button 
+                        className="trash" sx={{ margin: '0px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto' }}
+                        onClick={() => handleAccountDelete(acc.id)}>
+                            <DeleteForeverIcon fontSize="small" />
+                      </Button>
+                    )}
+                  </Box>
+                ))}
+                </Box>
+              </Box>
+            </Paper>
         <Modal
           open={open}
           onClose={handleClose}
