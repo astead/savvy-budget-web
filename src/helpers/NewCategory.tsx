@@ -4,6 +4,7 @@ import { faPlus } from "@fortawesome/free-solid-svg-icons"
 import { baseUrl, channels } from '../shared/constants.js';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
+import { Tooltip } from '@mui/material';
 
 export const NewCategory = ({ callback }) => {
   const { config } = useAuthToken();
@@ -41,9 +42,11 @@ export const NewCategory = ({ callback }) => {
               <><br/><span className="Red">{"Error: " + error}</span></>
             }
         </div>
-        <button onClick={handleSubmit}>
+        <Tooltip title="Add a new envelope category">
+          <button onClick={handleSubmit}>
             <FontAwesomeIcon icon={faPlus} />
-        </button>
+          </button>
+        </Tooltip>
     </div>
   );
 };

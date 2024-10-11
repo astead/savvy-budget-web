@@ -9,6 +9,7 @@ import { EditText } from 'react-edit-text';
 import NewEnvelope from '../helpers/NewEnvelope.tsx';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
+import { Tooltip } from '@mui/material';
 
 interface Envelope {
   envID: number;
@@ -199,30 +200,34 @@ export const ConfigCatEnv = () => {
                     className={
                       cat_name === 'Income'?'cat ci ci-income':
                       cat_name === 'Uncategorized'?'cat ci ci-uncategorized':'cat ci'}>
-                    <div className="cat">
-                      {(cat_name === 'Income' || cat_name === 'Uncategorized')?
-                        <div className="cat">{cat_name}</div>
-                        :
-                        <EditText
-                          key={"cat-" + catID.toString() + "-" + cat_name}  
-                          name={"cat-" + catID.toString()}
-                          defaultValue={cat_name}
-                          onSave={({name, value, previousValue}) => {
-                            handleCatOnSave(catID, value);
-                          }}
-                          style={{}}
-                          className={"cat"}
-                          inputClassName={""}
-                        />
-                      }
-                    </div>
+                    <Tooltip title={(cat_name === 'Income' || cat_name === 'Uncategorized')?"":"Click the name to rename the category."}>
+                      <div className="cat">
+                        {(cat_name === 'Income' || cat_name === 'Uncategorized')?
+                          <div className="cat">{cat_name}</div>
+                          :
+                          <EditText
+                            key={"cat-" + catID.toString() + "-" + cat_name}  
+                            name={"cat-" + catID.toString()}
+                            defaultValue={cat_name}
+                            onSave={({name, value, previousValue}) => {
+                              handleCatOnSave(catID, value);
+                            }}
+                            style={{}}
+                            className={"cat"}
+                            inputClassName={""}
+                          />
+                        }
+                      </div>
+                    </Tooltip>
                     <NewEnvelope id={catID} callback={handleNewEnvelope} />
                     {(cat_name !== 'Income' && cat_name !== 'Uncategorized')?
-                      <button 
-                        className="trash"
-                        onClick={() => handleCategoryDelete( catID, cat_name )}>
-                          <FontAwesomeIcon icon={faTrash} />
-                      </button>
+                      <Tooltip title="Delete this category, any envelopes will move to uncategorized">
+                        <button 
+                          className="trash"
+                          onClick={() => handleCategoryDelete( catID, cat_name )}>
+                            <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </Tooltip>
                       :''
                     }
                   </article>
@@ -236,27 +241,33 @@ export const ConfigCatEnv = () => {
                           {(provided) => (
                             <article className="cat env ei-container" {...provided.draggableProps} {...provided.dragHandleProps} ref={provided.innerRef}>
                               <article className="cat env ei-container ei">
-                                <div className="cat">
-                                  <EditText
-                                    name={env.envID.toString()}
-                                    defaultValue={env.envelope}
-                                    onSave={({name, value, previousValue}) => {
-                                      // Request we rename the envelope in the DB
-                                      if (!config) return;
-                                      axios.post(baseUrl + channels.REN_ENVELOPE, { id: env.envID, name: value }, config);
-                                    }}
-                                    style={{}}
-                                    className={"cat"}
-                                    inputClassName={""}
-                                  />
-                                </div>
-                                <button onClick={() => handleEnvelopeHide( env.envID )}
-                                  className={"Toggle" + (!env.isActive?" Toggle-active":"")}>
-                                  <FontAwesomeIcon icon={faEyeSlash} />
-                                </button>
-                                <button className="trash" onClick={() => handleEnvelopeDelete( env.envID )}>
-                                    <FontAwesomeIcon icon={faTrash} />
-                                </button>
+                                <Tooltip title="Click the name to rename this envelope. Click and hold to drag and move it to another category.">
+                                  <div className="cat">
+                                    <EditText
+                                      name={env.envID.toString()}
+                                      defaultValue={env.envelope}
+                                      onSave={({name, value, previousValue}) => {
+                                        // Request we rename the envelope in the DB
+                                        if (!config) return;
+                                        axios.post(baseUrl + channels.REN_ENVELOPE, { id: env.envID, name: value }, config);
+                                      }}
+                                      style={{}}
+                                      className={"cat"}
+                                      inputClassName={""}
+                                    />
+                                  </div>
+                                </Tooltip>
+                                <Tooltip title="Hide this envelope if no activity">
+                                  <button onClick={() => handleEnvelopeHide( env.envID )}
+                                    className={"Toggle" + (!env.isActive?" Toggle-active":"")}>
+                                    <FontAwesomeIcon icon={faEyeSlash} />
+                                  </button>
+                                </Tooltip>
+                                <Tooltip title="Delete this envelope">
+                                  <button className="trash" onClick={() => handleEnvelopeDelete( env.envID )}>
+                                      <FontAwesomeIcon icon={faTrash} />
+                                  </button>
+                                </Tooltip>
                               </article>
                             </article>
                         )}
