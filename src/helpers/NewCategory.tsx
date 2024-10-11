@@ -34,7 +34,8 @@ export const NewCategory = ({ callback }) => {
                   setNewCategory(e.target.value);
                   setError("");
                 }}
-                placeholder="Enter new category"
+                placeholder="Enter new category name here"
+                style={{ width: '100%'}}
             />
             {error &&
               <><br/><span className="Red">{"Error: " + error}</span></>
