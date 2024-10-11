@@ -54,7 +54,6 @@ export const ConfigPlaid = () => {
   
   // List of all the acocunts
   const [PLAIDAccounts, setPLAIDAccounts] = useState<PLAIDAccount[]>([]);
-  const [NormAccounts, setNormAccounts] = useState<PLAIDAccount[]>([]);
   const [institutions, setInstitutions] = useState<string[]>([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   
@@ -80,15 +79,6 @@ export const ConfigPlaid = () => {
   interface PLAIDAccount {
     id: number; 
     institution: string;
-    account_id: string; 
-    mask: string;
-    account_name: string;
-    account_subtype: string;
-    account_type: string;
-    verification_status: string;
-    item_id: string; 
-    access_token: string;
-    cursor: number;
     lastTx: number;
     full_account_name: string;
     common_name: string;
@@ -137,7 +127,7 @@ export const ConfigPlaid = () => {
     const acc = filtered[0];
 
     if (!config) return;
-    const response = await axios.post(baseUrl + channels.PLAID_UPDATE_LOGIN, { access_token: acc.access_token }, config);
+    const response = await axios.post(baseUrl + channels.PLAID_UPDATE_LOGIN, { id: acc.id }, config);
     
     let { link_token, error } = response.data;
 
@@ -153,18 +143,9 @@ export const ConfigPlaid = () => {
     const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
     const acc = filtered[0];
     if (token) {
-      if (acc.access_token.includes('production') && !token.includes('production')) {
-        setLink_Error('You are trying to remove a production login but you have development link token.');
-        return;
-      }
-      if (acc.access_token.includes('development') && !token.includes('development')) {
-        setLink_Error('You are trying to remove a development login but you have production link token.');
-        return;
-      }
-      
       if (!config) return;
       await axios.post(baseUrl + channels.PLAID_REMOVE_LOGIN, 
-        { access_token: acc.access_token }, config);
+        { id: acc.id }, config);
 
       getAccountList();
     } else {
@@ -186,8 +167,7 @@ export const ConfigPlaid = () => {
     setDownloading(true);
     const response = await axios.post(baseUrl + channels.PLAID_GET_TRANSACTIONS, 
       {
-        access_token: acc.access_token,
-        cursor: acc.cursor,
+        id: acc.id,
       }, config);
     
     if (response.status === 200) {
@@ -196,6 +176,30 @@ export const ConfigPlaid = () => {
     }
   };
 
+  const force_get_transactions = async (acc : PLAIDAccount, start_date, end_date) => {
+    handleClose();
+
+    // Clear error message
+    setLink_Error(null);
+    
+    if (!config) return;
+    
+    // Get transactions
+    setProgress(0);
+    setDownloading(true);
+    const response = await axios.post(baseUrl + channels.PLAID_FORCE_TRANSACTIONS, 
+      { 
+        id: acc.id,
+        start_date: start_date,
+        end_date: end_date
+      }, config
+    );
+    
+    if (response.status === 200) {
+      const sessionId = response.data.sessionId;
+      initializeEventSource(sessionId);
+    }
+  };
   
   const initializeEventSource = (sessionId) => {
     const es = new EventSource(`${baseUrl}${channels.PROGRESS}?sessionId=${sessionId}`);
@@ -232,30 +236,7 @@ export const ConfigPlaid = () => {
     };
   };
 
-  const force_get_transactions = async (acc : PLAIDAccount, start_date, end_date) => {
-    handleClose();
-
-    // Clear error message
-    setLink_Error(null);
-    
-    if (!config) return;
-    
-    // Get transactions
-    setProgress(0);
-    setDownloading(true);
-    const response = await axios.post(baseUrl + channels.PLAID_FORCE_TRANSACTIONS, 
-      { access_token: acc.access_token,
-        start_date: start_date,
-        end_date: end_date
-      }, config
-    );
-    
-    if (response.status === 200) {
-      const sessionId = response.data.sessionId;
-      initializeEventSource(sessionId);
-    }
-  };
-
+  // We successfully linked a new account
   const onSuccess: PlaidLinkOnSuccess = (public_token, metadata) => {
     console.log("Success linking new account. ");
     
@@ -270,6 +251,7 @@ export const ConfigPlaid = () => {
     axios.post(baseUrl + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata}, config);
   };
 
+  // We ran into an error trying to link a new account
   const onExit: PlaidLinkOnExit = (error, metadata) => {
     // log onExit callbacks from Link, handle errors
     // https://plaid.com/docs/link/web/#onexit
@@ -315,7 +297,7 @@ export const ConfigPlaid = () => {
 
     useEffect(() => {
       if (readyUpdate) {
-        //console.log("calling plaid link to update login");
+        console.log("calling plaid link to update login");
         openUpdate();
       }
     }, [readyUpdate, openUpdate]);

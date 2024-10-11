@@ -625,7 +625,27 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
 });
 
 app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
-  const { access_token } = req.body;
+  const { id } = req.body;
+
+  let access_token = null;
+
+  // Get the access token for this account
+  const data = await db('plaid_account')
+    .select('access_token')
+    .where({ id: id, user_id: userId })
+    .first();
+    
+  if (data !== undefined) {
+    access_token = data.access_token;
+  }
+
+  if (access_token === null) {
+    res.json({
+      link_token: '',
+      error: 'Error trying to get PLAID link token, no access token found.',
+    });
+  }
+
   console.log('Switching to update mode');
   if (PLAID_CLIENT_ID?.length) {
     try {
@@ -644,7 +664,7 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
       console.log(error);
       res.json({
         link_token: '',
-        error: error,
+        error: 'Error trying to get PLAID link token.',
       });
     }
   } else {
@@ -701,15 +721,6 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
       .select(
         'plaid_account.id',
         'plaid_account.institution',
-        'plaid_account.account_id',
-        'plaid_account.mask',
-        'plaid_account.account_name',
-        'plaid_account.account_subtype',
-        'plaid_account.account_type',
-        'plaid_account.verification_status',
-        'plaid_account.item_id',
-        'plaid_account.access_token',
-        'plaid_account.cursor',
         'plaid_account.common_name',
         'plaid_account.full_account_name',
         'plaid_account.isActive',
@@ -733,15 +744,6 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
       .groupBy(
         'plaid_account.id',
         'plaid_account.institution',
-        'plaid_account.account_id',
-        'plaid_account.mask',
-        'plaid_account.account_name',
-        'plaid_account.account_subtype',
-        'plaid_account.account_type',
-        'plaid_account.verification_status',
-        'plaid_account.item_id',
-        'plaid_account.access_token',
-        'plaid_account.cursor',
         'plaid_account.common_name',
         'plaid_account.full_account_name'
       );
@@ -758,24 +760,35 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
 app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
   console.log('Removing PLAID Account login ');
 
-  const { access_token } = req.body;
+  const { id } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
   try {
     const userId = await getUserId(auth0Id);
-
-    await remove_plaid_login(access_token);
-
+    
     await db.transaction(async (trx) => {
-      // Get the Account info
-      const data = await trx
-        .select('account_id')
-        .from('plaid_account')
-        .where({ access_token: access_token, user_id: userId });
+      // Get the access token
+      const data = await db('plaid_account')
+        .select('access_token')
+        .where({ id: id, user_id: userId });
+      
+      if (data?.length > 0) {
+        const access_token = data[0].access_token;
 
-      for (const item of data) {
-        // Remove the PLAID Account from the database
-        await remove_plaid_account(trx, userId, item.account_id);
+        // Use the access token to remove the plaid login
+        await remove_plaid_login(access_token);
+        
+        // Pull the list of accounts using that access_token
+        const accts_to_delete = await db('plaid_account')
+          .select('id')
+          .where({ access_token: access_token, user_id: userId });
+
+        // Go through and remove those accounts using the
+        // same access token
+        for (const item of accts_to_delete) {
+          // Remove the PLAID Account from the database
+          await remove_plaid_account(trx, userId, item.id);
+        }
       }
     });
     res.status(200).send('Removed plaid login successfully');
@@ -849,19 +862,37 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
   // Send message back that we started and include the sessionId
   res.status(200).send({ sessionId });
 
-  // Get our variables
-  const { access_token, cursor } = req.body;
-  console.log('cursor: ', cursor);
+  // Get our account id variable
+  const { id } = req.body;
+  
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
   const userId = await getUserId(auth0Id);
 
   // Start the process of getting transactions
-  get_transactions(access_token, cursor, userId, sessionId);
+  get_transactions(id, userId, sessionId);
 });
 
 // TODO: Should we run this whole thing as a database transaction?
-async function get_transactions(access_token, cursor, userId, sessionId) {
+async function get_transactions(id, userId, sessionId) {
   console.log('get_transactions');
+
+  let access_token = null;
+  let cursor = null;
+
+  // Get the access token for this account
+  const data = await db('plaid_account')
+    .select('access_token', 'cursor')
+    .where({ id: id, user_id: userId })
+    .first();
+    
+  if (data !== undefined) {
+    access_token = data.access_token;
+    cursor = data.cursor;
+  }
+
+  if (access_token === null) {
+    return -2;
+  }
 
   let accounts = 0;
   let added = [];
@@ -1090,16 +1121,35 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
   res.status(200).send({ sessionId });
 
   // Get our variables
-  const { access_token, start_date, end_date } = req.body;
+  const { id, start_date, end_date } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
   const userId = await getUserId(auth0Id);
 
-  force_get_transactions(access_token, start_date, end_date, userId, sessionId);
+  force_get_transactions(id, start_date, end_date, userId, sessionId);
 });
 
 // TODO: Should we run this whole thing as a database transaction?
-async function force_get_transactions(access_token, start_date, end_date, userId, sessionId) {
+async function force_get_transactions(id, start_date, end_date, userId, sessionId) {
   console.log('force_get_transactions');
+  
+  let access_token = null;
+  let cursor = null;
+
+  // Get the access token for this account
+  const data = await db('plaid_account')
+    .select('access_token', 'cursor')
+    .where({ id: id, user_id: userId })
+    .first();
+    
+  if (data !== undefined) {
+    access_token = data.access_token;
+    cursor = data.cursor;
+  }
+
+  if (access_token === null) {
+    return -2;
+  }
+  
   let added = [];
 
   let response = null;
