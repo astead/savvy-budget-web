@@ -37,19 +37,9 @@ const LoginButton = () => {
     console.log("handleLogin");
     try {
       // Generate and store code_verifier
-      //const codeVerifier = base64URLEncode(crypto.randomBytes(32));
-      //sessionStorage.setItem('code_verifier', codeVerifier);
-
-      // Generate code_challenge and initiate authorization request
-      //const codeChallenge = base64URLEncode(crypto.createHash('sha256').update(codeVerifier).digest());
-
       const codeVerifier = generateRandomString(32);
       sessionStorage.setItem('code_verifier', codeVerifier);
       const codeChallenge = await generateCodeChallenge(codeVerifier);
-
-      console.log('Code Verifier:', codeVerifier);
-      console.log('Code Challenge:', codeChallenge);
-
       
       const authUrl = 'https://'+ auth0data.domain + '/authorize?' +
       'response_type=code&' +
@@ -75,11 +65,6 @@ const LoginButton = () => {
         },
       });
       */
-      
-      
-
-
-
     } catch (error) {
       console.error('Error during login:', error);
     }

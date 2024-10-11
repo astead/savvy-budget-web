@@ -4,8 +4,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { baseUrl, channels, auth0data } from '../shared/constants.js';
 
-
-
 // Function to base64 URL-encode a string
 const base64URLEncode = (str) => {
   return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
@@ -59,23 +57,20 @@ export const Callback = () => {
             sessionStorage.removeItem('code_verifier');
 
             const codeChallenge = await generateCodeChallenge(codeVerifier);
-            console.log('Code Verifier:', codeVerifier);
-            console.log('Expected Code Challenge:', codeChallenge);
-           
+            //console.log('Code Verifier:', codeVerifier);
+            //console.log('Expected Code Challenge:', codeChallenge);
 
-
-
-            console.log("Calling AUTH0_GET_TOKENS from Callback");
+            //console.log("Calling AUTH0_GET_TOKENS from Callback");
             const response = await axios.post(baseUrl + channels.AUTH0_GET_TOKENS, 
               { authorizationCode: authorizationCode, codeVerifier: codeVerifier });
 
-            console.log("We're back. Response is: ");
-            console.log(response);
-            console.log(response.data);
+            //console.log("We're back. Response is: ");
+            //console.log(response);
+            //console.log(response.data);
 
             //navigate('/');
-            console.log('isAuthenticated: ', isAuthenticated);
-            console.log('user: ', user);
+            //console.log('isAuthenticated: ', isAuthenticated);
+            //console.log('user: ', user);
 /*
             loginWithRedirect({
               authorizationParams: {
