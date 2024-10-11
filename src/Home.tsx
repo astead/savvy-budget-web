@@ -13,10 +13,15 @@ export const Home: React.FC = () => {
     <Auth0Provider
       domain={auth0data.domain}
       clientId={auth0data.clientId}
+      /* REFRESH TOKEN: This was previously commented out
       //useRefreshTokens={true}
       //cacheLocation="localstorage"
+      */
       authorizationParams={{
+        /* REFRESH TOKEN: This was previously commented out
         //redirect_uri: `${window.location.origin}/callback`,
+        */
+        redirect_uri: window.location.origin,
         audience: auth0data.audience,
       }}
     >

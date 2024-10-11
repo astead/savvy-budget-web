@@ -5,6 +5,8 @@ import axios from 'axios';
 //import crypto from 'crypto-browserify';
 import { baseUrl, channels, auth0data } from '../shared/constants.js';
 
+/*
+REFRESH TOKEN: These functions were used to generate the verifier and challenge
 
 // Function to generate a random string
 const generateRandomString = (length) => {
@@ -28,11 +30,16 @@ const generateCodeChallenge = async (verifier) => {
   const digest = await window.crypto.subtle.digest('SHA-256', data);
   return base64URLEncode(digest);
 };
+*/
 
 const LoginButton = () => {
   console.log("LoginButton");
   const { loginWithRedirect } = useAuth0();
   
+  /*
+  REFRESH TOKEN: this was manual calls so we can intercept the callback
+    in order to capture the authorization code.
+
   const handleLogin = async () => {
     console.log("handleLogin");
     try {
@@ -51,8 +58,8 @@ const LoginButton = () => {
 
       // Redirect to Auth0 authorization endpoint
       window.location.href = authUrl;
-      
-      /*
+  */
+      /* Previously commented out
       await loginWithRedirect({
         authorizationParams: {
           response_type: 'code',
@@ -65,13 +72,22 @@ const LoginButton = () => {
         },
       });
       */
+  /* REFRESH TOKEN: this was part of the refresh token code, just commenting
+      it out since there was already a commented out section right above this.
     } catch (error) {
       console.error('Error during login:', error);
     }
   };
+  */
 
+  /* REFRESH TOKEN: This was calling our specific login handler
   return (
     <span onClick={handleLogin} className={"menuLink"}>Log In</span>
+  );
+  */
+
+  return (
+    <span onClick={() => loginWithRedirect()} className={"menuLink"}>Log In</span>
   );
 };
 

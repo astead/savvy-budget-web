@@ -14,8 +14,13 @@ const { auth, requiredScopes } = require('express-oauth2-jwt-bearer');
 const axios = require('axios');
 const crypto = require('crypto');
 
+/*
+  REFRESH TOKENS: Used with refresh tokens to create a queue of 
+  instances needing to get a new refresh token.
+
 let isRefreshing = false;
 let refreshSubscribers = [];
+*/
 
 // Authorization middleware. When used, the Access Token must
 // exist and be verified against the Auth0 JSON Web Key Set.
@@ -51,6 +56,10 @@ const bypassJwtCheck = async (req, res, next) => {
     }
     console.log("MIDDLEWARE: token is valid.");
     console.log("decodedToken: ", decodedToken);
+
+/*
+  REFRESH TOKENS: Check if our access_token is expired and if so
+  start the process to use the refresh_token to get a new access_token.
 
     // Make sure the token is not expired
     const expirationDate = new Date(decodedToken.exp * 1000);
@@ -115,7 +124,8 @@ const bypassJwtCheck = async (req, res, next) => {
         isRefreshing = false;
         refreshSubscribers = [];
       }
-    } 
+    }
+*/
 
   } catch (error) {
     console.error('MIDDLEWARE: Error:', error);
@@ -228,14 +238,25 @@ const getUserId = async (auth0Id) => {
   return user.id;
 };
 
+/*
+  REFRESH TOKEN: The callback when the first thread is getting refresh token
+  is done getting the token, so it can set the token for all the others waiting.
 function onRefreshed(token) {
   refreshSubscribers.map(callback => callback(token));
 }
+*/
 
+/*
+  REFRESH TOKEN: Add our thread to the queue of threads waiting for the
+  new token from the first thread.
 function addRefreshSubscriber(callback) {
   refreshSubscribers.push(callback);
 }
+*/
 
+/*
+  REFRESH TOKEN: send out the request to auth0 to get a new
+  access_token and refresh_token using the existing one.
 async function refreshToken(refreshToken) {
   console.log("refreshToken");
   try {
@@ -259,12 +280,18 @@ async function refreshToken(refreshToken) {
     return null;
   }
 }
+*/
 
+/*
+  REFRESH TOKEN: get the refresh token from the DB
 async function getRefreshTokenFromDB(auth0Id) {
   const user = await db('users').select('refresh_token').where('auth0_id', auth0Id).first();
   return user ? user.refresh_token : null;
 }
+*/
 
+/* 
+  REFRESH TOKEN: store the refresh token in the DB
 async function storeTokensInDB(auth0Id, accessToken, refreshToken) {
   await db('users')
     .where('auth0_id', auth0Id)
@@ -273,7 +300,10 @@ async function storeTokensInDB(auth0Id, accessToken, refreshToken) {
       refresh_token: refreshToken,
     });
 }
+*/
 
+/*
+  REFRESH TOKEN: functions used to create verifier and challenge
 function base64URLEncode(str) {
   return str.toString('base64')
       .replace(/\+/g, '-')
@@ -284,7 +314,12 @@ function base64URLEncode(str) {
 function sha256(buffer) {
   return crypto.createHash('sha256').update(buffer).digest();
 }
+*/
 
+/*
+  REFRESH TOKEN: server API to reveice the authorization code
+  from the client-side and use that to request refresh tokens
+  from auth0
 app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
   console.log('AUTH0_GET_TOKENS ENTER');
   const { authorizationCode, codeVerifier } = req.body;
@@ -333,6 +368,7 @@ app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
     res.status(500).json({ message: 'Error checking or creating user' });
   }
 });
+*/
 
 app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   console.log('AUTH0_CHECK_CREATE_USER ENTER');
@@ -341,18 +377,18 @@ app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   const decodedToken = jwt.decode(token);
   const auth0Id = decodedToken.sub;
 
-  console.log("token:", token);
-  console.log("refreshToken:", refreshToken);
-
   const { returnCode, message } = await auth0_check_or_create_user({ token, refreshToken: null, auth0Id });
   res.status(returnCode).json({ message: message });
 });
 
-async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
+/*
+  REFRESH TOKEN: was passing in the refresh token to store that in the DB
+  async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
+*/
+async function auth0_check_or_create_user({ token, auth0Id }) {
   console.log("auth0_check_or_create_user ENTER");
   console.log("token:", token);
-  console.log("refreshToken:", refreshToken);
-
+  
   try {
     const existingUser = 
       await db('users')
@@ -369,7 +405,7 @@ async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
           email: user.email,
           name: user.name,
           access_token: token,
-          refresh_token: refreshToken,
+          refresh_token: null, /* REFRESH TOKEN: was storing the refresh token */
         })
         .returning('id');
         
@@ -386,19 +422,30 @@ async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
       console.log('User already exists, checking if tokens match');
       console.log("existingUser.access_token: ", existingUser.access_token);
       console.log("token :                    ", token);
+      /* REFRESH TOKEN: was printing out the old and new values.
       console.log("existingUser.refresh_token: ", existingUser.refresh_token);
       console.log("refreshToken:               ", refreshToken);
+      */
+
+      /* REFRESH TOKEN: was checking if either token has changed
       if (existingUser.access_token != token ||
           (existingUser.refresh_token != refreshToken && refreshToken)) {
+      */
+      if (existingUser.access_token != token) {
         console.log("tokens do not match, updating them.");
+        /* REFRESH TOKEN: output message saying we'll only update refresh
+            token with a valid one.
         console.log("will only update refresh token if new one is not null.");
+        */
         let query = db('users')
           .update({ access_token: token })
           .where('auth0_id', auth0Id);
         
-          if (refreshToken) {
+        /* REFRESH TOKEN: if we have a refresh token, update that also
+        if (refreshToken) {
           query = query.update({ refresh_token: refreshToken });
         }
+        */
         await query;
           
       } else {
