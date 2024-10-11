@@ -385,7 +385,16 @@ export const ConfigPlaid = () => {
   <>
     {token &&
       <Box>
-        
+        <p style={{ width: '800px', textAlign: 'left' }}>
+          You can add linked bank accounts or unlinked ones.  Linked ones will connect using PLAID and pull your 
+          transaction data.  Unlinked accounts will need to have bank transaction exports uploaded on the transaction 
+          page.<br/><br/>
+          You can rename accounts by clicking on the name. This will allow you to group different accounts 
+          under a common name, for instance putting all credit card accounts under "credit card". I found this
+          useful when getting an updated credit card and wanting to keep it under the same name. I also did this
+          if the bank created separate account for multiple account holders. The full original account name will 
+          still be visible when hovering over the account name.
+        </p>
           { updateConfig && <UpdatePlaid/>}
           <Button variant="contained" className='textButton' onClick={() => handleOpenNewAccount()} style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
             Create a new unlinked account
