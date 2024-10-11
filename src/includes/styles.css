@@ -12,6 +12,7 @@ body {
   width: 600px;
   text-align: left;
   margin:auto;
+  margin-top: 45px;
 }
 
 input[type="text"] {
