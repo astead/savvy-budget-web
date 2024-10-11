@@ -55,7 +55,7 @@ const bypassJwtCheck = async (req, res, next) => {
       return res.status(401).send('Unauthorized: Invalid Token');
     }
     console.log("MIDDLEWARE: token is valid.");
-    console.log("decodedToken: ", decodedToken);
+    //console.log("decodedToken: ", decodedToken);
 
 /*
   REFRESH TOKENS: Check if our access_token is expired and if so
@@ -387,7 +387,7 @@ app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
 */
 async function auth0_check_or_create_user({ token, auth0Id }) {
   console.log("auth0_check_or_create_user ENTER");
-  console.log("token:", token);
+  //console.log("token:", token);
   
   try {
     const existingUser = 
@@ -419,9 +419,9 @@ async function auth0_check_or_create_user({ token, auth0Id }) {
       
     } else {
       // Already exists
-      console.log('User already exists, checking if tokens match');
-      console.log("existingUser.access_token: ", existingUser.access_token);
-      console.log("token :                    ", token);
+      //console.log('User already exists, checking if tokens match');
+      //console.log("existingUser.access_token: ", existingUser.access_token);
+      //console.log("token :                    ", token);
       /* REFRESH TOKEN: was printing out the old and new values.
       console.log("existingUser.refresh_token: ", existingUser.refresh_token);
       console.log("refreshToken:               ", refreshToken);
