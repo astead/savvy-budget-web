@@ -13,6 +13,9 @@ const dayjs = require('dayjs');
 const { auth, requiredScopes } = require('express-oauth2-jwt-bearer');
 const axios = require('axios');
 const crypto = require('crypto');
+const algorithm = 'aes-256-ctr';
+const secretKey = process.env.ENCRYPTION_KEY;
+const iv = crypto.randomBytes(16);
 
 /*
   REFRESH TOKENS: Used with refresh tokens to create a queue of 
@@ -370,14 +373,28 @@ app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
 });
 */
 
+const encrypt = (text) => {
+  const cipher = crypto.createCipheriv(algorithm, Buffer.from(secretKey, 'hex'), iv);
+  const encrypted = Buffer.concat([cipher.update(text), cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+};
+
+const decrypt = (hash) => {
+  const [iv, encryptedText] = hash.split(':');
+  const decipher = crypto.createDecipheriv(algorithm, Buffer.from(secretKey, 'hex'), Buffer.from(iv, 'hex'));
+  const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedText, 'hex')), decipher.final()]);
+  return decrypted.toString();
+};
+
 app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   console.log('AUTH0_CHECK_CREATE_USER ENTER');
   const { user } = req.body;
   const token = req.headers.authorization.split(' ')[1];
   const decodedToken = jwt.decode(token);
   const auth0Id = decodedToken.sub;
+  const enc_token = encrypt(token);
 
-  const { returnCode, message } = await auth0_check_or_create_user({ token, refreshToken: null, auth0Id });
+  const { returnCode, message } = await auth0_check_or_create_user({ enc_token, refreshToken: null, auth0Id });
   res.status(returnCode).json({ message: message });
 });
 
@@ -385,7 +402,7 @@ app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   REFRESH TOKEN: was passing in the refresh token to store that in the DB
   async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
 */
-async function auth0_check_or_create_user({ token, auth0Id }) {
+async function auth0_check_or_create_user({ enc_token, auth0Id }) {
   console.log("auth0_check_or_create_user ENTER");
   //console.log("token:", token);
   
@@ -404,7 +421,7 @@ async function auth0_check_or_create_user({ token, auth0Id }) {
           auth0_id: auth0Id,
           email: user.email,
           name: user.name,
-          access_token: token,
+          access_token: enc_token,
           refresh_token: null, /* REFRESH TOKEN: was storing the refresh token */
         })
         .returning('id');
@@ -431,14 +448,14 @@ async function auth0_check_or_create_user({ token, auth0Id }) {
       if (existingUser.access_token != token ||
           (existingUser.refresh_token != refreshToken && refreshToken)) {
       */
-      if (existingUser.access_token != token) {
-        console.log("tokens do not match, updating them.");
+      if (existingUser.access_token != enc_token) {
+        console.log("Auth0 tokens do not match, updating them.");
         /* REFRESH TOKEN: output message saying we'll only update refresh
             token with a valid one.
         console.log("will only update refresh token if new one is not null.");
         */
         let query = db('users')
-          .update({ access_token: token })
+          .update({ access_token: enc_token })
           .where('auth0_id', auth0Id);
         
         /* REFRESH TOKEN: if we have a refresh token, update that also
@@ -588,7 +605,7 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
 
     // These values should be saved to a persistent database and
     // associated with the currently signed-in user
-    const access_token = response.data.access_token;
+    const enc_access_token = encrypt(response.data.access_token);
     const itemID = response.data.item_id;
     console.log('itemPublicTokenExchange return:', response.data);
 
@@ -603,7 +620,7 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
           account_type: p_account.type,
           verification_status: p_account.verification_status,
           item_id: itemID,
-          access_token: access_token,
+          access_token: enc_access_token,
           cursor: null,
           user_id: userId,
           common_name: metadata.institution.name + '-' +
@@ -627,7 +644,7 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
 app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   const { id } = req.body;
 
-  let access_token = null;
+  let enc_access_token = null;
 
   // Get the access token for this account
   const data = await db('plaid_account')
@@ -636,10 +653,10 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
     .first();
     
   if (data !== undefined) {
-    access_token = data.access_token;
+    enc_access_token = data.access_token;
   }
 
-  if (access_token === null) {
+  if (enc_access_token === null) {
     res.json({
       link_token: '',
       error: 'Error trying to get PLAID link token, no access token found.',
@@ -651,9 +668,9 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
     try {
       const linkTokenResponse = await client.linkTokenCreate({
         ...configs,
-        access_token: access_token,
+        access_token: decrypt(enc_access_token),
       });
-
+      enc_access_token = null;
       // Use the link_token to initialize Link
       //console.log(linkTokenResponse);
       res.json({
@@ -770,18 +787,19 @@ app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
       // Get the access token
       const data = await db('plaid_account')
         .select('access_token')
-        .where({ id: id, user_id: userId });
+        .where({ id: id, user_id: userId })
+        .first();
       
-      if (data?.length > 0) {
-        const access_token = data[0].access_token;
+      if (data !== undefined) {
+        const enc_access_token = data.access_token;
 
         // Use the access token to remove the plaid login
-        await remove_plaid_login(access_token);
+        await remove_plaid_login(enc_access_token);
         
         // Pull the list of accounts using that access_token
         const accts_to_delete = await db('plaid_account')
           .select('id')
-          .where({ access_token: access_token, user_id: userId });
+          .where({ access_token: enc_access_token, user_id: userId });
 
         // Go through and remove those accounts using the
         // same access token
@@ -798,11 +816,11 @@ app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
   }
 });
 
-async function remove_plaid_login(access_token) {
+async function remove_plaid_login(enc_access_token) {
   let response = null;
   try {
     response = await client.itemRemove({
-      access_token: access_token,
+      access_token: decrypt(access_token),
     });
   } catch (e) {
     console.log('Error: ', e.response.data.error_message);
@@ -876,7 +894,7 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
 async function get_transactions(id, userId, sessionId) {
   console.log('get_transactions');
 
-  let access_token = null;
+  let enc_access_token = null;
   let cursor = null;
 
   // Get the access token for this account
@@ -886,11 +904,11 @@ async function get_transactions(id, userId, sessionId) {
     .first();
     
   if (data !== undefined) {
-    access_token = data.access_token;
+    enc_access_token = data.access_token;
     cursor = data.cursor;
   }
 
-  if (access_token === null) {
+  if (enc_access_token === null) {
     return -2;
   }
 
@@ -905,7 +923,7 @@ async function get_transactions(id, userId, sessionId) {
     let response = null;
     try {
       response = await client.transactionsSync({
-        access_token: access_token,
+        access_token: decrypt(enc_access_token),
         cursor: cursor_iter,
       });
     } catch (e) {
@@ -965,7 +983,7 @@ async function get_transactions(id, userId, sessionId) {
 
   // Update cursor
   db('plaid_account')
-    .where({ access_token: access_token, user_id: userId })
+    .where({ access_token: enc_access_token, user_id: userId })
     .update({ cursor: cursor_iter })
     .catch((err) => console.log('Error: ' + err));
   console.log('Done with everything, setting progress to 100.');
@@ -1132,7 +1150,7 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
 async function force_get_transactions(id, start_date, end_date, userId, sessionId) {
   console.log('force_get_transactions');
   
-  let access_token = null;
+  let enc_access_token = null;
   let cursor = null;
 
   // Get the access token for this account
@@ -1142,11 +1160,11 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
     .first();
     
   if (data !== undefined) {
-    access_token = data.access_token;
+    enc_access_token = data.access_token;
     cursor = data.cursor;
   }
 
-  if (access_token === null) {
+  if (enc_access_token === null) {
     return -2;
   }
   
@@ -1155,7 +1173,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
   let response = null;
   try {
     response = await client.transactionsGet({
-      access_token: access_token,
+      access_token: decrypt(enc_access_token),
       start_date: start_date,
       end_date: end_date,
     });
@@ -1170,18 +1188,24 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
   // Add this page of results
   added = added.concat(transactions);
 
-  while (transactions.length < total_transactions) {
-    const paginatedRequest = {
-      access_token: access_token,
-      start_date: start_date,
-      end_date: end_date,
-      options: {
-        offset: transactions.length,
-      },
-    };
+  try {
+    while (transactions.length < total_transactions) {
+      const paginatedRequest = {
+        access_token: decrypt(enc_access_token),
+        start_date: start_date,
+        end_date: end_date,
+        options: {
+          offset: transactions.length,
+        },
+      };
 
-    const paginatedResponse = await client.transactionsGet(paginatedRequest);
-    added = added.concat(paginatedResponse.data.transactions);
+      const paginatedResponse = await client.transactionsGet(paginatedRequest);
+      added = added.concat(paginatedResponse.data.transactions);
+    }
+  } catch (e) {
+    console.log('Error: ', e.response.data.error_message);
+    progressStatuses[sessionId] = 100;
+    return;
   }
 
   console.log('Done getting the data:');
