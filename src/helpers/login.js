@@ -1,9 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import React from 'react';
-import axios from 'axios';
 //import base64URLEncode from 'base64url';
 //import crypto from 'crypto-browserify';
-import { baseUrl, channels, auth0data } from '../shared/constants.js';
 
 /*
 REFRESH TOKEN: These functions were used to generate the verifier and challenge

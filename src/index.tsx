@@ -2,9 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import reportWebVitals from './reportWebVitals';
-import { Auth0Provider } from '@auth0/auth0-react';
-import { Callback } from './components/Callback.tsx';
-import { App } from './App.tsx';
 import { Home } from './Home.tsx';
 import './includes/styles.css';
 

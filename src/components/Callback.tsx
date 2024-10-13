@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { baseUrl, channels, auth0data } from '../shared/constants.js';
 
+/*
 // Function to base64 URL-encode a string
 const base64URLEncode = (str) => {
   return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
@@ -11,7 +12,9 @@ const base64URLEncode = (str) => {
     .replace(/\//g, '_')
     .replace(/=+$/, '');
 };
+*/
 
+/*
 // Function to generate the code challenge from the code verifier
 const generateCodeChallenge = async (verifier) => {
   const encoder = new TextEncoder();
@@ -19,10 +22,11 @@ const generateCodeChallenge = async (verifier) => {
   const digest = await window.crypto.subtle.digest('SHA-256', data);
   return base64URLEncode(digest);
 };
+*/
 
 export const Callback = () => {
   console.log("Callback");
-  const { handleRedirectCallback, user, getAccessTokenSilently, loginWithRedirect, isAuthenticated } = useAuth0();
+  const { loginWithRedirect } = useAuth0();
   const location = useLocation();
   const navigate = useNavigate();
 	const shouldRedirect = useRef(true);
@@ -56,12 +60,12 @@ export const Callback = () => {
             const codeVerifier = sessionStorage.getItem('code_verifier');
             sessionStorage.removeItem('code_verifier');
 
-            const codeChallenge = await generateCodeChallenge(codeVerifier);
+            //const codeChallenge = await generateCodeChallenge(codeVerifier);
             //console.log('Code Verifier:', codeVerifier);
             //console.log('Expected Code Challenge:', codeChallenge);
 
             //console.log("Calling AUTH0_GET_TOKENS from Callback");
-            const response = await axios.post(baseUrl + channels.AUTH0_GET_TOKENS, 
+            await axios.post(baseUrl + channels.AUTH0_GET_TOKENS, 
               { authorizationCode: authorizationCode, codeVerifier: codeVerifier });
 
             //console.log("We're back. Response is: ");
@@ -97,6 +101,7 @@ export const Callback = () => {
     };
 
     handleAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, navigate]);
 
   return (<div>Loading...</div>);

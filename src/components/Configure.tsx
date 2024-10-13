@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { Header } from './header.tsx';
 import { ConfigCatEnv } from './ConfigCatEnv.tsx';
 import { ConfigKeyword } from './ConfigKeyword.tsx';
-import { ConfigAccount } from './ConfigAccount.tsx';
 import { ConfigPlaid } from './ConfigPlaid.tsx';
 
 import Tabs from '@mui/material/Tabs';

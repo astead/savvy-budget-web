@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { baseUrl, channels, auth0data } from './shared/constants.js';
-import { Auth0Provider } from '@auth0/auth0-react';
+import { Route, Routes } from 'react-router-dom';
+import { baseUrl, channels } from './shared/constants.js';
 import { useAuth0 } from '@auth0/auth0-react';
 import axios from 'axios';
 import './includes/styles.css';
-import Loading from './helpers/loading.js';
 import { HomePage } from './components/homePage.tsx';
 import { Charts } from './components/Charts.tsx';
 import { Transactions } from './components/Transactions.tsx';
@@ -19,7 +17,7 @@ export const App: React.FC = () => {
   const [auth_token, setAuth_token] = useState<string | null>(null);
   const [config, setConfig] = useState<{ headers: { Authorization: string } } | null>(null);
 
-  const { isLoading, user, isAuthenticated, getAccessTokenSilently } = useAuth0();
+  const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
 
   
   useEffect(() => {
