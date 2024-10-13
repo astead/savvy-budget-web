@@ -211,7 +211,7 @@ const set_db = async () => {
         database: process.env.REACT_APP_SUPABASE_CONN_DB,
         ssl: process.env.REACT_APP_SUPABASE_CONN_CERT ? 
           { rejectUnauthorized: false, 
-            cert: fs.readFileSync(process.env.REACT_APP_SUPABASE_CONN_CERT).toString() } : 
+            cert: process.env.REACT_APP_SUPABASE_CONN_CERT } : 
           false,
       },
       useNullAsDefault: true,
