@@ -87,7 +87,6 @@ export const ConfigPlaid = () => {
     isLinked: boolean;
   }
   interface PLAIDInstitution {
-    id: number; 
     institution_name: string;
     institution_id: string;
   }
@@ -117,10 +116,14 @@ export const ConfigPlaid = () => {
   
       setPLAIDAccounts(myAccounts);
 
-      const filteredInstitutions = Array.from(new Set(myAccounts
+      const filteredInstitutions = myAccounts
         .filter(acc => acc.isLinked)
-        .map(acc => ({id: acc.id, institution_name: acc.institution_name, institution_id: acc.institution_id }))
-      ));
+        .map(acc => ({ institution_name: acc.institution_name, institution_id: acc.institution_id }))
+        .filter((value, index, self) => 
+          index === self.findIndex((t) => (
+            t.institution_name === value.institution_name && t.institution_id === value.institution_id
+          ))
+        );
       setInstitutions(filteredInstitutions);
 
     } catch (error) {
@@ -436,7 +439,7 @@ export const ConfigPlaid = () => {
             </Box>
           }
           { institutions.map(institution => (
-            <Paper key={institution.id} style={{ marginBottom: '20px' }}>
+            <Paper key={institution.institution_id} style={{ marginBottom: '20px' }}>
               <Box className="institution-header">
                 <Typography variant="h6">{ (institution.institution_name === null ? "Blank Name?" : institution.institution_name)}</Typography>
                 <Box>
