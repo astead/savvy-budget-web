@@ -108,6 +108,7 @@ export const ConfigPlaid = () => {
   };
 
   const getAccountList = async () => {
+    
     try {
       if (!config) return;
       const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS, null, config );
@@ -401,7 +402,7 @@ export const ConfigPlaid = () => {
     if (!accountsLoaded) {
       setAccountsLoaded(true);
     }
-    
+    console.log(baseUrl + channels.PLAID_GET_ACCOUNTS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

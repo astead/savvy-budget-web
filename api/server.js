@@ -814,8 +814,16 @@ app.post('/api/'+channels.ADD_ACCOUNT, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
+app.post(channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   console.log(channels.PLAID_GET_ACCOUNTS);
+});
+
+app.post('/api/server/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
+  console.log('/api/server/'+channels.PLAID_GET_ACCOUNTS);
+});
+
+app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
+  console.log('/api/'+channels.PLAID_GET_ACCOUNTS);
   
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
