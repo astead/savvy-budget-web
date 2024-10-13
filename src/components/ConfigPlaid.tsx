@@ -478,7 +478,7 @@ export const ConfigPlaid = () => {
                               if (!config) return;
                               axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
                             }}
-                            style={{padding: '0px', margin: '0px', minHeight: '1rem', width: 'fit-content'}}
+                            style={{padding: '0px', margin: '0px', minHeight: '1rem' }}
                             className={"editableText"}
                             inputClassName={"normalInput"}
                           />
@@ -561,7 +561,7 @@ export const ConfigPlaid = () => {
                               if (!config) return;
                               axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
                             }}
-                            style={{padding: '0px', margin: '0px', minHeight: '1rem', width: 'fit-content'}}
+                            style={{padding: '0px', margin: '0px', minHeight: '1rem' }}
                             className={"editableText"}
                             inputClassName={"normalInput"}
                           />
