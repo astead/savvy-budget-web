@@ -176,7 +176,7 @@ app.use(async (req, res, next) => {
   }
 });
 app.use(session({
-  secret: process.env.REACT_APP_SESSION_KEY,
+  secret: process.env.SESSION_KEY,
   resave: false,
   saveUninitialized: true,
 }));
@@ -193,7 +193,7 @@ const set_db = async () => {
     db = null;
   }
   if (!db) {
-    console.log('Setting knex DB connection to PG Supabase to: ', process.env.REACT_APP_SUPABASE_CONN_HOST);
+    console.log('Setting knex DB connection to PG Supabase to: ', process.env.SUPABASE_CONN_HOST);
     db = knex({
       client: 'pg',
       debug: true,
@@ -204,14 +204,14 @@ const set_db = async () => {
         debug(message) {},
       },
       connection: {
-        host: process.env.REACT_APP_SUPABASE_CONN_HOST,
-        port: process.env.REACT_APP_SUPABASE_CONN_PORT,
-        user: process.env.REACT_APP_SUPABASE_CONN_USER,
-        password: process.env.REACT_APP_SUPABASE_CONN_PW,
-        database: process.env.REACT_APP_SUPABASE_CONN_DB,
-        ssl: process.env.REACT_APP_SUPABASE_CONN_CERT ? 
+        host: process.env.SUPABASE_CONN_HOST,
+        port: process.env.SUPABASE_CONN_PORT,
+        user: process.env.SUPABASE_CONN_USER,
+        password: process.env.SUPABASE_CONN_PW,
+        database: process.env.SUPABASE_CONN_DB,
+        ssl: process.env.SUPABASE_CONN_CERT ? 
           { rejectUnauthorized: false, 
-            ca: process.env.REACT_APP_SUPABASE_CONN_CERT } : 
+            ca: process.env.SUPABASE_CONN_CERT } : 
           false,
       },
       useNullAsDefault: true,
@@ -264,14 +264,14 @@ async function refreshToken(refreshToken) {
   try {
     const params = {
       grant_type: 'refresh_token',
-      client_id: process.env.REACT_APP_AUTH0_CLIENT_ID,
-      client_secret: process.env.REACT_APP_AUTH0_CLIENT_SECRET,
+      client_id: process.env.AUTH0_CLIENT_ID,
+      client_secret: process.env.AUTH0_CLIENT_SECRET,
       refresh_token: refreshToken,
 
     };
 
     console.log("params: ", params);
-    const response = await axios.post(`https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`, params);
+    const response = await axios.post(`https://${process.env.AUTH0_DOMAIN}/oauth/token`, params);
 
     //console.log("response: ", response);
     console.log("New tokens:");
@@ -331,20 +331,20 @@ app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
     console.log('Auth0 Code Challenge:', auth0Challenge);
 
     console.log("Trying to get tokens from auth0");
-    console.log("URL: ", `https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`);
+    console.log("URL: ", `https://${process.env.AUTH0_DOMAIN}/oauth/token`);
     console.log("body:");
     const token_fetch_body = {
       grant_type: 'authorization_code',
-      client_id: process.env.REACT_APP_AUTH0_CLIENT_ID,
-      client_secret: process.env.REACT_APP_AUTH0_CLIENT_SECRET,
+      client_id: process.env.AUTH0_CLIENT_ID,
+      client_secret: process.env.AUTH0_CLIENT_SECRET,
       code: authorizationCode,
-      redirect_uri: process.env.REACT_APP_AUTH0_CALLBACK_URL,
+      redirect_uri: process.env.AUTH0_CALLBACK_URL,
       code_verifier: codeVerifier,
     };
     console.log(token_fetch_body);
 
     // Exchange the authorization code for tokens
-    const tokenResponse = await axios.post(`https://${process.env.REACT_APP_AUTH0_DOMAIN}/oauth/token`, token_fetch_body);
+    const tokenResponse = await axios.post(`https://${process.env.AUTH0_DOMAIN}/oauth/token`, token_fetch_body);
     
     //console.log("tokenResponse: ", tokenResponse.data);
     const tokenData = await tokenResponse.data;
@@ -510,9 +510,9 @@ const {
 const { LogExit } = require('concurrently');
 
 const APP_PORT = process.env.APP_PORT || 8000;
-let PLAID_CLIENT_ID = process.env.REACT_APP_PLAID_CLIENT_ID;
-let PLAID_SECRET = process.env.REACT_APP_PLAID_SECRET;
-let PLAID_ENV = process.env.REACT_APP_PLAID_ENV;
+let PLAID_CLIENT_ID = process.env.PLAID_CLIENT_ID;
+let PLAID_SECRET = process.env.PLAID_SECRET;
+let PLAID_ENV = process.env.PLAID_ENV;
 
 // PLAID_PRODUCTS is a comma-separated list of products to use when initializing
 // Link. Note that this list must contain 'assets' in order for the app to be
@@ -521,7 +521,7 @@ const PLAID_PRODUCTS = [Products.Transactions];
 
 // PLAID_COUNTRY_CODES is a comma-separated list of countries for which users
 // will be able to select institutions from.
-const PLAID_COUNTRY_CODES = (process.env.REACT_APP_PLAID_COUNTRY_CODES || 'US').split(',');
+const PLAID_COUNTRY_CODES = (process.env.PLAID_COUNTRY_CODES || 'US').split(',');
 
 // Initialize the Plaid client
 // Find your API keys in the Dashboard (https://dashboard.plaid.com/account/keys)
@@ -554,7 +554,7 @@ const configs = {
   products: PLAID_PRODUCTS,
   country_codes: PLAID_COUNTRY_CODES,
   language: 'en',
-  redirect_uri: process.env.REACT_APP_API_SERVER_URL,
+  redirect_uri: process.env.API_SERVER_URL,
 };
 
 // This should be on the server only
