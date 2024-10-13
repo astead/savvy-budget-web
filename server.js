@@ -13,9 +13,8 @@ const dayjs = require('dayjs');
 const { auth, requiredScopes } = require('express-oauth2-jwt-bearer');
 const axios = require('axios');
 const crypto = require('crypto');
-const algorithm = 'aes-256-ctr';
-const secretKey = process.env.ENCRYPTION_KEY;
-const iv = crypto.randomBytes(16);
+const algorithm = 'aes-256-gcm';
+const secretKey = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
 
 /*
   REFRESH TOKENS: Used with refresh tokens to create a queue of 
@@ -35,11 +34,11 @@ const checkJwt = auth({
 
 // Middleware to bypass JWT check for specific endpoint
 const bypassJwtCheck = async (req, res, next) => {
-  console.log("MIDDLEWARE: bypassJwtCheck");
+  //console.log("MIDDLEWARE: bypassJwtCheck");
   if (req.path === `/api/${channels.AUTH0_GET_TOKENS}` ||
       req.path === `/api/${channels.PROGRESS}`
   ) {
-    console.log("MIDDLEWARE: bypassing checkJwt since we are getting tokens.");
+    //console.log("MIDDLEWARE: bypassing checkJwt since we are getting tokens.");
     return next();
   }
 
@@ -49,7 +48,7 @@ const bypassJwtCheck = async (req, res, next) => {
     if (!authHeader) {
       return res.status(401).send('Unauthorized: Missing Authorization Header');
     }
-    console.log("MIDDLEWARE: authorization header exists.");
+    //console.log("MIDDLEWARE: authorization header exists.");
 
     // Make sure we have a valid token
     const token = authHeader.split(' ')[1];
@@ -57,7 +56,7 @@ const bypassJwtCheck = async (req, res, next) => {
     if (!decodedToken) {
       return res.status(401).send('Unauthorized: Invalid Token');
     }
-    console.log("MIDDLEWARE: token is valid.");
+    //console.log("MIDDLEWARE: token is valid.");
     //console.log("decodedToken: ", decodedToken);
 
 /*
@@ -142,11 +141,11 @@ app.use(express.json());
 app.use(cors({ origin: auth0data.origin }));
 app.use(bypassJwtCheck);
 app.use(async (req, res, next) => {
-  console.log("MIDDLEWARE: Custom");
+  //console.log("MIDDLEWARE: Custom");
   if (req.path === '/api/' + channels.AUTH0_GET_TOKENS ||
       req.path === `/api/${channels.PROGRESS}`
   ) {
-    console.log("MIDDLEWARE: bypassing our auth0 check since we are getting tokens.");
+    //console.log("MIDDLEWARE: bypassing our auth0 check since we are getting tokens.");
     return next();
   }
   try {
@@ -157,7 +156,7 @@ app.use(async (req, res, next) => {
     if (!decodedToken) {
       return res.status(401).send('Unauthorized: Invalid Token');
     }
-    console.log("MIDDLEWARE: setting auth0Id");
+    //console.log("MIDDLEWARE: setting auth0Id");
     req.auth0Id = decodedToken.sub;
     
     // Make sure the UserID is not missing
@@ -165,7 +164,7 @@ app.use(async (req, res, next) => {
     if (!userId) {
       return res.status(401).send('Unauthorized: Missing User ID');
     }
-    console.log("MIDDLEWARE: token has userID.");
+    //console.log("MIDDLEWARE: token has userID.");
 
     // Set DB session with our authenticated userID
     await db.raw(`SET myapp.current_user_id = '${userId}'`);
@@ -373,17 +372,35 @@ app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
 });
 */
 
-const encrypt = (text) => {
-  const cipher = crypto.createCipheriv(algorithm, Buffer.from(secretKey, 'hex'), iv);
-  const encrypted = Buffer.concat([cipher.update(text), cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+const encrypt = (plaintext) => {
+  // create a random initialization vector
+  const iv = crypto.randomBytes(16);
+
+  // create a cipher object
+  const cipher = crypto.createCipheriv(algorithm, secretKey, iv);
+
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  
+  // retrieve the authentication tag for the encryption
+  const tag = cipher.getAuthTag();
+  
+  return { encrypted: encrypted.toString('hex'), iv: iv.toString('hex'), tag: tag.toString('hex') };
 };
 
-const decrypt = (hash) => {
-  const [iv, encryptedText] = hash.split(':');
-  const decipher = crypto.createDecipheriv(algorithm, Buffer.from(secretKey, 'hex'), Buffer.from(iv, 'hex'));
-  const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedText, 'hex')), decipher.final()]);
-  return decrypted.toString();
+const decrypt = (encrypted, iv, tag) => {
+  // create a decipher object
+  const decipher = crypto.createDecipheriv(
+    algorithm, 
+    Buffer.from(secretKey, 'hex'),
+    Buffer.from(iv, 'hex')
+  );
+  
+  // set the authentication tag for the decipher object
+  decipher.setAuthTag(Buffer.from(tag, 'hex'));
+
+  const plaintext = Buffer.concat([decipher.update(Buffer.from(encrypted, 'hex')), decipher.final()]);
+
+  return plaintext.toString();
 };
 
 app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
@@ -392,9 +409,9 @@ app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   const token = req.headers.authorization.split(' ')[1];
   const decodedToken = jwt.decode(token);
   const auth0Id = decodedToken.sub;
-  const enc_token = encrypt(token);
+  const { encrypted: enc_token, iv, tag } = encrypt(token);
 
-  const { returnCode, message } = await auth0_check_or_create_user({ enc_token, refreshToken: null, auth0Id });
+  const { returnCode, message } = await auth0_check_or_create_user({ enc_token, iv, tag, auth0Id });
   res.status(returnCode).json({ message: message });
 });
 
@@ -402,7 +419,7 @@ app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   REFRESH TOKEN: was passing in the refresh token to store that in the DB
   async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
 */
-async function auth0_check_or_create_user({ enc_token, auth0Id }) {
+async function auth0_check_or_create_user({ enc_token, iv, tag, auth0Id }) {
   console.log("auth0_check_or_create_user ENTER");
   //console.log("token:", token);
   
@@ -422,6 +439,8 @@ async function auth0_check_or_create_user({ enc_token, auth0Id }) {
           email: user.email,
           name: user.name,
           access_token: enc_token,
+          iv: iv,
+          tag: tag,
           refresh_token: null, /* REFRESH TOKEN: was storing the refresh token */
         })
         .returning('id');
@@ -455,7 +474,7 @@ async function auth0_check_or_create_user({ enc_token, auth0Id }) {
         console.log("will only update refresh token if new one is not null.");
         */
         let query = db('users')
-          .update({ access_token: enc_token })
+          .update({ access_token: enc_token, iv: iv, tag: tag })
           .where('auth0_id', auth0Id);
         
         /* REFRESH TOKEN: if we have a refresh token, update that also
@@ -550,6 +569,7 @@ const plaid_setup_client = async (userId) => {
 
 const plaid_get_link_token = async () => {
   console.log('plaid_get_link_token ENTER');
+  /* PLAID Documentation: https://plaid.com/docs/api/link/#linktokencreate */
   const createTokenResponse = await client.linkTokenCreate(configs);
 
   plaid_link_token = createTokenResponse.data.link_token;
@@ -597,6 +617,9 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
   try {
+
+    // The public token expires after 30 minutes
+    /* PLAID Documentation: https://plaid.com/docs/api/items/#itempublic_tokenexchange */
     const response = await client.itemPublicTokenExchange({
       public_token: public_token,
     });
@@ -605,55 +628,110 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
 
     // These values should be saved to a persistent database and
     // associated with the currently signed-in user
-    const enc_access_token = encrypt(response.data.access_token);
+    const access_token = response.data.access_token;
+    const { encrypted: enc_access_token, iv, tag } = encrypt(access_token);
     const itemID = response.data.item_id;
-    console.log('itemPublicTokenExchange return:', response.data);
+    //console.log('itemPublicTokenExchange return:', response.data);
+    //console.log('metadata:', metadata);
 
-    metadata.accounts.forEach((p_account, index) => {
-      db('plaid_account')
-        .insert({
-          institution: metadata.institution.name,
-          account_id: p_account.id,
+    metadata.accounts.forEach(async (p_account) => {
+
+      // Does this account exist already?
+      // Let's try and update it
+      const updates = await db('plaid_account')
+        .where({ user_id: userId, item_id: itemID, account_id: p_account.id, isActive: true })
+        .update({
+          institution_id: metadata.institution.institution_id,
+          institution_name: metadata.institution.name,
           mask: p_account.mask,
           account_name: p_account.name,
           account_subtype: p_account.subtype,
           account_type: p_account.type,
           verification_status: p_account.verification_status,
-          item_id: itemID,
           access_token: enc_access_token,
-          cursor: null,
-          user_id: userId,
-          common_name: metadata.institution.name + '-' +
-            p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
-          full_account_name: metadata.institution.name + '-' +
-            p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
-        })
-        .then(() => {
-          console.log('Added PLAID Account ');
-        })
-        .catch((err) => console.log('Error: ' + err));
+          iv: iv,
+          tag: tag,
+          isLinked: true,
+        }, ['id']);
+      
+      if (updates?.length === 0) {
+        console.log('Linked account did not exist, adding new.');
+
+        // We didn't update any rows, which means this account
+        // did not exist.  Let's insert a new account.
+        await db('plaid_account')
+          .insert({
+            institution_id: metadata.institution.institution_id,
+            institution_name: metadata.institution.name,
+            account_id: p_account.id,
+            mask: p_account.mask,
+            account_name: p_account.name,
+            account_subtype: p_account.subtype,
+            account_type: p_account.type,
+            verification_status: p_account.verification_status,
+            item_id: itemID,
+            access_token: enc_access_token,
+            iv: iv,
+            tag: tag,
+            cursor: null,
+            user_id: userId,
+            common_name: metadata.institution.name + '-' +
+              p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
+            full_account_name: metadata.institution.name + '-' +
+              p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
+            isActive: true,
+            isLinked: true,
+          });
+      } else {
+        console.log('Updated linked account, matching accounts: ', updates?.length);
+      }
     });
+
+    // We should also handle the case where accounts are no longer connected
+    let lookup_orphaned = await db('plaid_account')
+      .select('id')
+      .where({ user_id: userId, item_id: itemID })
+      .whereNotIn('account_id', metadata.accounts.map(a => a.id) );
+
+    let orphaned_acc = await lookup_orphaned;
+    if (orphaned_acc?.length) {
+      await db.transaction(async (trx) => {
+        for (const acc of orphaned_acc) {
+          // Remove the PLAID Account from the database
+          await remove_plaid_account(trx, userId, acc.id);
+        }
+      });
+    } else {
+      console.log('All accounts are accounted for.');
+    }
+
   } catch (error) {
     // handle error
     console.log('Error: ', error);
     res.status(500).send('Internal Server Error');
   }
-  res.status(200).send('Added PLAID Account successfully');
+  res.status(200).send('Added or updated PLAID Account successfully');
 });
 
 app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   const { id } = req.body;
+  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = await getUserId(auth0Id);
 
   let enc_access_token = null;
+  let iv = null;
+  let tag = null;
 
   // Get the access token for this account
   const data = await db('plaid_account')
-    .select('access_token')
+    .select('access_token', 'iv', 'tag')
     .where({ id: id, user_id: userId })
     .first();
     
   if (data !== undefined) {
     enc_access_token = data.access_token;
+    iv = data.iv;
+    tag = data.tag;
   }
 
   if (enc_access_token === null) {
@@ -663,12 +741,23 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
     });
   }
 
+  let access_token = null;
+  if (iv) {
+    access_token = decrypt(enc_access_token, iv, tag)
+  } else {
+    access_token = enc_access_token;
+  }
+
   console.log('Switching to update mode');
   if (PLAID_CLIENT_ID?.length) {
     try {
+      /* 
+        PLAID Documentation: https://plaid.com/docs/link/update-mode/
+        PLAID Documentation: https://plaid.com/docs/api/link/#linktokencreate
+      */
       const linkTokenResponse = await client.linkTokenCreate({
         ...configs,
-        access_token: decrypt(enc_access_token),
+        access_token: access_token,
       });
       enc_access_token = null;
       // Use the link_token to initialize Link
@@ -737,10 +826,12 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
     let query = db
       .select(
         'plaid_account.id',
-        'plaid_account.institution',
+        'plaid_account.institution_id',
+        'plaid_account.institution_name',
         'plaid_account.common_name',
         'plaid_account.full_account_name',
         'plaid_account.isActive',
+        'plaid_account.isLinked',
       )
       .max({ lastTx: 'txDate' })
       .from('plaid_account')
@@ -755,14 +846,16 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
           this.on(db.raw(`"transaction"."isVisible" = true`));
       })
       .where({ 'plaid_account.user_id': userId })
-      .orderBy('plaid_account.institution')
+      .orderBy('plaid_account.institution_name')
       .orderBy('plaid_account.common_name')
       .orderBy('plaid_account.id')
       .groupBy(
         'plaid_account.id',
-        'plaid_account.institution',
+        'plaid_account.institution_id',
+        'plaid_account.institution_name',
         'plaid_account.common_name',
-        'plaid_account.full_account_name'
+        'plaid_account.full_account_name',
+        'plaid_account.isLinked'
       );
 
     const data = await query;
@@ -775,7 +868,7 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
 });
 
 app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
-  console.log('Removing PLAID Account login ');
+  console.log('PLAID_REMOVE_LOGIN ENTER');
 
   const { id } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -786,7 +879,7 @@ app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
     await db.transaction(async (trx) => {
       // Get the access token
       const data = await db('plaid_account')
-        .select('access_token')
+        .select('item_id','access_token', 'iv', 'tag')
         .where({ id: id, user_id: userId })
         .first();
       
@@ -794,18 +887,25 @@ app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
         const enc_access_token = data.access_token;
 
         // Use the access token to remove the plaid login
-        await remove_plaid_login(enc_access_token);
+        const resp = await remove_plaid_login(enc_access_token, data.iv, data.tag);
         
-        // Pull the list of accounts using that access_token
-        const accts_to_delete = await db('plaid_account')
-          .select('id')
-          .where({ access_token: enc_access_token, user_id: userId });
+        if (resp === 0) {
+          console.log("Unlink from PLAID successful");
 
-        // Go through and remove those accounts using the
-        // same access token
-        for (const item of accts_to_delete) {
-          // Remove the PLAID Account from the database
-          await remove_plaid_account(trx, userId, item.id);
+          // Pull the list of accounts using that item id
+          // Item ID is what PLAID uses for a login or connected account
+          const accts_to_delete = await db('plaid_account')
+            .select('id')
+            .where({ item_id: data.item_id, user_id: userId });
+
+          // Go through and remove those accounts using the
+          // same item id
+          for (const item of accts_to_delete) {
+            // Remove the PLAID Account from the database
+            await remove_plaid_account(trx, userId, item.id);
+          }
+        } else {
+          res.status(500).send('Internal Server Error');
         }
       }
     });
@@ -816,30 +916,42 @@ app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
   }
 });
 
-async function remove_plaid_login(enc_access_token) {
+async function remove_plaid_login(enc_access_token, iv, tag) {
+  console.log('remove_plaid_login ENTER');
+  let access_token = null;
+
+  if (iv) {
+    console.log('we are using encrypted tokens, need to decrypt first');
+    access_token = decrypt(enc_access_token, iv, tag);
+  } else {
+    console.log('we are not using encrypted tokens');
+    access_token = enc_access_token;
+  }
+
   let response = null;
   try {
+    console.log('calling plaid itemRemove');
+    /* PLAID Documentation: https://plaid.com/docs/api/items/#itemremove */
     response = await client.itemRemove({
-      access_token: decrypt(access_token),
+      access_token: access_token,
     });
+    if (response.data.request_id) {
+      return 0;
+    } else {
+      return -1;
+    }
   } catch (e) {
     console.log('Error: ', e.response.data.error_message);
-    return;
+    return -1;
   }
-  console.log('Response: ' + response);
 }
 
 async function remove_plaid_account(trx, userId, account_id) {
-  // Check if there are existing transactions
-  // if not, then we can delete
-  // if there are, then make it a regular account, maybe with active = false?
-  const rows = await trx('transaction')
-    .select('id')
-    .where({ accountID: id, user_id: userId })
-    .first();
 
   // Check if there are any keywords. If so, set them to 'All'
   // The other option is to delete the keyword.
+  // TODO: This could leave a situation where multiple keywords
+  //       match a description.
   await trx('keyword')
     .where({ user_id: userId })
     .where({ account: trx('plaid_account')
@@ -847,26 +959,19 @@ async function remove_plaid_account(trx, userId, account_id) {
       .where({ id: account_id, user_id: userId })
       .first()})
     .update({ account: 'All' });
-    
-  if (rows === undefined) {
-    // There are no existing transactions
-    await trx('plaid_account')
-      .where({ id: account_id, user_id: userId })
-      .delete();
-  } else {
-    // If we have transactions under this account,
-    // set it to an unlinked and inactive account.
-    await trx('plaid_account')
-      .update({
-        account_id: null,
-        verification_status: null,
-        item_id: null,
-        access_token: null,
-        cursor: null,
-        isActive: false,
-      })
-      .where({ account_id: account_id, user_id: userId });
-  }
+  
+  // If we have transactions under this account,
+  // set it to an unlinked and inactive account.
+  await trx('plaid_account')
+    .update({
+      verification_status: null,
+      access_token: null,
+      cursor: null,
+      iv: null,
+      tag: null,
+      isLinked: false,
+    })
+    .where({ id: account_id, user_id: userId });
 }
 
 app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
@@ -894,22 +999,33 @@ app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
 async function get_transactions(id, userId, sessionId) {
   console.log('get_transactions');
 
+  let access_token = null;
   let enc_access_token = null;
+  let iv = null;
+  let tag = null;
   let cursor = null;
 
   // Get the access token for this account
   const data = await db('plaid_account')
-    .select('access_token', 'cursor')
+    .select('access_token', 'iv', 'tag', 'cursor')
     .where({ id: id, user_id: userId })
     .first();
     
   if (data !== undefined) {
     enc_access_token = data.access_token;
+    iv = data.iv;
+    tag = data.tag;
     cursor = data.cursor;
   }
 
   if (enc_access_token === null) {
     return -2;
+  }
+
+  if (iv) {
+    access_token = decrypt(enc_access_token, iv, tag);
+  } else {
+    access_token = enc_access_token;
   }
 
   let accounts = 0;
@@ -922,8 +1038,9 @@ async function get_transactions(id, userId, sessionId) {
   while (hasMore) {
     let response = null;
     try {
+      /* PLAID Documentation: https://plaid.com/docs/api/products/transactions/#transactionssync */
       response = await client.transactionsSync({
-        access_token: decrypt(enc_access_token),
+        access_token: access_token,
         cursor: cursor_iter,
       });
     } catch (e) {
@@ -1150,30 +1267,41 @@ app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
 async function force_get_transactions(id, start_date, end_date, userId, sessionId) {
   console.log('force_get_transactions');
   
+  let access_token = null;
   let enc_access_token = null;
-  let cursor = null;
-
+  let iv = null;
+  let tag = null;
+  
   // Get the access token for this account
   const data = await db('plaid_account')
-    .select('access_token', 'cursor')
+    .select('access_token', 'iv', 'tag', 'cursor')
     .where({ id: id, user_id: userId })
     .first();
     
   if (data !== undefined) {
     enc_access_token = data.access_token;
+    iv = data.iv;
+    tag = data.tag;
     cursor = data.cursor;
   }
 
   if (enc_access_token === null) {
     return -2;
   }
+
+  if (iv) {
+    access_token = decrypt(enc_access_token, iv, tag);
+  } else {
+    access_token = enc_access_token;
+  }
   
   let added = [];
 
   let response = null;
   try {
+    /* PLAID Documentation: https://plaid.com/docs/api/products/transactions/#transactionsget */
     response = await client.transactionsGet({
-      access_token: decrypt(enc_access_token),
+      access_token: access_token,
       start_date: start_date,
       end_date: end_date,
     });
@@ -1191,7 +1319,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
   try {
     while (transactions.length < total_transactions) {
       const paginatedRequest = {
-        access_token: decrypt(enc_access_token),
+        access_token: access_token,
         start_date: start_date,
         end_date: end_date,
         options: {
@@ -1199,6 +1327,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
         },
       };
 
+      /* PLAID Documentation: https://plaid.com/docs/api/products/transactions/#transactionsget */
       const paginatedResponse = await client.transactionsGet(paginatedRequest);
       added = added.concat(paginatedResponse.data.transactions);
     }
@@ -2478,7 +2607,7 @@ app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
         .select('id')
         .where({ user_id: userId })
         .whereNot('id', id)
-        .where({ account: trx('plaid_account')
+        .where({ common_name: trx('plaid_account')
           .select('common_name')
           .where({ id: id, user_id: userId })
         })
@@ -2489,7 +2618,7 @@ app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
           .where({ user_id: userId })
           .where({ account: trx('plaid_account')
             .select('common_name')
-            .where({ id: account_id, user_id: userId })
+            .where({ id: id, user_id: userId })
             .first()})
           .update({ account: 'All' });
       }

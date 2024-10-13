@@ -78,11 +78,13 @@ export const ConfigPlaid = () => {
 
   interface PLAIDAccount {
     id: number; 
-    institution: string;
+    institution_name: string;
+    institution_id: string;
     lastTx: number;
     full_account_name: string;
     common_name: string;
     isActive: boolean;
+    isLinked: boolean;
   }
 
   const createLinkToken = async () => {
@@ -102,7 +104,6 @@ export const ConfigPlaid = () => {
   };
 
   const getAccountList = async () => {
-    await createLinkToken();
     try {
       if (!config) return;
       const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS, null, config );
@@ -112,8 +113,9 @@ export const ConfigPlaid = () => {
       setPLAIDAccounts(myAccounts);
 
       const filteredInstitutions = Array.from(new Set(myAccounts
-        .map(acc => acc.institution)
-        .filter(institution => institution !== null && institution !== '')
+        .filter(acc => acc.isLinked)
+        .map(acc => acc.institution_name)
+        .filter(institution_name => institution_name !== null && institution_name !== '')
       ));
       setInstitutions(filteredInstitutions);
 
@@ -122,8 +124,8 @@ export const ConfigPlaid = () => {
     }
   };
 
-  const update_login = async (institution: string) => {
-    const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
+  const update_login = async (institution_name: string) => {
+    const filtered = PLAIDAccounts.filter((a) => a.institution_name === institution_name);
     const acc = filtered[0];
 
     if (!config) return;
@@ -139,22 +141,27 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const remove_login = async (institution: string) => {
-    const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
+  const remove_login = async (institution_name: string) => {
+    //console.log('remove_login ENTER');
+    const filtered = PLAIDAccounts.filter((a) => a.institution_name === institution_name && a.isLinked);
     const acc = filtered[0];
+    
     if (token) {
       if (!config) return;
-      await axios.post(baseUrl + channels.PLAID_REMOVE_LOGIN, 
+      //console.log('Calling ', channels.PLAID_REMOVE_LOGIN);
+      const resp = await axios.post(baseUrl + channels.PLAID_REMOVE_LOGIN, 
         { id: acc.id }, config);
-
-      getAccountList();
+      
+      if (resp.status === 200) {
+        getAccountList();
+      }
     } else {
       setLink_Error('You need a link token to remove a plaid account login.');
     }
   }
 
-  const get_transactions = async (institution: string) => {
-    const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
+  const get_transactions = async (institution_name: string) => {
+    const filtered = PLAIDAccounts.filter((a) => a.institution_name === institution_name && a.isLinked);
     const acc = filtered[0];
 
     // Clear error message
@@ -237,18 +244,26 @@ export const ConfigPlaid = () => {
   };
 
   // We successfully linked a new account
-  const onSuccess: PlaidLinkOnSuccess = (public_token, metadata) => {
+  const onSuccess: PlaidLinkOnSuccess = async (public_token, metadata) => {
+    /*
     console.log("Success linking new account. ");
     
+    console.log("Institution: ", metadata?.institution?.name);
     console.log("public token: ", public_token);
     console.log("metadata: ", metadata);
     
     metadata.accounts.forEach((account, index) => {
-      console.log("Account: ", metadata?.institution?.name, " : ", account.name);
+      console.log("Account: ", account.name);
+      console.log("Account: ", account);
     });
+    */
 
     if (!config) return;
-    axios.post(baseUrl + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata}, config);
+    const resp = await axios.post(baseUrl + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata}, config);
+
+    if (resp.status === 200) {
+      getAccountList();
+    }
   };
 
   // We ran into an error trying to link a new account
@@ -264,12 +279,24 @@ export const ConfigPlaid = () => {
   const get_updated_login = async (updateToken) => {
     const updateConfig: PlaidLinkOptions = {
       token: updateToken,
-      onSuccess: (public_token, metadata) => {
+      onSuccess: async (public_token, metadata) => {
         setUpdateConfig(null);
         // You do not need to repeat the /item/public_token/exchange
         // process when a user uses Link in update mode.
         // The Item's access_token has not changed.
-        console.log("Success updating login", public_token, metadata);
+        //console.log("Success updating login");
+        //console.log('public_token: ', public_token);
+        //console.log('metadata: ', metadata);
+        
+        if (!config) return;
+        const resp = await axios.post(baseUrl + channels.PLAID_SET_ACCESS_TOKEN, {public_token, metadata}, config);
+    
+        if (resp.status === 200) {
+          getAccountList();
+        }
+
+        // We should reset our link token
+        createLinkToken();
       },
       onExit: (err, metadata) => {
         setUpdateConfig(null);
@@ -284,6 +311,9 @@ export const ConfigPlaid = () => {
         // metadata contains the most recent API request ID and the
         // Link session ID. Storing this information is helpful
         // for support.
+        
+        // We should reset our link token
+        createLinkToken();
       },
     };
 
@@ -350,9 +380,19 @@ export const ConfigPlaid = () => {
   };
  
   useEffect(() => {
+    if (accountsLoaded) {
+      if (!token) {
+        createLinkToken();
+      }
+      getAccountList();
+    }
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountsLoaded]);
+ 
+  useEffect(() => {
     if (!accountsLoaded) {
       setAccountsLoaded(true);
-      getAccountList();
     }
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -397,7 +437,7 @@ export const ConfigPlaid = () => {
                 <Typography variant="h6">{institution}</Typography>
                 <Box>
                   <Button variant="contained" className='textButton' onClick={() => remove_login(institution)} disabled={!token} style={{ marginRight: '10px' }}>
-                    Remove
+                    Unlink
                   </Button>
                   <Button variant="contained" className='textButton' onClick={() => update_login(institution)} disabled={!token}>
                     Update Login
@@ -406,7 +446,10 @@ export const ConfigPlaid = () => {
               </Box>
               <Box className="account-container">
                 <Box className="account-list">
-                {PLAIDAccounts.filter(acc => acc.institution === institution).map(acc => (
+                { PLAIDAccounts
+                  .filter(acc => (acc.institution_name === institution) && (acc.isLinked))
+                  .map(acc => (
+
                   <Box key={acc.id} className="account-details">
                     <Box sx={{ flex: '1 0', textAlign: 'left' }}>
                       <Tooltip title={ acc.full_account_name } placement="top"
@@ -446,22 +489,7 @@ export const ConfigPlaid = () => {
                       <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
                         <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
                       </Tooltip>
-                      <Tooltip title="Toggle if account is currently active" sx={{ width: 'fit-content', flex: '0 0' }}>
-                      <Button 
-                        className={ acc.isActive ? "" : "trash" } sx={{ margin: '0px', marginLeft: '5px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto', verticalAlign:'middle' }}
-                        onClick={() => handleAccountDeactivate({ id: acc.id, set_active: acc.isActive ? false : true })}>
-                            {acc.isActive && <VisibilityIcon fontSize="small" />}
-                            {!acc.isActive && <VisibilityOffIcon fontSize="small" />}
-                      </Button>
-                      </Tooltip>
                       </>
-                    )}
-                    { !acc.lastTx && (
-                      <Button 
-                        className="trash" sx={{ margin: '0px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto', verticalAlign:'middle' }}
-                        onClick={() => handleAccountDelete(acc.id)}>
-                            <DeleteForeverIcon fontSize="small" />
-                      </Button>
                     )}
                   </Box>
                 ))}
@@ -474,7 +502,7 @@ export const ConfigPlaid = () => {
                     className='plaid-update-button'
                     onClick={() => {
                       // Get the latest transaction date for this account
-                      const filtered = PLAIDAccounts.filter((a) => a.institution === institution);
+                      const filtered = PLAIDAccounts.filter((a) => a.institution_name === institution);
                       const only_dates = filtered.map((a) => new Date(a.lastTx + 'T00:00:00').getTime());
                       const max_date = Math.max(...only_dates);
                       const max_date_str = dayjs(max_date).format('YYYY-MM-DD');
@@ -501,7 +529,10 @@ export const ConfigPlaid = () => {
               </Box>
               <Box className="account-container">
                 <Box className="account-list">
-                {PLAIDAccounts.filter(acc => (acc.institution === null || acc.institution === '')).map(acc => (
+                { PLAIDAccounts.filter(acc => (!acc.isLinked))
+                  .sort((a, b) => a.common_name.localeCompare(b.common_name))
+                  .map(acc => (
+                  
                   <Box key={acc.id} className="account-details">
                     <Box sx={{ flex: '1 0', textAlign: 'left' }}>
                       <Tooltip title={ acc.full_account_name } placement="top"
