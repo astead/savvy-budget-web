@@ -3848,7 +3848,7 @@ async function insert_transaction_node(
   }
 }
 
-app.listen(process.env.PORT || port, () => {
+app.listen(port, () => {
   console.log(`Server running at port ${port}`);
 });
 
