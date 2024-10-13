@@ -554,7 +554,7 @@ const configs = {
   products: PLAID_PRODUCTS,
   country_codes: PLAID_COUNTRY_CODES,
   language: 'en',
-  redirect_uri: 'https://localhost:3000',
+  redirect_uri: process.env.REACT_APP_API_SERVER_URL,
 };
 
 // This should be on the server only
