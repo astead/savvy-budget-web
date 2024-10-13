@@ -50,7 +50,8 @@
     "react-plaid-link": "^3.6.0",
     "react-router-dom": "^6.26.2",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "concurrently": "^9.0.1"
   },
   "scripts": {
     "start": "concurrently \"react-scripts start\" \"node server.js\"",
@@ -77,7 +78,6 @@
     ]
   },
   "devDependencies": {
-    "concurrently": "^9.0.1"
   },
   "_moduleAliases": {
     "@shared": "src/shared"
