@@ -1028,7 +1028,7 @@ async function get_transactions(id, userId, sessionId) {
     access_token = enc_access_token;
   }
 
-  let accounts = 0;
+  let accounts = [];
   let added = [];
   let modified = [];
   let removed = [];
@@ -1051,7 +1051,7 @@ async function get_transactions(id, userId, sessionId) {
     const data = response.data;
     
     // Add this page of results
-    accounts = data.accounts.length;
+    accounts = accounts.concat(data.accounts);
     added = added.concat(data.added);
     modified = modified.concat(data.modified);
     removed = removed.concat(data.removed);
@@ -1062,7 +1062,7 @@ async function get_transactions(id, userId, sessionId) {
   }
 
   console.log('Done getting the data:');
-  console.log('Accounts: ', accounts);
+  console.log('Accounts: ', accounts.length);
   console.log('added: ', added.length);
   console.log('modified: ', modified.length);
   console.log('removed: ', removed.length);
@@ -1074,7 +1074,7 @@ async function get_transactions(id, userId, sessionId) {
 
   // Apply added
   const accountArr = [];
-  const ret_add = await apply_added_transactions({ added, removed, userId, cur_record, total_records, sessionId, accountArr });
+  const ret_add = await apply_added_transactions({ id, acc: accounts, added, removed, userId, cur_record, total_records, sessionId, accountArr });
   if (ret_add === -1) {
     return -1;
   }
@@ -1091,7 +1091,7 @@ async function get_transactions(id, userId, sessionId) {
   console.log('Done processing removed transactions.');
 
   // Apply modified
-  const ret_mod = await apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr });
+  const ret_mod = await apply_modified_transactions({ id, acc: accounts, modified, userId, cur_record, total_records, sessionId, accountArr });
   if (ret_mod === -1) {
     return -1;
   }
@@ -1108,26 +1108,28 @@ async function get_transactions(id, userId, sessionId) {
   return 0;
 };
 
-async function account_name_lookup_with_cache_array({ accountArr, account_str, userId }) {
+async function account_name_lookup_with_cache_array({ id, accountArr, acc, account_id, userId }) {
   let accountID = '';
   if (accountArr?.length) {
-    const found = accountArr.find((e) => e.name === account_str);
+    const found = accountArr.find((e) => e.name === account_id);
     if (found) {
       accountID = found.id;
     } else {
-      accountID = await lookup_plaid_account({ userId, account_str });
-      accountArr.push({ name: account_str, id: accountID });
+      const my_acc = acc.find((a) => a.account_id === account_id);
+      accountID = await lookup_plaid_account({ id, userId, acc: my_acc, account_id });
+      accountArr.push({ name: account_id, id: accountID });
     }
   } else {
-    accountID = await lookup_plaid_account({ userId, account_str });
-    accountArr.push({ name: account_str, id: accountID });
+    const my_acc = acc.find((a) => a.account_id === account_id);
+    accountID = await lookup_plaid_account({ id, userId, acc: my_acc, account_id });
+    accountArr.push({ name: account_id, id: accountID });
   }
   return accountID;
 }
 
-async function apply_added_transactions({ added, removed, userId, cur_record, total_records, sessionId, accountArr }) {
+async function apply_added_transactions({ id, acc, added, removed, userId, cur_record, total_records, sessionId, accountArr }) {
   for (const [i, a] of added.entries()) {
-    const accountID = await account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id, userId });
+    const accountID = await account_name_lookup_with_cache_array({ id, accountArr, acc, account_id: a.account_id, userId });
     
     if (accountID === -1) {
       return -1;
@@ -1185,9 +1187,9 @@ async function apply_added_transactions({ added, removed, userId, cur_record, to
   return 0;
 }
 
-async function apply_modified_transactions({ modified, userId, cur_record, total_records, sessionId, accountArr }) {
+async function apply_modified_transactions({ id, acc, modified, userId, cur_record, total_records, sessionId, accountArr }) {
   for (const [i, m] of modified.entries()) {
-    const accountID = await account_name_lookup_with_cache_array({ accountArr, account_str: a.account_id, userId });
+    const accountID = await account_name_lookup_with_cache_array({ id, accountArr, acc, account_id: m.account_id, userId });
     
     if (accountID === -1) {
       return -1;
@@ -1295,6 +1297,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
     access_token = enc_access_token;
   }
   
+  let accounts = [];
   let added = [];
 
   let response = null;
@@ -1310,10 +1313,12 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
     progressStatuses[sessionId] = 100;
     return;
   }
+  let my_accounts = response.data.accounts;
   let transactions = response.data.transactions;
   const total_transactions = response.data.total_transactions;
 
   // Add this page of results
+  accounts = accounts.concat(my_accounts);
   added = added.concat(transactions);
 
   try {
@@ -1329,6 +1334,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
 
       /* PLAID Documentation: https://plaid.com/docs/api/products/transactions/#transactionsget */
       const paginatedResponse = await client.transactionsGet(paginatedRequest);
+      accounts = accounts.concat(paginatedResponse.data.accounts);
       added = added.concat(paginatedResponse.data.transactions);
     }
   } catch (e) {
@@ -1338,6 +1344,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
   }
 
   console.log('Done getting the data:');
+  console.log('accounts: ', accounts.length);
   console.log('added: ', added.length);
   console.log('Now processing');
   
@@ -1346,7 +1353,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
 
   // Apply added
   const accountArr = [];
-  const ret = await apply_added_transactions({ added, removed: [], userId, cur_record, total_records, sessionId, accountArr });
+  const ret = await apply_added_transactions({ id, acc: accounts, added, removed: [], userId, cur_record, total_records, sessionId, accountArr });
   if (ret === -1) {
     return ret;
   }
@@ -3360,15 +3367,15 @@ async function lookup_account(userId, account_str) {
   return accountID;
 }
 
-async function lookup_plaid_account({ userId, account_str }) {
+async function lookup_plaid_account({ id, userId, acc }) {
   console.log("lookup_plaid_account");
 
   // Initialize accountID to -1 to indicate no PLAID Account found
   let accountID = -1;
 
   // Early return if account_str is empty or undefined
-  if (!account_str?.length) {
-    console.log('No account_str provided');
+  if (!acc.account_id?.length) {
+    console.log('No account_id provided ');
     return accountID;
   }
 
@@ -3379,12 +3386,54 @@ async function lookup_plaid_account({ userId, account_str }) {
       const data = await trx('plaid_account')
         .select('id')
         .orderBy('id')
-        .where({ account_id: account_str, user_id: userId });
+        .where({ account_id: acc.account_id, user_id: userId });
       
-        if (data?.length) {
-          // If the PLAID Account exists, use the existing ID
-          accountID = data[0].id;
+      if (data?.length) {
+        // If the PLAID Account exists, use the existing ID
+        accountID = data[0].id;
+      } else {
+        // If we can't find the plaid account, 
+        // we should probably create it using existing PLAID item data
+        const item = await trx('plaid_account')
+        .select(
+          'institution_id', 'institution_name', 'item_id',
+          'access_token', 'iv', 'tag'
+        )
+        .where({ id: id, user_id: userId })
+        .first();
+
+        if (item) {
+          const result = await trx('plaid_account')
+            .insert({
+              institution_id: item.institution_id,
+              institution_name: item.institution_name,
+              account_id: acc.account_id,
+              mask: acc.account_mask,
+              account_name: acc.account_name,
+              account_subtype: acc.account_subtype,
+              account_type: acc.account_type,
+              verification_status: null,
+              item_id: item.item_id,
+              access_token: item.access_token,
+              iv: item.iv,
+              tag: item.tag,
+              cursor: null,
+              user_id: userId,
+              common_name: item.institution_name + '-' +
+                acc.account_name + (acc.account_mask !== null ? ('-' + acc.account_mask) : ''),
+              full_account_name: item.institution_name + '-' +
+                acc.account_name + (acc.account_mask !== null ? ('-' +acc. account_mask) : ''),
+              isActive: true,
+              isLinked: true,
+            })
+            .returning('id');
+
+          if (result?.length) {
+            accountID = result[0];
+            console.log('New account created: ', accountID);
+          }
         }
+      }
     });
   } catch (err) {
     console.error('Error looking up or creating PLAID Account:', err);
