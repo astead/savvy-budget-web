@@ -639,14 +639,15 @@ export const ConfigPlaid = () => {
             </tr>
             </tbody></table>
             <br/>
-            <button 
+            <Button 
+              variant="contained"
               className='textButton'
               onClick={() => {
                 force_get_transactions(getAcc, getStart, getEnd);
               }} 
               disabled={!token}>
               Get Those Transactions!
-            </button>
+            </Button>
           </Box>
         </Modal>
         <Modal
