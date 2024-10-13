@@ -91,9 +91,9 @@ export const HomePage: React.FC = () => {
               Get transactions
               <ul>
                 <li>
-                  If using linked bank accounts: on the configure page, setup any linked bank accounts and update it to get transactions.
+                  If using linked bank accounts: on the configure page, setup any linked bank accounts and 
+                  update it to get transactions for the past 90 days.
                   You can also do a force update to get transactions for a specific date range.
-                  TODO: Look up how much history PLAID can get.
                 </li>
                 <li>
                   If not using linked bank accounts: Go to your bank website and download your statement in CSV or OFX format. 
