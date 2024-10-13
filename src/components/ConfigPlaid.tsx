@@ -54,7 +54,7 @@ export const ConfigPlaid = () => {
   
   // List of all the acocunts
   const [PLAIDAccounts, setPLAIDAccounts] = useState<PLAIDAccount[]>([]);
-  const [institutions, setInstitutions] = useState<string[]>([]);
+  const [institutions, setInstitutions] = useState<PLAIDInstitution[]>([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   
   // Get transactions progress bar
@@ -86,6 +86,11 @@ export const ConfigPlaid = () => {
     isActive: boolean;
     isLinked: boolean;
   }
+  interface PLAIDInstitution {
+    id: number; 
+    institution_name: string;
+    institution_id: string;
+  }
 
   const createLinkToken = async () => {
     if (!config) return;
@@ -114,8 +119,7 @@ export const ConfigPlaid = () => {
 
       const filteredInstitutions = Array.from(new Set(myAccounts
         .filter(acc => acc.isLinked)
-        .map(acc => acc.institution_name)
-        .filter(institution_name => institution_name !== null && institution_name !== '')
+        .map(acc => ({id: acc.id, institution_name: acc.institution_name, institution_id: acc.institution_id }))
       ));
       setInstitutions(filteredInstitutions);
 
@@ -124,8 +128,8 @@ export const ConfigPlaid = () => {
     }
   };
 
-  const update_login = async (institution_name: string) => {
-    const filtered = PLAIDAccounts.filter((a) => a.institution_name === institution_name);
+  const update_login = async (institution_id: string) => {
+    const filtered = PLAIDAccounts.filter((a) => a.institution_id === institution_id);
     const acc = filtered[0];
 
     if (!config) return;
@@ -141,9 +145,9 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const remove_login = async (institution_name: string) => {
+  const remove_login = async (institution_id: string) => {
     //console.log('remove_login ENTER');
-    const filtered = PLAIDAccounts.filter((a) => a.institution_name === institution_name && a.isLinked);
+    const filtered = PLAIDAccounts.filter((a) => a.institution_id === institution_id && a.isLinked);
     const acc = filtered[0];
     
     if (token) {
@@ -160,8 +164,8 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const get_transactions = async (institution_name: string) => {
-    const filtered = PLAIDAccounts.filter((a) => a.institution_name === institution_name && a.isLinked);
+  const get_transactions = async (institution_id: string) => {
+    const filtered = PLAIDAccounts.filter((a) => a.institution_id === institution_id && a.isLinked);
     const acc = filtered[0];
 
     // Clear error message
@@ -432,14 +436,14 @@ export const ConfigPlaid = () => {
             </Box>
           }
           { institutions.map(institution => (
-            <Paper key={institution} style={{ marginBottom: '20px' }}>
+            <Paper key={institution.id} style={{ marginBottom: '20px' }}>
               <Box className="institution-header">
-                <Typography variant="h6">{institution}</Typography>
+                <Typography variant="h6">{ (institution.institution_name === null ? "Blank Name?" : institution.institution_name)}</Typography>
                 <Box>
-                  <Button variant="contained" className='textButton' onClick={() => remove_login(institution)} disabled={!token} style={{ marginRight: '10px' }}>
+                  <Button variant="contained" className='textButton' onClick={() => remove_login(institution.institution_id)} disabled={!token} style={{ marginRight: '10px' }}>
                     Unlink
                   </Button>
-                  <Button variant="contained" className='textButton' onClick={() => update_login(institution)} disabled={!token}>
+                  <Button variant="contained" className='textButton' onClick={() => update_login(institution.institution_id)} disabled={!token}>
                     Update Login
                   </Button>
                 </Box>
@@ -447,7 +451,7 @@ export const ConfigPlaid = () => {
               <Box className="account-container">
                 <Box className="account-list">
                 { PLAIDAccounts
-                  .filter(acc => (acc.institution_name === institution) && (acc.isLinked))
+                  .filter(acc => (acc.institution_id === institution.institution_id) && (acc.isLinked))
                   .map(acc => (
 
                   <Box key={acc.id} className="account-details">
@@ -495,14 +499,14 @@ export const ConfigPlaid = () => {
                 ))}
                 </Box>
                 <Box className="account-buttons">
-                  <Button variant="outlined" className='plaid-update-button' onClick={() => get_transactions(institution)} disabled={!token}  style={{ marginBottom: '5px' }}>
+                  <Button variant="outlined" className='plaid-update-button' onClick={() => get_transactions(institution.institution_id)} disabled={!token}  style={{ marginBottom: '5px' }}>
                     Update Latest
                   </Button>
                   <Button variant="outlined" 
                     className='plaid-update-button'
                     onClick={() => {
                       // Get the latest transaction date for this account
-                      const filtered = PLAIDAccounts.filter((a) => a.institution_name === institution);
+                      const filtered = PLAIDAccounts.filter((a) => a.institution_id === institution.institution_id);
                       const only_dates = filtered.map((a) => new Date(a.lastTx + 'T00:00:00').getTime());
                       const max_date = Math.max(...only_dates);
                       const max_date_str = dayjs(max_date).format('YYYY-MM-DD');
