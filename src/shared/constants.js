@@ -8,7 +8,7 @@ module.exports = {
     tokenSigningAlg: 'RS256',
     redirectURL: process.env.REACT_APP_AUTH0_REDIRECT_URL,
   },
-  baseUrl: process.env.REACT_APP_API_BASE_URL + '/api/',
+  baseUrl: process.env.REACT_APP_API_BASE_URL,
   channels: {
     GET_CAT_ENV: 'get_categories_and_envelopes', // if a category has no envelopes, this will include it
     GET_ENV_CAT: 'get_envelopes_and_categories', // if a category has no envelopes, this will not include it
