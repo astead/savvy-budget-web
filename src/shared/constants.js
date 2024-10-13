@@ -2,11 +2,11 @@ module.exports = {
   auth0data: {
     domain: 'dev-uzuzwxmdtzhadla7.us.auth0.com',
     clientId: 'OhD9wIJL5VTPQLLN8mINVJgzjfE2BKtt',
-    origin: process.env.REACT_APP_API_SERVER_URL,
-    audience: process.env.REACT_APP_API_BASE_URL,
+    origin: process.env.REACT_APP_AUTH0_ORIGIN,
+    audience: process.env.REACT_APP_AUTH0_AUDIENCE,
     issuerBaseURL: 'https://dev-uzuzwxmdtzhadla7.us.auth0.com/',
     tokenSigningAlg: 'RS256',
-    redirectURL: process.env.REACT_APP_API_SERVER_URL + '/callback',
+    redirectURL: process.env.REACT_APP_AUTH0_REDIRECT_URL,
   },
   baseUrl: process.env.REACT_APP_API_BASE_URL + '/api/',
   channels: {
