@@ -8,12 +8,6 @@
     "email": "alan.stead@gmail.com"
   },
   "main": "api/server.js",
-  "builds": [
-    { "src": "api/server.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "api/server.js" }
-  ],
   "dependencies": {
     "@auth0/auth0-react": "^2.2.4",
     "@emotion/react": "^11.13.3",
