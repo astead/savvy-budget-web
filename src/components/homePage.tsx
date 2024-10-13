@@ -140,6 +140,9 @@ export const HomePage: React.FC = () => {
           Please put something like "SavvyBudget" in the subject.<br/>
           Depending on how many emails I get, I may shift this to a more formal process.
         </div>
+    
+        <br/><br/>
+        <a href="https://www.flaticon.com/free-icons/budget" title="budget icons">Budget icons created by khulqi Rosyid - Flaticon</a>
       </div>
     );
 };
