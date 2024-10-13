@@ -7,7 +7,8 @@ require('dotenv').config();
 const fs = require('fs');
 const port = 3001; // Use a different port than React
 const knex = require('knex');
-require('module-alias/register');
+const path = require('path');
+require('module-alias').addAlias('@shared', path.join(__dirname, '../src/shared'));
 const { auth0data, channels } = require('@shared/constants.js');
 const dayjs = require('dayjs');
 const { auth, requiredScopes } = require('express-oauth2-jwt-bearer');
