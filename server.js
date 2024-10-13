@@ -3842,3 +3842,6 @@ async function insert_transaction_node(
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
+
+
+module.exports = app;
