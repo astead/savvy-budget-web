@@ -36,8 +36,8 @@ const checkJwt = auth({
 // Middleware to bypass JWT check for specific endpoint
 const bypassJwtCheck = async (req, res, next) => {
   //console.log("MIDDLEWARE: bypassJwtCheck");
-  if (req.path === `/api/${channels.AUTH0_GET_TOKENS}` ||
-      req.path === `/api/${channels.PROGRESS}`
+  if (req.path === `${process.env.API_SERVER_BASE_PATH}${channels.AUTH0_GET_TOKENS}` ||
+      req.path === `${process.env.API_SERVER_BASE_PATH}${channels.PROGRESS}`
   ) {
     //console.log("MIDDLEWARE: bypassing checkJwt since we are getting tokens.");
     return next();
@@ -70,7 +70,7 @@ const bypassJwtCheck = async (req, res, next) => {
     console.log('Current date/tim:', new Date().toLocaleString());
 
 //    if ((decodedToken.exp < Date.now() / 1000) ||
-//        (req.path === `/api/${channels.GET_CAT_ENV}`)) {
+//        (req.path === `${process.env.API_SERVER_BASE_PATH}${channels.GET_CAT_ENV}`)) {
     if (decodedToken.exp < Date.now() / 1000) {
         
       console.log("MIDDLEWARE: Auth token is expired");
@@ -143,8 +143,8 @@ app.use(cors({ origin: auth0data.origin }));
 app.use(bypassJwtCheck);
 app.use(async (req, res, next) => {
   //console.log("MIDDLEWARE: Custom");
-  if (req.path === '/api/' + channels.AUTH0_GET_TOKENS ||
-      req.path === `/api/${channels.PROGRESS}`
+  if (req.path === process.env.API_SERVER_BASE_PATH + channels.AUTH0_GET_TOKENS ||
+      req.path === `${process.env.API_SERVER_BASE_PATH}${channels.PROGRESS}`
   ) {
     //console.log("MIDDLEWARE: bypassing our auth0 check since we are getting tokens.");
     return next();
@@ -323,7 +323,7 @@ function sha256(buffer) {
   REFRESH TOKEN: server API to reveice the authorization code
   from the client-side and use that to request refresh tokens
   from auth0
-app.post('/api/'+channels.AUTH0_GET_TOKENS, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.AUTH0_GET_TOKENS, async (req, res) => {
   console.log('AUTH0_GET_TOKENS ENTER');
   const { authorizationCode, codeVerifier } = req.body;
   try {
@@ -404,7 +404,7 @@ const decrypt = (encrypted, iv, tag) => {
   return plaintext.toString();
 };
 
-app.post('/api/'+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.AUTH0_CHECK_CREATE_USER, async (req, res) => {
   console.log('AUTH0_CHECK_CREATE_USER ENTER');
   const { user } = req.body;
   const token = req.headers.authorization.split(' ')[1];
@@ -582,7 +582,7 @@ const plaid_get_link_token = async () => {
   console.log('plaid_get_link_token EXIT');
 };
 
-app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_TOKEN, async (req, res) => {
   console.log('PLAID_GET_TOKEN ENTER');
 
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -611,7 +611,7 @@ app.post('/api/'+channels.PLAID_GET_TOKEN, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
   console.log('Try getting plaid access token');
 
   const { public_token, metadata } = req.body;
@@ -714,7 +714,7 @@ app.post('/api/'+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
   res.status(200).send('Added or updated PLAID Account successfully');
 });
 
-app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   const { id } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
   const userId = await getUserId(auth0Id);
@@ -782,7 +782,7 @@ app.post('/api/'+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.ADD_ACCOUNT, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_ACCOUNT, async (req, res) => {
   console.log(channels.ADD_ACCOUNT);
   const { name } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -819,12 +819,12 @@ app.post(channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   console.log(channels.PLAID_GET_ACCOUNTS);
 });
 
-app.post('/api/server/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
-  console.log('/api/server/'+channels.PLAID_GET_ACCOUNTS);
+app.post(process.env.API_SERVER_BASE_PATH+'server/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
+  console.log(process.env.API_SERVER_BASE_PATH+'server/'+channels.PLAID_GET_ACCOUNTS);
 });
 
-app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
-  console.log('/api/'+channels.PLAID_GET_ACCOUNTS);
+app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
+  console.log(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_ACCOUNTS);
   
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
 
@@ -876,7 +876,7 @@ app.post('/api/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_REMOVE_LOGIN, async (req, res) => {
   console.log('PLAID_REMOVE_LOGIN ENTER');
 
   const { id } = req.body;
@@ -983,7 +983,7 @@ async function remove_plaid_account(trx, userId, account_id) {
     .where({ id: account_id, user_id: userId });
 }
 
-app.post('/api/'+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_TRANSACTIONS, async (req, res) => {
   console.log(channels.PLAID_GET_TRANSACTIONS);
 
   const sessionId = req.sessionID;
@@ -1225,7 +1225,7 @@ async function apply_modified_transactions({ id, acc, modified, userId, cur_reco
   return 0;
 }
 
-app.get('/api/' + channels.PROGRESS, async (req, res) => {
+app.get(process.env.API_SERVER_BASE_PATH + channels.PROGRESS, async (req, res) => {
   const sessionId = req.query.sessionId;
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -1255,7 +1255,7 @@ app.get('/api/' + channels.PROGRESS, async (req, res) => {
   });
 });
 
-app.post('/api/'+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_FORCE_TRANSACTIONS, async (req, res) => {
   console.log('Try getting PLAID Account transactions for date range');
   
   const sessionId = req.sessionID;
@@ -1373,7 +1373,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
   return 0;
 };
 
-app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
   console.log(channels.UPDATE_TX_ENV_LIST);
 
   const { new_value, filtered_nodes } = req.body;
@@ -1393,7 +1393,7 @@ app.post('/api/'+channels.UPDATE_TX_ENV_LIST, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.DEL_TX_LIST, async (req, res) => {
   console.log(channels.DEL_TX_LIST);
   
   const { del_tx_list } = req.body;
@@ -1416,7 +1416,7 @@ app.post('/api/'+channels.DEL_TX_LIST, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.SPLIT_TX, async (req, res) => {
   console.log(channels.SPLIT_TX);
 
   const { txID, split_tx_list } = req.body;
@@ -1495,7 +1495,7 @@ app.post('/api/'+channels.SPLIT_TX, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.ADD_ENVELOPE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_ENVELOPE, async (req, res) => {
   console.log(channels.ADD_ENVELOPE);
 
   const { categoryID } = req.body;
@@ -1522,7 +1522,7 @@ app.post('/api/'+channels.ADD_ENVELOPE, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.ADD_CATEGORY, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_CATEGORY, async (req, res) => {
   console.log(channels.ADD_CATEGORY);
 
   const { name } = req.body;
@@ -1545,7 +1545,7 @@ app.post('/api/'+channels.ADD_CATEGORY, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.DEL_CATEGORY, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.DEL_CATEGORY, async (req, res) => {
   console.log(channels.DEL_CATEGORY);
 
   const { id } = req.body;
@@ -1574,7 +1574,7 @@ app.post('/api/'+channels.DEL_CATEGORY, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.DEL_ENVELOPE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.DEL_ENVELOPE, async (req, res) => {
   console.log(channels.DEL_ENVELOPE);
 
   const { id } = req.body;
@@ -1604,7 +1604,7 @@ app.post('/api/'+channels.DEL_ENVELOPE, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.HIDE_ENVELOPE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.HIDE_ENVELOPE, async (req, res) => {
   console.log(channels.HIDE_ENVELOPE);
 
   const { id } = req.body;
@@ -1624,7 +1624,7 @@ app.post('/api/'+channels.HIDE_ENVELOPE, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.REN_CATEGORY, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.REN_CATEGORY, async (req, res) => {
   console.log(channels.REN_CATEGORY);
 
   const { id, name } = req.body;
@@ -1645,7 +1645,7 @@ app.post('/api/'+channels.REN_CATEGORY, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.REN_ENVELOPE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.REN_ENVELOPE, async (req, res) => {
   console.log(channels.REN_ENVELOPE);
 
   const { id, name } = req.body;
@@ -1666,7 +1666,7 @@ app.post('/api/'+channels.REN_ENVELOPE, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.MOV_ENVELOPE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.MOV_ENVELOPE, async (req, res) => {
   console.log(channels.MOV_ENVELOPE);
 
   const { id, newCatID } = req.body;
@@ -1687,7 +1687,7 @@ app.post('/api/'+channels.MOV_ENVELOPE, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.COPY_BUDGET, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.COPY_BUDGET, async (req, res) => {
   console.log(channels.COPY_BUDGET);
 
   const { newtxDate, budget_values } = req.body;
@@ -1701,7 +1701,7 @@ app.post('/api/'+channels.COPY_BUDGET, async (req, res) => {
   res.status(200).send('Copied budget successfully');
 });
 
-app.post('/api/'+channels.UPDATE_BUDGET, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_BUDGET, async (req, res) => {
   console.log(channels.UPDATE_BUDGET);
 
   const { newEnvelopeID, newtxDate, newtxAmt } = req.body;
@@ -1713,7 +1713,7 @@ app.post('/api/'+channels.UPDATE_BUDGET, async (req, res) => {
   res.status(200).send('Balance updated successfully');
 });
 
-app.post('/api/'+channels.UPDATE_BALANCE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_BALANCE, async (req, res) => {
   console.log(channels.UPDATE_BALANCE);
 
   const { id, newAmt } = req.body;
@@ -1733,7 +1733,7 @@ app.post('/api/'+channels.UPDATE_BALANCE, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.MOVE_BALANCE, async (req, res) => {
   console.log(channels.MOVE_BALANCE);
 
   const { transferAmt, fromID, toID } = req.body;
@@ -1764,7 +1764,7 @@ app.post('/api/'+channels.MOVE_BALANCE, async (req, res) => {
 });
 
 // Get the categories and envelopes
-app.post('/api/'+channels.GET_ENV_CAT, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_CAT, async (req, res) => {
   console.log(channels.GET_ENV_CAT);
 
   const { onlyActive } = req.body;
@@ -1805,7 +1805,7 @@ app.post('/api/'+channels.GET_ENV_CAT, async (req, res) => {
 });
 
 // Get the categories and envelopes
-app.post('/api/'+channels.GET_CAT_ENV, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_CAT_ENV, async (req, res) => {
   console.log(channels.GET_CAT_ENV);
 
   const { onlyActive } = req.body;
@@ -1845,7 +1845,7 @@ app.post('/api/'+channels.GET_CAT_ENV, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_BUDGET_ENV, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_BUDGET_ENV, async (req, res) => {
   console.log(channels.GET_BUDGET_ENV);
 
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -1879,7 +1879,7 @@ app.post('/api/'+channels.GET_BUDGET_ENV, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_PREV_BUDGET, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_PREV_BUDGET, async (req, res) => {
   console.log(channels.GET_PREV_BUDGET);
 
   const { find_date } = req.body;
@@ -1902,7 +1902,7 @@ app.post('/api/'+channels.GET_PREV_BUDGET, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_CUR_BUDGET, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_CUR_BUDGET, async (req, res) => {
   console.log(channels.GET_CUR_BUDGET);
 
   const { find_date } = req.body;
@@ -1925,7 +1925,7 @@ app.post('/api/'+channels.GET_CUR_BUDGET, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_PREV_ACTUAL, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_PREV_ACTUAL, async (req, res) => {
   console.log(channels.GET_PREV_ACTUAL);
 
   const { find_date } = req.body;
@@ -1958,7 +1958,7 @@ app.post('/api/'+channels.GET_PREV_ACTUAL, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_CUR_ACTUAL, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_CUR_ACTUAL, async (req, res) => {
   console.log(channels.GET_CUR_ACTUAL);
 
   const { find_date } = req.body;
@@ -1991,7 +1991,7 @@ app.post('/api/'+channels.GET_CUR_ACTUAL, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_CURR_BALANCE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_CURR_BALANCE, async (req, res) => {
   console.log(channels.GET_CURR_BALANCE);
   
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -2012,7 +2012,7 @@ app.post('/api/'+channels.GET_CURR_BALANCE, async (req, res) => {
   } 
 });
 
-app.post('/api/'+channels.GET_MONTHLY_AVG, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_MONTHLY_AVG, async (req, res) => {
   console.log(channels.GET_MONTHLY_AVG);
 
   const { find_date } = req.body;
@@ -2044,7 +2044,7 @@ app.post('/api/'+channels.GET_MONTHLY_AVG, async (req, res) => {
   } 
 });
 
-app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_TX_DATA, async (req, res) => {
   console.log(channels.GET_TX_DATA);
 
   const {
@@ -2165,7 +2165,7 @@ app.post('/api/'+channels.GET_TX_DATA, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.ADD_TX, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_TX, async (req, res) => {
   console.log(channels.ADD_TX);
 
   const { txDate, txAmt, txEnvID, txAccID, txDesc } = req.body;
@@ -2206,7 +2206,7 @@ app.post('/api/'+channels.ADD_TX, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_ENV_LIST, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_LIST, async (req, res) => {
   console.log(channels.GET_ENV_LIST);
 
   const { onlyActive } = req.body;
@@ -2243,7 +2243,7 @@ app.post('/api/'+channels.GET_ENV_LIST, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.UPDATE_TX_ENV, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_TX_ENV, async (req, res) => {
   console.log(channels.UPDATE_TX_ENV);
 
   const { txID, envID } = req.body;
@@ -2260,7 +2260,7 @@ app.post('/api/'+channels.UPDATE_TX_ENV, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.UPDATE_TX_DESC, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_TX_DESC, async (req, res) => {
   console.log(channels.UPDATE_TX_DESC);
 
   const { txID, new_value } = req.body;
@@ -2281,7 +2281,7 @@ app.post('/api/'+channels.UPDATE_TX_DESC, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.UPDATE_TX_DATE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_TX_DATE, async (req, res) => {
   console.log(channels.UPDATE_TX_DATE);
 
   const { txID, new_value } = req.body;
@@ -2302,7 +2302,7 @@ app.post('/api/'+channels.UPDATE_TX_DATE, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.SAVE_KEYWORD, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.SAVE_KEYWORD, async (req, res) => {
   console.log(channels.SAVE_KEYWORD);
 
   const { acc, envID, description } = req.body;
@@ -2334,7 +2334,7 @@ app.post('/api/'+channels.SAVE_KEYWORD, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.SET_DUPLICATE, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.SET_DUPLICATE, async (req, res) => {
   console.log(channels.SET_DUPLICATE);
 
   const { txID, isDuplicate } = req.body;
@@ -2357,7 +2357,7 @@ app.post('/api/'+channels.SET_DUPLICATE, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.SET_VISIBILITY, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.SET_VISIBILITY, async (req, res) => {
   console.log(channels.SET_VISIBILITY);
 
   const { txID, isVisible } = req.body;
@@ -2381,7 +2381,7 @@ app.post('/api/'+channels.SET_VISIBILITY, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_KEYWORDS, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_KEYWORDS, async (req, res) => {
   console.log(channels.GET_KEYWORDS);
   
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -2418,7 +2418,7 @@ app.post('/api/'+channels.GET_KEYWORDS, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_ACCOUNT_NAMES, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ACCOUNT_NAMES, async (req, res) => {
   console.log(channels.GET_ACCOUNT_NAMES);
 
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -2440,7 +2440,7 @@ app.post('/api/'+channels.GET_ACCOUNT_NAMES, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ACCOUNTS, async (req, res) => {
   console.log(channels.GET_ACCOUNTS);
 
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -2478,7 +2478,7 @@ app.post('/api/'+channels.GET_ACCOUNTS, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.UPDATE_KEYWORD_ENV, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_KEYWORD_ENV, async (req, res) => {
   console.log(channels.GET_KEYWORDS);
 
   const { id, new_value } = req.body;
@@ -2499,7 +2499,7 @@ app.post('/api/'+channels.UPDATE_KEYWORD_ENV, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.UPDATE_KEYWORD_ACC, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_KEYWORD_ACC, async (req, res) => {
   console.log(channels.UPDATE_KEYWORD_ACC);
 
   const { id, new_value } = req.body;
@@ -2520,7 +2520,7 @@ app.post('/api/'+channels.UPDATE_KEYWORD_ACC, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.SET_ALL_KEYWORD, async (req, res) => {
   console.log(channels.SET_ALL_KEYWORD);
 
   const { id, force } = req.body;
@@ -2565,7 +2565,7 @@ app.post('/api/'+channels.SET_ALL_KEYWORD, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.DEL_KEYWORD, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.DEL_KEYWORD, async (req, res) => {
   console.log(channels.DEL_KEYWORD);
 
   const { id } = req.body;
@@ -2586,7 +2586,7 @@ app.post('/api/'+channels.DEL_KEYWORD, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.UPDATE_KEYWORD, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_KEYWORD, async (req, res) => {
   console.log(channels.UPDATE_KEYWORD);
 
   const { id, new_value } = req.body;
@@ -2607,7 +2607,7 @@ app.post('/api/'+channels.UPDATE_KEYWORD, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_ACCOUNT, async (req, res) => {
   console.log(channels.UPDATE_ACCOUNT);
 
   const { id, new_value } = req.body;
@@ -2654,7 +2654,7 @@ app.post('/api/'+channels.UPDATE_ACCOUNT, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.VIS_ACCOUNT, async (req, res) => {
   console.log(channels.VIS_ACCOUNT);
 
   const { id, set_active } = req.body;
@@ -2675,7 +2675,7 @@ app.post('/api/'+channels.VIS_ACCOUNT, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.DEL_ACCOUNT, async (req, res) => {
   console.log(channels.DEL_ACCOUNT);
 
   const { id } = req.body;
@@ -2734,7 +2734,7 @@ app.post('/api/'+channels.DEL_ACCOUNT, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.GET_ENV_CHART_DATA, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_CHART_DATA, async (req, res) => {
   console.log(channels.GET_ENV_CHART_DATA);
 
   const { filterEnvID, filterTimeFrameID } = req.body;
@@ -2812,7 +2812,7 @@ app.post('/api/'+channels.GET_ENV_CHART_DATA, async (req, res) => {
 
 
 
-app.post('/api/'+channels.IMPORT_OFX, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.IMPORT_OFX, async (req, res) => {
   console.log(channels.IMPORT_OFX);
   
   const { ofxString } = req.body;
@@ -2898,7 +2898,7 @@ app.post('/api/'+channels.IMPORT_OFX, async (req, res) => {
   }
 });
 
-app.post('/api/'+channels.IMPORT_CSV, async (req, res) => {
+app.post(process.env.API_SERVER_BASE_PATH+channels.IMPORT_CSV, async (req, res) => {
   console.log(channels.IMPORT_CSV);
 
   const { account_string, ofxString } = req.body;
