@@ -13,8 +13,9 @@ export const HomePage: React.FC = () => {
           <Header currTab="Home"/>
         </header>
         <div className="main-page-body-text">
-          <b>Welcome to Savvy Budget.</b><br />
-          <b>History</b><br />
+          <b>Welcome to Savvy Budget.</b>
+          <br/><br/>
+          <b>History</b><br/>
           Savvy Budget was initially created in 2002 as a way to track my personal budget.
           I set it up so it would require uploading downloaded bank transaction exports. 
           In 2008 I made some modifications so others could create accounts and use the site.
@@ -24,7 +25,7 @@ export const HomePage: React.FC = () => {
           I also implemented bank account linking using PLAID because I couldn't go back to downloading transactions and uploading them. 
           At first I set it up to all run locally with a file based database.  Later in 2024 I decided to open it up to others. 
           <br/><br/>
-          <b>What is it?</b><br />
+          <b>What is it?</b><br/>
           Savvy Budget is kind of like a combination of envelope budgeting and double entry accounting.
           The idea of envelope budgeting is that you have envelopes for
           each spending category such as the electric bill or groceries.
@@ -32,7 +33,7 @@ export const HomePage: React.FC = () => {
           so that you ensure you have enough money to pay them all.
           Double entry accounting means that you have a credit and a debit for each transaction.
           <br/><br/>
-          <b>Setting a budget philosophy</b><br />
+          <b>Setting a budget philosophy</b><br/>
           Savvy Budget loosely applies double entry accounting and the envelope system when you setup your budget.
           When setting aside money in each envelope it should come from somewhere.
           The goal in setting a budget is your expenses should equal your income and they should add up to 0. 
@@ -52,7 +53,7 @@ export const HomePage: React.FC = () => {
           If they are negative it means you've borrowed from yourself more than your income.
           If they are positive it means you've made more than you've spent.
           <br/><br/>
-          <b>How much does it cost?</b><br />
+          <b>How much does it cost?</b><br/>
           The basic Savvy Budget is free to use. If it doesn't cost me extra money, then it won't cost you money.<br/>
           <li>
             <b>Free Downloaded version:</b> You can download the version that runs on your local computer for free and keep it forever.
@@ -62,7 +63,7 @@ export const HomePage: React.FC = () => {
           </li>
           <li>
             <b>Free Online version:</b> As I mentioned, if it doesn't cost me extra money, I won't charge you.
-            Some of my costs are fairly fixes, but low. For instance web hosting and (for now) cloud database hosting. With this version
+            Some of my costs are fairly fixed, but low. For instance web hosting and (for now) cloud database hosting. With this version
             the data is stored in an encrypted cloud based database, but to add new transactions you can enter them manually or upload your bank 
             transaction exports. If I start getting charged more for having a cloud based database, then I might need to implement a charge 
             to cover that. If that happens, you could switch to the downloaded version and store the data on your system or setup your own
@@ -77,9 +78,9 @@ export const HomePage: React.FC = () => {
             I am hoping to set those up as free, and have limited functionality on them, for instance only checking current envelope
             balances.
           </li>
-          <br /><br />
-          <b>Getting Started</b><br />
-          Here is the basic process for getting started:<br />
+          <br/>
+          <b>Getting Started</b><br/>
+          Here is the basic process for getting started:<br/>
           <ol>
             <li>Create an account</li>
             <li>Configure your envelopes
@@ -134,6 +135,13 @@ export const HomePage: React.FC = () => {
             </li>
           </ol>
           <br />
+          <b>Security</b><br/>
+          I'm using Auth0 for user authentication and PLAID for bank linking.
+          Access tokens from PLAID are never sent to the client side, and are double
+          encrypted at rest and in transit to the database where they are stored. 
+          Additionally connections to the database require SSL, and row level security
+          is enabled. I do not do anything with your data, I don't sell it or share it.
+          <br/><br/>
           Happy Budgeting!
           <br/><br/>
           Please send any bugs, feature requests, comments, questions to: alan.stead@gmail.com<br/>
