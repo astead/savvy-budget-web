@@ -33,7 +33,6 @@ const generateCodeChallenge = async (verifier) => {
 */
 
 const LoginButton = () => {
-  console.log("LoginButton");
   const { loginWithRedirect } = useAuth0();
   
   /*

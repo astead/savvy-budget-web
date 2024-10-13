@@ -16,8 +16,6 @@ import { AuthTokenProvider } from './context/AuthTokenContext.tsx';
 
 
 export const App: React.FC = () => {
-  console.log("App");
-
   const [auth_token, setAuth_token] = useState<string | null>(null);
   const [config, setConfig] = useState<{ headers: { Authorization: string } } | null>(null);
 
@@ -25,12 +23,12 @@ export const App: React.FC = () => {
 
   
   useEffect(() => {
-    console.log("App.tsx useEffect: [isAuthenticated, user, getAccessTokenSilently]");
+    //console.log("App.tsx useEffect: [isAuthenticated, user, getAccessTokenSilently]");
 
     const checkOrCreateUser = async () => {
-      console.log("App.tsx checkOrCreateUser");
+      //console.log("App.tsx checkOrCreateUser");
       if (isAuthenticated && user) {
-        console.log("authenticated and we have a user.");
+        //console.log("authenticated and we have a user.");
         const accessToken = await getAccessTokenSilently();
         const config = {
           headers: { Authorization: `Bearer ${accessToken }` }
@@ -39,7 +37,7 @@ export const App: React.FC = () => {
         setConfig({ headers: { Authorization: `Bearer ${accessToken}` } });
 
         try {
-          console.log("Calling AUTH0_CHECK_CREATE_USER from App.checkOrCreateUser");
+          //console.log("Calling AUTH0_CHECK_CREATE_USER from App.checkOrCreateUser");
           // Check or create user in a single API call
           await axios.post(baseUrl + channels.AUTH0_CHECK_CREATE_USER, 
             { user }, config);
@@ -47,8 +45,8 @@ export const App: React.FC = () => {
           console.error('Error checking or creating user:', error);
         }
       } else {
-        console.log("isAuthenticated: ", isAuthenticated);
-        console.log("user: ", user);
+        //console.log("isAuthenticated: ", isAuthenticated);
+        //console.log("user: ", user);
       }
     };
 

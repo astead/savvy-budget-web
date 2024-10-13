@@ -7,8 +7,6 @@ import { baseUrl, channels, auth0data } from './shared/constants.js';
 
 
 export const Home: React.FC = () => {
-  console.log("Home");
-
   return (
     <Auth0Provider
       domain={auth0data.domain}
