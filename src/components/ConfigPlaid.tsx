@@ -472,7 +472,7 @@ export const ConfigPlaid = () => {
                             ],
                           },
                         }}>
-                        <Typography variant="body1">
+                        <span>
                           <EditText
                             name={ acc.id.toString() }
                             defaultValue={ acc.common_name }
@@ -485,7 +485,7 @@ export const ConfigPlaid = () => {
                             className={"editableText"}
                             inputClassName={"normalInput"}
                           />
-                        </Typography>
+                        </span>
                       </Tooltip>
                     </Box>
                     <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
@@ -555,7 +555,7 @@ export const ConfigPlaid = () => {
                             ],
                           },
                         }}>
-                        <Typography variant="body1">
+                        <span>
                           <EditText
                             name={ acc.id.toString() }
                             defaultValue={ acc.common_name }
@@ -568,7 +568,7 @@ export const ConfigPlaid = () => {
                             className={"editableText"}
                             inputClassName={"normalInput"}
                           />
-                        </Typography>
+                        </span>
                       </Tooltip>
                     </Box>
                     <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
