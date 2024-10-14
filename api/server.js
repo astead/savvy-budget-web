@@ -776,18 +776,22 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
 
 app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
   const { id } = req.body;
-  const auth0Id = req.auth0Id; // Extracted Auth0 ID
-  const userId = await getUserId(auth0Id);
+  const userId = req.user_id; // Looked up user_id from middleware
 
   let enc_access_token = null;
   let iv = null;
   let tag = null;
 
   // Get the access token for this account
-  const data = await db('plaid_account')
-    .select('access_token', 'iv', 'tag')
-    .where({ id: id, user_id: userId })
-    .first();
+  await db.transaction(async (trx) => {
+    // Set the current_user_id
+    await trx.raw(`SET myapp.current_user_id = ${userId}`);
+
+    const data = await trx('plaid_account')
+      .select('access_token', 'iv', 'tag')
+      .where({ id: id, user_id: userId })
+      .first();
+  });
     
   if (data !== undefined) {
     enc_access_token = data.access_token;
