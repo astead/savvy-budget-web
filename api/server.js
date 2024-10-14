@@ -948,14 +948,15 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_REMOVE_LOGIN, async (re
   console.log('PLAID_REMOVE_LOGIN ENTER');
 
   const { id } = req.body;
-  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = req.user_id; // Looked up user_id from middleware
 
   try {
-    const userId = await getUserId(auth0Id);
-    
     await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+
       // Get the access token
-      const data = await db('plaid_account')
+      const data = await trx('plaid_account')
         .select('item_id','access_token', 'iv', 'tag')
         .where({ id: id, user_id: userId })
         .first();
@@ -971,7 +972,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_REMOVE_LOGIN, async (re
 
           // Pull the list of accounts using that item id
           // Item ID is what PLAID uses for a login or connected account
-          const accts_to_delete = await db('plaid_account')
+          const accts_to_delete = await trx('plaid_account')
             .select('id')
             .where({ item_id: data.item_id, user_id: userId });
 
