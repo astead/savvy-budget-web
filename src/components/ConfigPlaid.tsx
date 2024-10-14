@@ -108,9 +108,6 @@ export const ConfigPlaid = () => {
   };
 
   const getAccountList = async () => {
-    
-
-    
     try {
       if (!config) return;
       const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS, null, config );
