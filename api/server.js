@@ -143,7 +143,7 @@ app.use(cors({ origin: auth0data.origin }));
 app.use(bypassJwtCheck);
 app.use(async (req, res, next) => {
   //console.log("MIDDLEWARE: Custom");
-  if (req.path === process.env.API_SERVER_BASE_PATH + channels.AUTH0_GET_TOKENS ||
+  if (req.path === `${process.env.API_SERVER_BASE_PATH}${channels.AUTH0_GET_TOKENS}` ||
       req.path === `${process.env.API_SERVER_BASE_PATH}${channels.PROGRESS}`
   ) {
     //console.log("MIDDLEWARE: bypassing our auth0 check since we are getting tokens.");
