@@ -849,28 +849,31 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_UPDATE_LOGIN, async (re
 app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_ACCOUNT, async (req, res) => {
   console.log(channels.ADD_ACCOUNT);
   const { name } = req.body;
-  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = req.user_id; // Looked up user_id from middleware
 
   try {
-    const userId = await getUserId(auth0Id);
-  
-    await db('plaid_account')
-      .insert({
-        institution_id: null,
-        institution_name: null,
-        account_id: null,
-        mask: null,
-        account_name: null,
-        account_subtype: null,
-        account_type: null,
-        verification_status: null,
-        item_id: null,
-        access_token: null,
-        cursor: null,
-        user_id: userId,
-        common_name: name,
-        full_account_name: name,
-      });
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+      
+      await trx('plaid_account')
+        .insert({
+          institution_id: null,
+          institution_name: null,
+          account_id: null,
+          mask: null,
+          account_name: null,
+          account_subtype: null,
+          account_type: null,
+          verification_status: null,
+          item_id: null,
+          access_token: null,
+          cursor: null,
+          user_id: userId,
+          common_name: name,
+          full_account_name: name,
+        });
+    });
     
     console.log('Added Unlinked Account');
     res.status(200).send('Added Unlinked Account');
