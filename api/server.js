@@ -460,11 +460,11 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.AUTH0_CHECK_CREATE_USER, asyn
   console.log('AUTH0_CHECK_CREATE_USER ENTER');
   const { user } = req.body;
   const token = req.headers.authorization.split(' ')[1];
-  const decodedToken = jwt.decode(token);
-  const auth0Id = decodedToken.sub;
   const { encrypted: enc_token, iv, tag } = encrypt(token);
+  const auth0Id = req.auth0Id;
+  const user_id = req.user_id;
 
-  const { returnCode, message } = await auth0_check_or_create_user({ enc_token, iv, tag, auth0Id });
+  const { returnCode, message } = await auth0_check_or_create_user({ enc_token, iv, tag, auth0Id, user_id, user });
   res.status(returnCode).json({ message: message });
 });
 
@@ -472,78 +472,85 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.AUTH0_CHECK_CREATE_USER, asyn
   REFRESH TOKEN: was passing in the refresh token to store that in the DB
   async function auth0_check_or_create_user({ token, refreshToken, auth0Id }) {
 */
-async function auth0_check_or_create_user({ enc_token, iv, tag, auth0Id }) {
+async function auth0_check_or_create_user({ enc_token, iv, tag, auth0Id, user_id, user }) {
   console.log("auth0_check_or_create_user ENTER");
   //console.log("token:", token);
   
   try {
-    const existingUser = 
-      await db('users')
-        .select('id', 'access_token', 'refresh_token')
-        .where('auth0_id', auth0Id)
-        .first();
-    
-    // no matching records found
-    if (!existingUser) {
-      // Insert user and retrieve the user ID in one step
-      const [userId] = await db('users')
-        .insert({
-          auth0_id: auth0Id,
-          email: user.email,
-          name: user.name,
-          access_token: enc_token,
-          iv: iv,
-          tag: tag,
-          refresh_token: null, /* REFRESH TOKEN: was storing the refresh token */
-        })
-        .returning('id');
-        
-      // Create default DB data
-      await db('category').insert({ category: 'Uncategorized', user_id: userId }).then();
-      await db('category').insert({ category: 'Income', user_id: userId }).then();
+    await db.transaction(async (trx) => {
+      // Set the current_auth0_id
+      await trx.raw(`SET myapp.current_auth0_id = '${auth0Id}'`);
 
-      console.log('User created successfully');
-      //res.status(201).json({ message: 'User created successfully' });
-      return { returnCode: 200, message: 'User created successfully' };
-      
-    } else {
-      // Already exists
-      //console.log('User already exists, checking if tokens match');
-      //console.log("existingUser.access_token: ", existingUser.access_token);
-      //console.log("token :                    ", token);
-      /* REFRESH TOKEN: was printing out the old and new values.
-      console.log("existingUser.refresh_token: ", existingUser.refresh_token);
-      console.log("refreshToken:               ", refreshToken);
-      */
-
-      /* REFRESH TOKEN: was checking if either token has changed
-      if (existingUser.access_token != token ||
-          (existingUser.refresh_token != refreshToken && refreshToken)) {
-      */
-      if (existingUser.access_token != enc_token) {
-        console.log("Auth0 tokens do not match, updating them.");
-        /* REFRESH TOKEN: output message saying we'll only update refresh
-            token with a valid one.
-        console.log("will only update refresh token if new one is not null.");
-        */
-        let query = db('users')
-          .update({ access_token: enc_token, iv: iv, tag: tag })
-          .where('auth0_id', auth0Id);
+      // no matching records found
+      if (!user_id) {
+        // Insert user and retrieve the user ID in one step
+        const [userId] = await trx('users')
+          .insert({
+            auth0_id: auth0Id,
+            email: user.email,
+            name: user.name,
+            access_token: enc_token,
+            iv: iv,
+            tag: tag,
+            refresh_token: null, /* REFRESH TOKEN: was storing the refresh token */
+          })
+          .returning('id');
         
-        /* REFRESH TOKEN: if we have a refresh token, update that also
-        if (refreshToken) {
-          query = query.update({ refresh_token: refreshToken });
-        }
-        */
-        await query;
-          
+        // Set the current_user_id
+        await trx.raw(`SET myapp.current_user_id = ${userId}`);
+
+        // Create default DB data
+        await trx('category').insert({ category: 'Uncategorized', user_id: userId }).then();
+        await trx('category').insert({ category: 'Income', user_id: userId }).then();
+
+        console.log('User created successfully');
+        
       } else {
-        console.log("tokens match.");
+        // Already exists
+        
+        const existingUser = 
+        await trx('users')
+          .select('id', 'access_token', 'refresh_token')
+          .where('auth0_id', auth0Id)
+          .first();
+    
+        //console.log('User already exists, checking if tokens match');
+        //console.log("existingUser.access_token: ", existingUser.access_token);
+        //console.log("token :                    ", token);
+        /* REFRESH TOKEN: was printing out the old and new values.
+        console.log("existingUser.refresh_token: ", existingUser.refresh_token);
+        console.log("refreshToken:               ", refreshToken);
+        */
+
+        /* REFRESH TOKEN: was checking if either token has changed
+        if (existingUser.access_token != token ||
+            (existingUser.refresh_token != refreshToken && refreshToken)) {
+        */
+        if (existingUser.access_token != enc_token) {
+          console.log("Auth0 tokens do not match, updating them.");
+          /* REFRESH TOKEN: output message saying we'll only update refresh
+              token with a valid one.
+          console.log("will only update refresh token if new one is not null.");
+          */
+          let query = trx('users')
+            .update({ access_token: enc_token, iv: iv, tag: tag })
+            .where('auth0_id', auth0Id);
+          
+          /* REFRESH TOKEN: if we have a refresh token, update that also
+          if (refreshToken) {
+            query = query.update({ refresh_token: refreshToken });
+          }
+          */
+          await query;
+            
+        } else {
+          console.log("tokens match.");
+        }
       }
-      
-      //res.status(200).json({ message: 'User already exists' });
-      return { returnCode: 200, message: 'User already exists' };
-    }
+    });
+
+    //res.status(201).json({ message: 'User created successfully' });
+    return { returnCode: 200, message: 'User check or create ran successfully' };
 
   } catch (error) {
     console.error('Error checking or creating user:', error);
