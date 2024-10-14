@@ -168,6 +168,10 @@ app.use(async (req, res, next) => {
     //console.log("MIDDLEWARE: setting auth0Id");
     req.auth0Id = auth0Id;
     
+    // Just in case someone placed this variable to impersonate someone
+    // lets clear this out.
+    req.user_id = null; 
+    
     console.log('path: ', req.path);
     console.log('auth0Id: ', auth0Id);
 
