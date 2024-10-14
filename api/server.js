@@ -268,11 +268,27 @@ set_db();
 const progressStatuses = {};
 
 const getUserId = async (auth0Id) => {
-  const user = await db('users').where({ auth0_id: auth0Id }).first();
-  if (!user) {
+  let user_id = null;
+  await db.transaction(async (trx) => {
+    // Set the current_auth0_id
+    await trx.raw(`SET myapp.current_auth0_id = '${auth0Id}'`);
+
+    // Query the users table to get the user_id
+    const existingUser = 
+      await trx('users')
+        .select('id')
+        .where('auth0_id', auth0Id)
+        .first();
+
+    if (existingUser) {
+      user_id = existingUser.id;
+    }
+  });
+  
+  if (!user_id) {
     throw new Error('User not found');
   }
-  return user.id;
+  return user_id;
 };
 
 /*
