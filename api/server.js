@@ -816,14 +816,6 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_ACCOUNT, async (req, res)
   }
 });
 
-app.post(channels.PLAID_GET_ACCOUNTS, async (req, res) => {
-  console.log(channels.PLAID_GET_ACCOUNTS);
-});
-
-app.post(process.env.API_SERVER_BASE_PATH+'server/'+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
-  console.log(process.env.API_SERVER_BASE_PATH+'server/'+channels.PLAID_GET_ACCOUNTS);
-});
-
 app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   console.log(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_ACCOUNTS);
   
