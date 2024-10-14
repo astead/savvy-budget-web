@@ -157,18 +157,52 @@ app.use(async (req, res, next) => {
     if (!decodedToken) {
       return res.status(401).send('Unauthorized: Invalid Token');
     }
-    //console.log("MIDDLEWARE: setting auth0Id");
-    req.auth0Id = decodedToken.sub;
+    const auth0Id = decodedToken.sub;
     
     // Make sure the UserID is not missing
-    const userId = req.auth0Id;
-    if (!userId) {
+    if (!auth0Id) {
       return res.status(401).send('Unauthorized: Missing User ID');
     }
+
     //console.log("MIDDLEWARE: token has userID.");
+    //console.log("MIDDLEWARE: setting auth0Id");
+    req.auth0Id = auth0Id;
+    
+    console.log('path: ', req.path);
+    console.log('auth0Id: ', auth0Id);
 
     // Set DB session with our authenticated userID
-    await db.raw(`SET myapp.current_user_id = '${userId}'`);
+    /* 
+      TODO: refactor DB interactions to use stored procedures.
+      Unfortunately this session variable does not persist across
+      the whole node express server endpoint handling. Supabase
+      uses connection pooling and a connection is grabbed for every
+      database transaction and then put back in the queue. So
+      sequential transactions are not guaranteed to use the same
+      connection or user variable.
+      For now, I'll switch every logic db transaction to use an 
+      explicit transaction statement with setting the user variable
+      at the beginning.
+      A more performant solution seems to be refactoring all of this
+      to use stored procedures.
+    */
+    await db.transaction(async (trx) => {
+      // Set the current_auth0_id
+      // TODO: this could be vulnerable to a SQL injection attack
+      await trx.raw(`SET myapp.current_auth0_id = '${auth0Id}'`);
+      
+      // Query the users table to get the user_id
+      const existingUser = 
+      await trx('users')
+        .select('id')
+        .where('auth0_id', auth0Id)
+        .first();
+      if (existingUser) {
+        console.log('Setting DB current_user_id: ', existingUser.id);
+        req.user_id = existingUser.id;
+      }
+    });
+    
     next();
 
   } catch (error) {
