@@ -886,49 +886,53 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_ACCOUNT, async (req, res)
 app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_ACCOUNTS, async (req, res) => {
   console.log(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_ACCOUNTS);
   
-  const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = req.user_id; // Looked up user_id from middleware
 
   try {
-    const userId = await getUserId(auth0Id);
-  
     const find_date = dayjs(new Date()).format('YYYY-MM-DD');
-    let query = db
-      .select(
-        'plaid_account.id',
-        'plaid_account.institution_id',
-        'plaid_account.institution_name',
-        'plaid_account.common_name',
-        'plaid_account.full_account_name',
-        'plaid_account.isActive',
-        'plaid_account.isLinked',
-      )
-      .max({ lastTx: 'txDate' })
-      .from('plaid_account')
-      .leftJoin('transaction', function () {
-        this.on('plaid_account.id', '=', 'transaction.accountID')
-          .andOn('transaction.isBudget', '=', 0)
-          .andOn('transaction.isDuplicate', '=', 0)
-          .andOn('plaid_account.user_id', '=', db.raw(`?`, [userId]))
-          .andOn('transaction.user_id', '=', db.raw(`?`, [userId]));
-          // PostgreSQL specific
-          this.on(db.raw(`?::date - "txDate" >= 0`, [find_date]));
-          this.on(db.raw(`"transaction"."isVisible" = true`));
-      })
-      .where({ 'plaid_account.user_id': userId })
-      .orderBy('plaid_account.institution_name')
-      .orderBy('plaid_account.common_name')
-      .orderBy('plaid_account.id')
-      .groupBy(
-        'plaid_account.id',
-        'plaid_account.institution_id',
-        'plaid_account.institution_name',
-        'plaid_account.common_name',
-        'plaid_account.full_account_name',
-        'plaid_account.isLinked'
-      );
+    
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
-    const data = await query;
-    res.json(data);
+      let query = trx
+        .select(
+          'plaid_account.id',
+          'plaid_account.institution_id',
+          'plaid_account.institution_name',
+          'plaid_account.common_name',
+          'plaid_account.full_account_name',
+          'plaid_account.isActive',
+          'plaid_account.isLinked',
+        )
+        .max({ lastTx: 'txDate' })
+        .from('plaid_account')
+        .leftJoin('transaction', function () {
+          this.on('plaid_account.id', '=', 'transaction.accountID')
+            .andOn('transaction.isBudget', '=', 0)
+            .andOn('transaction.isDuplicate', '=', 0)
+            .andOn('plaid_account.user_id', '=', trx.raw(`?`, [userId]))
+            .andOn('transaction.user_id', '=', trx.raw(`?`, [userId]));
+            // PostgreSQL specific
+            this.on(trx.raw(`?::date - "txDate" >= 0`, [find_date]));
+            this.on(trx.raw(`"transaction"."isVisible" = true`));
+        })
+        .where({ 'plaid_account.user_id': userId })
+        .orderBy('plaid_account.institution_name')
+        .orderBy('plaid_account.common_name')
+        .orderBy('plaid_account.id')
+        .groupBy(
+          'plaid_account.id',
+          'plaid_account.institution_id',
+          'plaid_account.institution_name',
+          'plaid_account.common_name',
+          'plaid_account.full_account_name',
+          'plaid_account.isLinked'
+        );
+
+      const data = await query;
+      res.json(data);
+    });
 
   } catch (err) {
     console.error(err);
