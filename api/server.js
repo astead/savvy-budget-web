@@ -675,16 +675,14 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
 
   const { public_token, metadata } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
+  const userId = req.user_id; // Looked up user_id from middleware
 
   try {
-
     // The public token expires after 30 minutes
     /* PLAID Documentation: https://plaid.com/docs/api/items/#itempublic_tokenexchange */
     const response = await client.itemPublicTokenExchange({
       public_token: public_token,
     });
-
-    const userId = await getUserId(auth0Id);
 
     // These values should be saved to a persistent database and
     // associated with the currently signed-in user
@@ -694,76 +692,79 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
     //console.log('itemPublicTokenExchange return:', response.data);
     //console.log('metadata:', metadata);
 
-    metadata.accounts.forEach(async (p_account) => {
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
-      // Does this account exist already?
-      // Let's try and update it
-      const updates = await db('plaid_account')
-        .where({ user_id: userId, item_id: itemID, account_id: p_account.id, isActive: true })
-        .update({
-          institution_id: metadata.institution.institution_id,
-          institution_name: metadata.institution.name,
-          mask: p_account.mask,
-          account_name: p_account.name,
-          account_subtype: p_account.subtype,
-          account_type: p_account.type,
-          verification_status: p_account.verification_status,
-          access_token: enc_access_token,
-          iv: iv,
-          tag: tag,
-          isLinked: true,
-        }, ['id']);
-      
-      if (updates?.length === 0) {
-        console.log('Linked account did not exist, adding new.');
+      metadata.accounts.forEach(async (p_account) => {
 
-        // We didn't update any rows, which means this account
-        // did not exist.  Let's insert a new account.
-        await db('plaid_account')
-          .insert({
+        // Does this account exist already?
+        // Let's try and update it
+        const updates = await trx('plaid_account')
+          .where({ user_id: userId, item_id: itemID, account_id: p_account.id, isActive: true })
+          .update({
             institution_id: metadata.institution.institution_id,
             institution_name: metadata.institution.name,
-            account_id: p_account.id,
             mask: p_account.mask,
             account_name: p_account.name,
             account_subtype: p_account.subtype,
             account_type: p_account.type,
             verification_status: p_account.verification_status,
-            item_id: itemID,
             access_token: enc_access_token,
             iv: iv,
             tag: tag,
-            cursor: null,
-            user_id: userId,
-            common_name: metadata.institution.name + '-' +
-              p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
-            full_account_name: metadata.institution.name + '-' +
-              p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
-            isActive: true,
             isLinked: true,
-          });
-      } else {
-        console.log('Updated linked account, matching accounts: ', updates?.length);
-      }
-    });
+          }, ['id']);
+        
+        if (updates?.length === 0) {
+          console.log('Linked account did not exist, adding new.');
 
-    // We should also handle the case where accounts are no longer connected
-    let lookup_orphaned = await db('plaid_account')
-      .select('id')
-      .where({ user_id: userId, item_id: itemID })
-      .whereNotIn('account_id', metadata.accounts.map(a => a.id) );
+          // We didn't update any rows, which means this account
+          // did not exist.  Let's insert a new account.
+          await trx('plaid_account')
+            .insert({
+              institution_id: metadata.institution.institution_id,
+              institution_name: metadata.institution.name,
+              account_id: p_account.id,
+              mask: p_account.mask,
+              account_name: p_account.name,
+              account_subtype: p_account.subtype,
+              account_type: p_account.type,
+              verification_status: p_account.verification_status,
+              item_id: itemID,
+              access_token: enc_access_token,
+              iv: iv,
+              tag: tag,
+              cursor: null,
+              user_id: userId,
+              common_name: metadata.institution.name + '-' +
+                p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
+              full_account_name: metadata.institution.name + '-' +
+                p_account.name + (p_account.mask !== null ? ('-' + p_account.mask) : ''),
+              isActive: true,
+              isLinked: true,
+            });
+        } else {
+          console.log('Updated linked account, matching accounts: ', updates?.length);
+        }
+      });
 
-    let orphaned_acc = await lookup_orphaned;
-    if (orphaned_acc?.length) {
-      await db.transaction(async (trx) => {
+      // We should also handle the case where accounts are no longer connected
+      let lookup_orphaned = await trx('plaid_account')
+        .select('id')
+        .where({ user_id: userId, item_id: itemID })
+        .whereNotIn('account_id', metadata.accounts.map(a => a.id) );
+
+      let orphaned_acc = await lookup_orphaned;
+      if (orphaned_acc?.length) {
         for (const acc of orphaned_acc) {
           // Remove the PLAID Account from the database
           await remove_plaid_account(trx, userId, acc.id);
         }
-      });
-    } else {
-      console.log('All accounts are accounted for.');
-    }
+      } else {
+        console.log('All accounts are accounted for.');
+      }
+    });
 
   } catch (error) {
     // handle error
