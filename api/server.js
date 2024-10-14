@@ -267,6 +267,8 @@ set_db();
 // Store progress bar status
 const progressStatuses = {};
 
+// TODO: this should not be needed as we already did this in the
+// middleware.
 const getUserId = async (auth0Id) => {
   let user_id = null;
   await db.transaction(async (trx) => {
