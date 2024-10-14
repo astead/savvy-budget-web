@@ -792,7 +792,8 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_ACCOUNT, async (req, res)
   
     await db('plaid_account')
       .insert({
-        institution: null,
+        institution_id: null,
+        institution_name: null,
         account_id: null,
         mask: null,
         account_name: null,
@@ -3349,7 +3350,8 @@ async function lookup_account(userId, account_str) {
         // If the Account does not exist, insert a new one
         const result = await trx('plaid_account')
           .insert({
-            institution: null,
+            institution_id: null,
+            institution_name: null,
             account_id: null,
             mask: null,
             account_name: account_str,
