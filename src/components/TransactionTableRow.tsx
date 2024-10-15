@@ -150,10 +150,12 @@ export const TransactionTableRow = ({ index, item, envList, onRowUpdate, callbac
       <td className="Table TC">
           <KeywordSave
             txID={item.txID}
-            acc={item.account}
+            acc={item.common_name}
             envID={item.envID}
             description={item.description}
-            keywordEnvID={item.keywordEnvID} />
+            keywordEnvID={item.keywordEnvID}
+            callback={callback}
+          />
       </td>
       <td className="Table TC">
         <div

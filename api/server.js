@@ -2470,7 +2470,12 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.SAVE_KEYWORD, async (req, res
         user_id: userId,
       };
 
-      await trx('keyword').insert(node);
+      const result = await trx('keyword').insert(node).returning('id');
+      
+      if (result?.length > 0) {
+        // Now go and set all existing undefined matching transactions
+        await set_matching_keywords(trx, userId, result[0].id, 0);
+      }
     });
 
     res.status(200).send('Keyword saved successfully');
@@ -2699,31 +2704,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.SET_ALL_KEYWORD, async (req, 
       // Set the current_user_id
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
-      const data = await trx('keyword')
-        .select('envelopeID', 'description', 'account')
-        .where({ id: id, user_id: userId })
-      
-      if (data.length > 0) {
-        let query = trx('transaction')
-          .update({ envelopeID: data[0].envelopeID })
-          .whereRaw(`"description" LIKE ?`, [data[0].description])
-          .andWhere({ user_id: userId });
-
-        // TODO: Need to test this.
-        if (data[0].account !== 'All') {
-          query = query.andWhere({ 
-            accountID: trx('plaid_account')
-              .select('id')
-              .where({ 'common_name': data[0].account, user_id: userId }),
-          });
-        }
-
-        if (force === 0) {
-          query = query.andWhere({ envelopeID: -1 });
-        }
-
-        await query;
-      }
+      await set_matching_keywords(trx, userId, id, force);
     });
 
     res.status(200).send('Set all keywords successfully');
@@ -3408,6 +3389,33 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.IMPORT_CSV, async (req, res) 
 
 
 // Helper functions used only by the server
+
+async function set_matching_keywords(trx, userId, id, force) {
+  const data = await trx('keyword')
+    .select('envelopeID', 'description', 'account')
+    .where({ id: id, user_id: userId }).first();
+  
+  if (data) {
+    let query = trx('transaction')
+      .update({ envelopeID: data.envelopeID })
+      .whereRaw(`"description" LIKE ?`, [data.description])
+      .andWhere({ user_id: userId });
+
+    if (data.account !== 'All') {
+      query = query.andWhere({ 
+        accountID: trx('plaid_account')
+          .select('id')
+          .where({ 'common_name': data.account, user_id: userId }),
+      });
+    }
+
+    if (force === 0) {
+      query = query.andWhere({ envelopeID: -1 });
+    }
+
+    await query;
+  }
+}
 
 async function set_or_update_budget_item(trx, userId, newEnvelopeID, newtxDate, newtxAmt) {
   try {

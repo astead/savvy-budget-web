@@ -6,7 +6,7 @@ import { faBookmark } from "@fortawesome/free-solid-svg-icons";
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 
-export const KeywordSave = ({txID, acc, envID, description, keywordEnvID}) => {
+export const KeywordSave = ({ txID, acc, envID, description, keywordEnvID, callback }) => {
   const { config } = useAuthToken();
 
   //const [my_txID, ] = useState(txID);
@@ -14,16 +14,20 @@ export const KeywordSave = ({txID, acc, envID, description, keywordEnvID}) => {
   const [my_description, setDescription] = useState(description);
   const [my_keywordEnvID, setKeywordEnvID] = useState(keywordEnvID);
 
-  const saveKeyword = (e) => {
+  const saveKeyword = async (e) => {
     // Don't allow setting a keyword if one already matches.
     if (keywordEnvID === null) {
       // Request we update the DB
       if (!config) return;
-      axios.post(baseUrl + channels.SAVE_KEYWORD, { acc: acc, envID: my_envID, description: my_description }, config);
+      await axios.post(baseUrl + channels.SAVE_KEYWORD, { acc: acc, envID: my_envID, description: my_description }, config);
       
       // Rather than wait for the DB and re-query
       // let's just set this to our own env ID
       setKeywordEnvID(my_envID);
+      
+      // Since we might have changed other items,
+      // lets re-query the transaction list
+      callback();
     }
   };
 
