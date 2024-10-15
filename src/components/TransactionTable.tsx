@@ -9,6 +9,7 @@ import Pagination from '@mui/material/Pagination';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import { TransactionTableRow } from './TransactionTableRow.tsx';
+import Tooltip from '@mui/material/Tooltip';
 
 /*
  TODO:
@@ -263,13 +264,49 @@ export const TransactionTable = ({data, envList, callback}) => {
           <th className="Table THR THRC">{'Description'}</th>
           <th className="Table THR THRC Small">{'Amount'}</th>
           <th className="Table THR THRC">{'Envelope'}</th>
-          <th className="Table THR THRC">{'Split'}</th>
-          <th className="Table THR THRC">{' KW '}</th>
-          <th className="Table THR THRC THRCClickable">
-            <div onClick={() => look_for_dups()}>{' Dup '}</div>
+          <th className="Table THR THRC">
+            <Tooltip title="You can split a transaction into multiple transactions." placement="top">
+              <span>{'Split'}</span>
+            </Tooltip>
+          </th>
+          <th className="Table THR THRC">
+            <Tooltip 
+              title="You can save this description as a keyword to automatically 
+                      assign matching transactions to your selected envelope. 
+                      This will also assign existing matching transactions that
+                      are not currently assigned to an envelope." 
+              placement="top">
+              <span>{' KW '}</span>
+            </Tooltip>
           </th>
           <th className="Table THR THRC THRCClickable">
-            <div onClick={() => look_for_invisible()}>{' Vis '}</div>
+            <div onClick={() => look_for_dups()}>
+              <Tooltip
+                title="You can mark a transaction as a duplicate.
+                      Duplicate transactions will still show up here
+                      but will not show up in your budget.
+                      Clicking on this header cell will select all
+                      listed transactions marked as duplicate.
+                      If there are no duplicate transactions, we'll
+                      look through the listed ones and try and find if
+                      any are duplicates and select those."
+                placement="top">
+                <span>{' Dup '}</span>
+              </Tooltip>
+            </div>
+          </th>
+          <th className="Table THR THRC THRCClickable">
+            <div onClick={() => look_for_invisible()}>
+              <Tooltip
+                title="You can mark a transaction as invisible.
+                      Duplicate transactions will still show up here
+                      but will not show up in your budget.
+                      Clicking on this header cell will select all
+                      listed transactions marked as invisible."
+                placement="top">
+                <span>{' Vis '}</span>
+              </Tooltip>
+            </div>
           </th>
           <th className="Table THR THRC">
             <input
