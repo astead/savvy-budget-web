@@ -353,21 +353,25 @@ export const TransactionTable = ({data, envList, callback}) => {
             )
           }</td>
           <td className="Table THR TCInput">
-            <DropDown
-                  id={'change-all-selected-envelopes'}
-                  selectedID={changeAllEnvID}
-                  optionData={[{ id: -2, text: ""}, ...(envList)]}
-                  changeCallback={handleChangeAllEnvID}
-                  className="envelopeDropDown"
-                />
+            <Tooltip title="Changing this will set all selected transactions to the selected envelope." placement="bottom">
+              <span><DropDown
+                id={'change-all-selected-envelopes'}
+                selectedID={changeAllEnvID}
+                optionData={[{ id: -2, text: ""}, ...(envList)]}
+                changeCallback={handleChangeAllEnvID}
+                className="envelopeDropDown"
+              /></span>
+            </Tooltip>
           </td>
           <td className="Table THR THRC" colSpan={4}></td>
           <td className="Table THR THRC">
-            <button 
-              className='trash'
-              onClick={() => delete_checked_transactions()}>
-                <FontAwesomeIcon icon={faTrash} />
-            </button>
+            <Tooltip title="Delete all selected transactions" placement="bottom">
+              <button 
+                className='trash'
+                onClick={() => delete_checked_transactions()}>
+                  <FontAwesomeIcon icon={faTrash} />
+              </button>
+            </Tooltip>
           </td>
         </tr>
       </tfoot>
