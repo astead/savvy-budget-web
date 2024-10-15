@@ -39,7 +39,7 @@ export const TransactionTable = ({data, envList, callback}) => {
   const { config } = useAuthToken();
 
   // Other variables
-  const [changeAllEnvID, setChangeAllEnvID] = useState(-1);
+  const [changeAllEnvID, setChangeAllEnvID] = useState(-2);
 
   // Transaction data
   const [txData, setTxData] = useState<TransactionNodeData[]>(data.map(item => ({ ...item, isChecked: false })));
@@ -169,34 +169,38 @@ export const TransactionTable = ({data, envList, callback}) => {
   };
 
   const handleChangeAllEnvID = async ({id, new_value}) => {
-    setChangeAllEnvID(new_value);
-    const startIdx = (pagingCurPage - 1) * pagingPerPage;
-    const endIdx = pagingCurPage * pagingPerPage;
+    if (new_value !== -2) {
+      setChangeAllEnvID(new_value);
+      const startIdx = (pagingCurPage - 1) * pagingPerPage;
+      const endIdx = pagingCurPage * pagingPerPage;
 
-    const updatedData = txData.map((item, index) => {
-      if (index >= startIdx && index < endIdx && item.isChecked) {
-       return { ...item, envID: new_value };
-      }
-      return item;
-    });
+      const updatedData = txData.map((item, index) => {
+        if (index >= startIdx && index < endIdx && item.isChecked) {
+        return { ...item, envID: new_value };
+        }
+        return item;
+      });
 
-    // Update the main data array
-    setTxData(updatedData);
+      // Update the main data array
+      setTxData(updatedData);
 
-    // Signal we want to change the envelope for checked items.
-    if (!config) return;
-    await axios.post(baseUrl + channels.UPDATE_TX_ENV_LIST, 
-      { new_value, filtered_nodes: updatedData.filter(item => item.isChecked) }, config);
+      // Signal we want to change the envelope for checked items.
+      if (!config) return;
+      await axios.post(baseUrl + channels.UPDATE_TX_ENV_LIST, 
+        { new_value, filtered_nodes: updatedData.filter(item => item.isChecked) }, config);
 
-    // Intentionally leave the checkboxes checked incase
-    // we made a mistake and want to set those to something else
-    // or back to the original value.
-    //setIsAllChecked(false);
+      // Intentionally leave the checkboxes checked incase
+      // we made a mistake and want to set those to something else
+      // or back to the original value.
+      //setIsAllChecked(false);
 
-    // Probably don't need to call the callback since we 
-    // already made the changes in the local data array above.
-    // Let's avoid the back and forth.
-    //callback();
+      // Probably don't need to call the callback since we 
+      // already made the changes in the local data array above.
+      // Let's avoid the back and forth.
+      //callback();
+
+      setChangeAllEnvID(-2);
+    }
   };
 
   const handleRowUpdate = (updatedRow) => {
@@ -352,7 +356,7 @@ export const TransactionTable = ({data, envList, callback}) => {
             <DropDown
                   id={'change-all-selected-envelopes'}
                   selectedID={changeAllEnvID}
-                  optionData={envList}
+                  optionData={[{ id: -2, text: ""}, ...(envList)]}
                   changeCallback={handleChangeAllEnvID}
                   className="envelopeDropDown"
                 />
