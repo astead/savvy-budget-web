@@ -275,9 +275,9 @@ export const ConfigCatEnv = () => {
                       )
                     })
                   }
+                  { provided.placeholder }
                   </article>
                 </article>
-                { provided.placeholder }
               </section>
             )}
           </Droppable>
