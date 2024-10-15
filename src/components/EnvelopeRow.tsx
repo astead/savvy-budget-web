@@ -44,6 +44,11 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
     onRowUpdate(item);
   };
 
+  const handleBalanceChange = async ({ newAmt }) => {
+    item.currBalance = parseFloat(newAmt);
+    onRowUpdate(item);
+  };
+
   const handleBalanceTransfer = async ({ transferAmt, toID }) => {
     item.currBalance -= parseFloat(transferAmt);
     onBalanceTransfer({ updatedRow: item, transferAmt, toID });
@@ -70,7 +75,8 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
           envelope={item.envelope}
           envID={item.envID}
           transferEnvList={transferEnvList}
-          callback={handleBalanceTransfer}
+          callback_transfer={handleBalanceTransfer}
+          callback_change={handleBalanceChange}
         />
       </td>
       <td className="Table TC Right">

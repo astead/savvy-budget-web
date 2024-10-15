@@ -24,7 +24,10 @@ function formatCurrency(currencyNumber:number) {
   return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
 };
 
-export const BudgetBalanceModal = ({balanceAmt, category, envelope, envID, transferEnvList, callback}) => {
+export const BudgetBalanceModal = ({
+    balanceAmt, category, envelope, envID, 
+    transferEnvList, callback_transfer, callback_change }) => {
+
   const { config } = useAuthToken();
 
   const [open, setOpen] = useState(false);
@@ -39,15 +42,16 @@ export const BudgetBalanceModal = ({balanceAmt, category, envelope, envID, trans
     if (!config) return;
     await axios.post(baseUrl + channels.UPDATE_BALANCE, { id: envID, newAmt: newAmt }, config);
     setOpen(false);
-    callback();
+    callback_change({ newAmt: newAmt });
   };
 
   const handleSaveTransfer = async () => {
     // Request we update the DB
+    
     if (!config) return;
     await axios.post(baseUrl + channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID }, config);
     setOpen(false);
-    callback({ transferAmt: transferAmt, toID: transferEnvID });
+    callback_transfer({ transferAmt: transferAmt, toID: transferEnvID });
   };
 
   const handleFilterEnvChange = ({id, new_value, new_text}) => {
