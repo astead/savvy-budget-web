@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Header } from './header.tsx';
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { useParams } from 'react-router';
