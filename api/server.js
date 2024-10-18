@@ -3030,11 +3030,11 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_CHART_DATA, async (re
 app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async (req, res) => {
   console.log(channels.GET_ENV_PIE_CHART_DATA);
 
-  const { filterEnvID, find_date, drillDownLabel } = req.body;
+  const { filterCatID, filterEnvName, find_date } = req.body;
   const userId = req.user_id; // Looked up user_id from middleware
   
   try {
-    const filterID = filterEnvID;
+    const filterID = filterCatID;
     const month = dayjs(new Date(find_date + 'T00:00:00')).format('MM');
     const year = dayjs(new Date(find_date + 'T00:00:00')).format('YYYY');
     
@@ -3063,7 +3063,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async
             .andOn('category.user_id', '=', trx.raw(`?`, [userId]));
         });
       
-      if (!drillDownLabel) {
+      if (!filterEnvName) {
         if (filterID === -2) {
           // Get all spending categories
           query = query
@@ -3078,19 +3078,12 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async
             .groupBy('envelope');
         }
       } else {
-        if (filterID) {
-          // filter on specific category
-          query = query
-            .andWhere({ category: drillDownLabel })
-            .select('envelope as label')
-            .groupBy('envelope');
-        } else {
-          // filter on specific envelope
-          query = query
-            .andWhere({ envelope: drillDownLabel })
-            .select('description as label')
-            .groupBy('description');
-        }
+        // filter on specific envelope
+        query = query
+          .andWhere({ envelope: filterEnvName })
+          .andWhere({ categoryID: filterID })
+          .select('description as label')
+          .groupBy('description');
       }
 
       const data = await query;

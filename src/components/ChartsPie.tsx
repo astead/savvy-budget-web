@@ -21,8 +21,9 @@ export const ChartsPie: React.FC = () => {
 
   const [filterEnvList, setFilterEnvList] = useState<FilterList[]>([]);
   const [filterEnvListLoaded, setFilterEnvListLoaded] = useState(false);
-  const [filterEnvID, setFilterEnvID] = useState(-2);
-  const [filterEnvelopeName, setFilterEnvelopeName] = useState(null as any);
+  const [filterCatID, setFilterCatID] = useState(-2);
+  const [filterCatName, setFilterCatName] = useState(null as any);
+  const [filterEnvName, setFilterEnvName] = useState(null as any);
 
   /* Month Selector code -------------------------------------------*/
   const [year, setYear] = useState((new Date()).getFullYear());
@@ -50,7 +51,7 @@ export const ChartsPie: React.FC = () => {
 
   useEffect(() => {
     if (gotMonthData && filterEnvListLoaded) {
-      load_chart({ filterEnvID, drillDownLabel: null });
+      load_chart();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curMonth]); 
@@ -62,9 +63,15 @@ export const ChartsPie: React.FC = () => {
   const [chartState, setChartState] = useState(null as any);
   
   const handleFilterEnvChange = ({id, new_value, new_text}) => {
-    setHaveChartData(false);
-    setFilterEnvID(parseInt(new_value));
-    setFilterEnvelopeName(new_text);
+    if (filterCatID !== parseInt(new_value) || 
+        filterCatName !== new_text ||
+        filterEnvName !== null) {
+      setHaveChartData(false);
+    }
+    
+    setFilterCatID(parseInt(new_value));
+    setFilterCatName(new_text);
+    setFilterEnvName(null);
   };
 
   const load_envelope_list = async () => {
@@ -91,28 +98,19 @@ export const ChartsPie: React.FC = () => {
     const tmpEnvList = [...groupedItems, ...uniqueData];
     setFilterEnvList(tmpEnvList);
 
-    const tmpEnv = tmpEnvList.find((i) => {return (i.id === filterEnvID)});
+    // Set our filter category name
+    const tmpEnv = tmpEnvList.find((i) => {return (i.id === filterCatID)});
     if (tmpEnv) {
-      setFilterEnvelopeName(tmpEnv.text);
+      setFilterCatName(tmpEnv.text);
     }
     setFilterEnvListLoaded(true);
   };
 
-  const set_filter = (name) => {
-    const tmpEnv = filterEnvList.find((i) => {return (i.text === name)});
-    if (tmpEnv) {
-      setFilterEnvID(tmpEnv.id);
-      setFilterEnvelopeName(tmpEnv.text);
-      return tmpEnv.id;
-    } else {
-      return null;
-    }
-  }
-
-  async function load_chart({ filterEnvID, drillDownLabel }) {
+  async function load_chart() {
     // Signal we want to get data
     if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_ENV_PIE_CHART_DATA, {filterEnvID, find_date: curMonth, drillDownLabel }, config);
+    const response = await axios.post(baseUrl + channels.GET_ENV_PIE_CHART_DATA,
+      {filterCatID, filterEnvName, find_date: curMonth }, config);
 
     // Receive the data
     const myChartData = response.data;
@@ -122,9 +120,9 @@ export const ChartsPie: React.FC = () => {
     const labels = myChartData.map((item) => item.label);
     
     const yActual = myChartData.map((i) => {
-      if (filterEnvelopeName === 'Income' && i.totalAmt > 0) {
+      if (filterCatName === 'Income' && i.totalAmt > 0) {
         return parseFloat((i.totalAmt).toFixed(2));
-      } else if (filterEnvelopeName !== 'Income' && i.totalAmt < 0) {
+      } else if (filterCatName !== 'Income' && i.totalAmt < 0) {
         return -1*parseFloat((i.totalAmt).toFixed(2));
       } else {
         return 0;
@@ -139,15 +137,11 @@ export const ChartsPie: React.FC = () => {
           type: 'pie',
           events:{
             dataPointSelection: (event, chartContext, config) => {
-              if (!drillDownLabel) {
+              if (filterCatID === -2) {
                 // update our filter
-                const newFilterID = set_filter(config.w.config.labels[config.dataPointIndex]);
-                load_chart({filterEnvID: newFilterID, drillDownLabel: config.w.config.labels[config.dataPointIndex] });
+                setFilterCatName(config.w.config.labels[config.dataPointIndex]);
               } else {
-                // We can drill down to the envelope level
-                if (filterEnvID) {
-                  load_chart({filterEnvID: null, drillDownLabel: config.w.config.labels[config.dataPointIndex] });
-                }
+                setFilterEnvName(config.w.config.labels[config.dataPointIndex]);
               }
             },
           },
@@ -193,6 +187,56 @@ export const ChartsPie: React.FC = () => {
     setHaveChartData(true);
   };
 
+  const crumbs: JSX.Element[] = [];
+
+  function renderBreadCrumbTitle() {
+    if (filterCatName !== 'Income') {
+      crumbs.push(
+        <span className="bread-crumb" 
+          onClick={() => {
+            handleFilterEnvChange({ id: null, new_value: -2, new_text: "All Spending" })
+          }}
+        >All Spending</span>
+      );
+    } else {
+      crumbs.push(<span className="bread-crumb">All Income</span>);
+    }
+    if (filterCatID !== -2 && filterCatName !== 'Income') {
+      crumbs.push(<span className="bread-crumb-spacer">{'>'}</span>);
+      crumbs.push(<span className="bread-crumb" 
+        onClick={() => {
+          handleFilterEnvChange({id: null, new_value: filterCatID, new_text: filterCatName});
+        }}
+      >{filterCatName}</span>);
+    }
+    if (filterEnvName) {
+      crumbs.push(<span className="bread-crumb-spacer">{'>'}</span>);
+      crumbs.push(<span className="bread-crumb">{filterEnvName}</span>);
+    }
+    return crumbs;
+  }
+  
+  useEffect(() => {
+    if (filterEnvListLoaded) {
+      const tmpEnv = filterEnvList.find((i) => {return (i.text === filterCatName)});
+      if (tmpEnv && tmpEnv.id !== filterCatID) {
+        handleFilterEnvChange({id: null, new_value: tmpEnv.id, new_text: filterCatName});
+      }
+
+    }
+  }, [filterCatName]);
+
+  
+  useEffect(() => {
+    if (filterEnvListLoaded) {
+      if (filterCatName) {
+        renderBreadCrumbTitle();
+        load_chart();
+      }
+    }
+  }, [filterCatID, filterCatName, filterEnvName]);
+
+
   useEffect(() => {
     if (chartData?.length > 0) {
       setHaveChartData(true);
@@ -200,14 +244,6 @@ export const ChartsPie: React.FC = () => {
       setHaveChartData(false);
     }
   }, [chartData]);
-
-  useEffect(() => {
-    if (filterEnvID && filterEnvelopeName?.length && gotMonthData) {
-      load_chart({ filterEnvID, drillDownLabel: null });
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEnvID, filterEnvelopeName]);
 
   useEffect(() => {
     setGotMonthData(true);
@@ -224,7 +260,7 @@ export const ChartsPie: React.FC = () => {
             <label className="chart-filter-label">Envelope:</label>
           <DropDown 
             id={-1}
-            selectedID={filterEnvID}
+            selectedID={filterCatID}
             optionData={filterEnvList}
             changeCallback={handleFilterEnvChange}
             className="selectField"
@@ -237,6 +273,10 @@ export const ChartsPie: React.FC = () => {
       }
       {haveChartData &&
         <div className="chartContainer">
+          <br/>
+          <div className="chartTitle">
+            { renderBreadCrumbTitle() }
+          </div>
           <Chart
             options={chartState.options}
             series={chartState.series}

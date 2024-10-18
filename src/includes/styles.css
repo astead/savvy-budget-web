@@ -642,3 +642,14 @@ select.envelopeDropDown-undefined {
   padding-right: 4px;
   /* Add any other styling you need */
 }
+
+.bread-crumb {
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.bread-crumb-spacer {
+  font-weight: bold;
+  margin-left: 15px;
+  margin-right: 15px;
+}
