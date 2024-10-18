@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import 'react-edit-text/dist/index.css';
 
-export const InputText = ({ in_ID, in_value, callback, className, style, isNum}) => {
+export const InputText = ({ in_ID, in_value, callback, err_callback, className, style, isNum}) => {
   const [id, ] = useState(in_ID);
   const [value, setValue] = useState(in_value);
   const [isErr, setIsErr] = useState(false);
@@ -34,6 +34,12 @@ export const InputText = ({ in_ID, in_value, callback, className, style, isNum})
     }
   };
 
+  useEffect(() => {
+    if (err_callback) {
+      err_callback(isErr);
+    }
+  }, [isErr, err_callback]);
+  
   useEffect(() => {
     setValue(in_value);
   }, [in_value]);

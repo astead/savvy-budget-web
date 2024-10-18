@@ -50,6 +50,7 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
 
   const [splitData, setSplitData] = useState<SplitNode[]>([]);
   const [error, setError] = useState("");
+  const [initialLoad, setInitialLoad] = useState(false);
 
   const handleSaveNewValue = async () => {
     // Request we update the DB
@@ -91,7 +92,12 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
     let tmpArr = splitData;
     tmpArr[id].txAmt = parseFloat(value);
     setSplitData([...tmpArr]);
-    setError("");
+  }
+
+  const handleErrValue = (isErr) => {
+    if (isErr) {
+      setError("Please enter a valid number.");
+    }
   }
   
   const addNewSplit = (count) => {
@@ -151,8 +157,41 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
     setError("");
   }  
 
+  function checkTotals() {
+    // Request we update the DB
+    if (splitData.reduce((a, item) => a + item.txAmt, 0).toFixed(2) !== txAmt.toFixed(2)) {
+      setError("Total split value of " +
+        formatCurrency(splitData.reduce((a, item) => a + item.txAmt, 0)) +
+        " does not match original transaction amount of " +
+        formatCurrency(txAmt));
+    } else {
+      setError("");
+    }
+  }
+
   useEffect(() => {
-    addNewSplit(2);
+    checkTotals();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [splitData]); 
+
+  useEffect(() => {
+    checkTotals();
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]); 
+
+  useEffect(() => {
+    if (initialLoad) {
+      addNewSplit(2);
+    }
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLoad]); 
+
+  useEffect(() => {
+    setInitialLoad(true);
+    checkTotals();
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -211,6 +250,7 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
                       in_ID={index}
                       in_value={item.txDesc}
                       callback={handleTxDescChange}
+                      err_callback={null}
                       className="Medium"
                       style={{}}
                       isNum={false}
@@ -230,6 +270,7 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
                       in_ID={index}
                       in_value={item.txAmt.toFixed(2)}
                       callback={handleTxAmtChange}
+                      err_callback={handleErrValue}
                       className="Small Right"
                       style={{ paddingRight:'1px' }}
                       isNum={true}
@@ -261,7 +302,7 @@ export const SplitTransactionModal = ({txID, txDate, txAmt, txDesc, cat, env, en
             </tbody>
           </table>
           <Button variant="contained" className='textButton'
-            onClick={handleSaveNewValue}>
+            onClick={handleSaveNewValue} disabled={error.length > 0}>
               All Done, Split it!
           </Button>
           <br/>

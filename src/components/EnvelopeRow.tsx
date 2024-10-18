@@ -86,6 +86,7 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
           callback={(id, value) => {
             handleUpdateBudget({ id, date: curMonth, value });
           }}
+          err_callback={null}
           className={"Curr"}
           style={{ backgroundColor: cellColors.currBudgetColor }}
           isNum={true}
