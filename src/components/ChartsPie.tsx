@@ -55,7 +55,7 @@ export const ChartsPie: React.FC = () => {
 
   useEffect(() => {
     if (gotMonthData && filterEnvListLoaded) {
-      load_chart();
+      load_chart({ filterEnvID, drillDownLabel: null });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [curMonth]); 
@@ -103,10 +103,21 @@ export const ChartsPie: React.FC = () => {
     setFilterEnvListLoaded(true);
   };
 
-  async function load_chart() {
+  const set_filter = (name) => {
+    const tmpEnv = filterEnvList.find((i) => {return (i.text === name)});
+    if (tmpEnv) {
+      setFilterEnvID(tmpEnv.id);
+      setFilterEnvelopeName(tmpEnv.text);
+      return tmpEnv.id;
+    } else {
+      return null;
+    }
+  }
+
+  async function load_chart({ filterEnvID, drillDownLabel }) {
     // Signal we want to get data
     if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_ENV_PIE_CHART_DATA, {filterEnvID, find_date: curMonth }, config);
+    const response = await axios.post(baseUrl + channels.GET_ENV_PIE_CHART_DATA, {filterEnvID, find_date: curMonth, drillDownLabel }, config);
 
     // Receive the data
     const myChartData = response.data;
@@ -131,6 +142,20 @@ export const ChartsPie: React.FC = () => {
         chart: {
           width: 800,
           type: 'pie',
+          events:{
+            dataPointSelection: (event, chartContext, config) => {
+              if (!drillDownLabel) {
+                // update our filter
+                const newFilterID = set_filter(config.w.config.labels[config.dataPointIndex]);
+                load_chart({filterEnvID: newFilterID, drillDownLabel: config.w.config.labels[config.dataPointIndex] });
+              } else {
+                // We can drill down to the envelope level
+                if (filterEnvID) {
+                  load_chart({filterEnvID: null, drillDownLabel: config.w.config.labels[config.dataPointIndex] });
+                }
+              }
+            },
+          },
         },
         labels: labels,
         responsive: [{
@@ -164,7 +189,7 @@ export const ChartsPie: React.FC = () => {
             highlightDataSeries: false,
           },
           formatter: function(val, opts) {
-            return val !== undefined ? val.toString() : 'N/A';
+            return val !== undefined ? val.toString().slice(0, 25) : 'N/A';
           }
         }
       }
@@ -183,7 +208,7 @@ export const ChartsPie: React.FC = () => {
 
   useEffect(() => {
     if (filterEnvID && filterEnvelopeName?.length && gotMonthData) {
-      load_chart();
+      load_chart({ filterEnvID, drillDownLabel: null });
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps

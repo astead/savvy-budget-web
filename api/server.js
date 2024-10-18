@@ -3030,7 +3030,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_CHART_DATA, async (re
 app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async (req, res) => {
   console.log(channels.GET_ENV_PIE_CHART_DATA);
 
-  const { filterEnvID, find_date } = req.body;
+  const { filterEnvID, find_date, drillDownLabel } = req.body;
   const userId = req.user_id; // Looked up user_id from middleware
   
   try {
@@ -3062,19 +3062,35 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async
             .on('category.id', '=', 'envelope.categoryID')
             .andOn('category.user_id', '=', trx.raw(`?`, [userId]));
         });
-        
-      if (filterID === -2) {
-        // Get all spending categories
-        query = query
-          .andWhereNot({ category: 'Income' })
-          .select('category as label')
-          .groupBy('category');
+      
+      if (!drillDownLabel) {
+        if (filterID === -2) {
+          // Get all spending categories
+          query = query
+            .andWhereNot({ category: 'Income' })
+            .select('category as label')
+            .groupBy('category');
+        } else {
+          // filter on specific categories
+          query = query
+            .andWhere({ categoryID: filterID })
+            .select('envelope as label')
+            .groupBy('envelope');
+        }
       } else {
-        // filter on specific categories
-        query = query
-          .andWhere({ categoryID: filterID })
-          .select('envelope as label')
-          .groupBy('envelope');
+        if (filterID) {
+          // filter on specific category
+          query = query
+            .andWhere({ category: drillDownLabel })
+            .select('envelope as label')
+            .groupBy('envelope');
+        } else {
+          // filter on specific envelope
+          query = query
+            .andWhere({ envelope: drillDownLabel })
+            .select('description as label')
+            .groupBy('description');
+        }
       }
 
       const data = await query;
