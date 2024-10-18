@@ -3457,10 +3457,10 @@ async function set_matching_keywords(trx, userId, id, force) {
       .andWhere({ user_id: userId });
 
     if (data.account !== 'All') {
-      query = query.andWhere({ 
-        accountID: trx('plaid_account')
+      query = query.andWhere(function () { 
+        this.whereIn('accountID', trx('plaid_account')
           .select('id')
-          .where({ 'common_name': data.account, user_id: userId }),
+          .where({ 'common_name': data.account, user_id: userId }));
       });
     }
 
