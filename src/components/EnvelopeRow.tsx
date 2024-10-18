@@ -88,6 +88,7 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
           }}
           className={"Curr"}
           style={{ backgroundColor: cellColors.currBudgetColor }}
+          isNum={true}
         />
       </td>
       <td className="Table TC Right"
