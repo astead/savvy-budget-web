@@ -684,6 +684,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
             account_subtype: p_account.subtype,
             account_type: p_account.type,
             verification_status: p_account.verification_status,
+            err_msg: null,
             access_token: enc_access_token,
             iv: iv,
             tag: tag,
@@ -755,19 +756,20 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_UPDATE_LOGIN, async (re
   let enc_access_token = null;
   let iv = null;
   let tag = null;
+  let data = null;
 
   // Get the access token for this account
   await db.transaction(async (trx) => {
     // Set the current_user_id
     await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
-    const data = await trx('plaid_account')
+    data = await trx('plaid_account')
       .select('access_token', 'iv', 'tag')
       .where({ id: id, user_id: userId })
       .first();
   });
     
-  if (data !== undefined) {
+  if (data) {
     enc_access_token = data.access_token;
     iv = data.iv;
     tag = data.tag;
@@ -879,6 +881,8 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_ACCOUNTS, async (re
           'plaid_account.full_account_name',
           'plaid_account.isActive',
           'plaid_account.isLinked',
+          'plaid_account.verification_status',
+          'plaid_account.err_msg',
         )
         .max({ lastTx: 'txDate' })
         .from('plaid_account')
@@ -902,7 +906,9 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_ACCOUNTS, async (re
           'plaid_account.institution_name',
           'plaid_account.common_name',
           'plaid_account.full_account_name',
-          'plaid_account.isLinked'
+          'plaid_account.isLinked',
+          'plaid_account.verification_status',
+          'plaid_account.err_msg'
         );
 
       const data = await query;
@@ -1096,8 +1102,15 @@ async function get_transactions(id, userId, sessionId) {
         access_token: access_token,
         cursor: cursor_iter,
       });
+      set_account_verification_status({ id, userId, err_code: null, err_msg: null });
     } catch (e) {
-      console.log('Error: ', e.response.data.error_message);
+      if (e.response.data) {
+        await handle_plaid_error({ err: e.response.data, id, userId });
+      }
+      
+      console.log('Error trying to get transactions: ', e.response.data.error_code);
+      console.log(e.response.data.error_message);
+      
       progressStatuses[sessionId] = 100;
       return;
     }
@@ -1184,6 +1197,41 @@ async function account_name_lookup_with_cache_array({ trx, id, accountArr, acc, 
     accountArr.push({ name: account_id, id: accountID });
   }
   return accountID;
+}
+
+async function handle_plaid_error({ err, id, userId }) {
+  /*
+    PLAID ERROR CODES: https://plaid.com/docs/errors/item/
+  */
+  let err_msg = err.error_message;
+  if (err.error_code === 'ITEM_LOGIN_REQUIRED') {
+    err_msg = 'The login details for this account have changed ' +
+              '(credentials, MFA, or required user action. ' +
+              'Click the Update Login button to enter updated details.';
+  } else if (err.display_message) {
+    /* ITEM_LOCKED : will give a display_message */
+    err_msg = err.display_message;
+  }
+  await set_account_verification_status({
+    id, 
+    userId, 
+    err_code: err.error_code, 
+    err_msg: err_msg });
+}
+
+async function set_account_verification_status({ id, userId, err_code, err_msg }) {
+  
+  await db.transaction(async (trx) => {
+    // Set the current_user_id
+    await trx.raw(`SET myapp.current_user_id = ${userId}`);
+  
+    await trx('plaid_account')
+      .update({ verification_status: err_code,  err_msg: err_msg })
+      .where({ user_id: userId })
+      .andWhere({ item_id: trx('plaid_account')
+        .select('item_id')
+        .where({ id: id, user_id: userId })});
+  });
 }
 
 async function apply_added_transactions({ trx, id, acc, added, removed, userId, cur_record, total_records, sessionId, accountArr }) {
@@ -1375,8 +1423,15 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
       start_date: start_date,
       end_date: end_date,
     });
+    set_account_verification_status({ id, userId, err_code: null, err_msg: null });
   } catch (e) {
-    console.log('Error: ', e.response.data.error_message);
+    if (e.response.data) {
+      await handle_plaid_error({ err: e.response.data, id, userId });
+    }
+      
+    console.log('Error trying to get transactions: ', e.response.data.error_code);
+    console.log(e.response.data.error_message);
+    
     progressStatuses[sessionId] = 100;
     return;
   }
@@ -1429,7 +1484,7 @@ async function force_get_transactions(id, start_date, end_date, userId, sessionI
     if (ret === -1) {
       return ret;
     }
-});
+  });
 
   cur_record += added.length;
   console.log('Done processing added transactions.');
@@ -2972,6 +3027,82 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_CHART_DATA, async (re
   }
 });
 
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async (req, res) => {
+  console.log(channels.GET_ENV_PIE_CHART_DATA);
+
+  const { filterEnvID, find_date, drillDownLabel } = req.body;
+  const userId = req.user_id; // Looked up user_id from middleware
+  
+  try {
+    const filterID = filterEnvID;
+    const month = dayjs(new Date(find_date + 'T00:00:00')).format('MM');
+    const year = dayjs(new Date(find_date + 'T00:00:00')).format('YYYY');
+    
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+
+      let query = trx('transaction')
+        .sum({ totalAmt: 'txAmt' })
+        .where({ isBudget: 0, isDuplicate: 0, isVisible: true, 'transaction.user_id': userId });
+
+      // PostgreSQL specific
+      query = query
+        .andWhereRaw(`EXTRACT(MONTH FROM "txDate") = ?`, [month])
+        .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
+
+      query = query
+        .leftJoin('envelope', function () {
+          this
+            .on('envelope.id', '=', 'transaction.envelopeID')
+            .andOn('envelope.user_id', '=', trx.raw(`?`, [userId]));
+        })
+        .leftJoin('category', function () {
+          this
+            .on('category.id', '=', 'envelope.categoryID')
+            .andOn('category.user_id', '=', trx.raw(`?`, [userId]));
+        });
+      
+      if (!drillDownLabel) {
+        if (filterID === -2) {
+          // Get all spending categories
+          query = query
+            .andWhereNot({ category: 'Income' })
+            .select('category as label')
+            .groupBy('category');
+        } else {
+          // filter on specific categories
+          query = query
+            .andWhere({ categoryID: filterID })
+            .select('envelope as label')
+            .groupBy('envelope');
+        }
+      } else {
+        if (filterID) {
+          // filter on specific category
+          query = query
+            .andWhere({ category: drillDownLabel })
+            .select('envelope as label')
+            .groupBy('envelope');
+        } else {
+          // filter on specific envelope
+          query = query
+            .andWhere({ envelope: drillDownLabel })
+            .select('description as label')
+            .groupBy('description');
+        }
+      }
+
+      const data = await query;
+      res.json(data);
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 
 
 
@@ -3402,10 +3533,10 @@ async function set_matching_keywords(trx, userId, id, force) {
       .andWhere({ user_id: userId });
 
     if (data.account !== 'All') {
-      query = query.andWhere({ 
-        accountID: trx('plaid_account')
+      query = query.andWhere(function () { 
+        this.whereIn('accountID', trx('plaid_account')
           .select('id')
-          .where({ 'common_name': data.account, user_id: userId }),
+          .where({ 'common_name': data.account, user_id: userId }));
       });
     }
 

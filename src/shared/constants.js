@@ -72,6 +72,7 @@ module.exports = {
     VIS_ACCOUNT: 'vis_account',
 
     GET_ENV_CHART_DATA: 'get_env_chart_data',
+    GET_ENV_PIE_CHART_DATA: 'get_env_pie_chart_data',
 
     PLAID_GET_TOKEN: 'plaid_get_token',
     PLAID_SET_ACCESS_TOKEN: 'plaid_set_access_token',

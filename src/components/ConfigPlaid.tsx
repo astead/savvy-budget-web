@@ -85,10 +85,14 @@ export const ConfigPlaid = () => {
     common_name: string;
     isActive: boolean;
     isLinked: boolean;
+    verification_status: string;
+    err_msg: string;
   }
   interface PLAIDInstitution {
     institution_name: string;
     institution_id: string;
+    err_code: string;
+    err_msg: string;
   }
 
   const createLinkToken = async () => {
@@ -103,7 +107,7 @@ export const ConfigPlaid = () => {
     }
     if (data.error_message?.length) {
       console.log(data);
-      setLink_Error("Error: " + data.error_message);
+      setLink_Error("Error getting Link Token: " + data.error_message);
     }
   };
 
@@ -119,7 +123,12 @@ export const ConfigPlaid = () => {
 
       const filteredInstitutions = myAccounts
         .filter(acc => acc.isLinked)
-        .map(acc => ({ institution_name: acc.institution_name, institution_id: acc.institution_id }))
+        .map(acc => ({ 
+          institution_name: acc.institution_name, 
+          institution_id: acc.institution_id, 
+          err_code: acc.verification_status, 
+          err_msg: acc.err_msg 
+        }))
         .filter((value, index, self) => 
           index === self.findIndex((t) => (
             t.institution_name === value.institution_name && t.institution_id === value.institution_id
@@ -128,7 +137,7 @@ export const ConfigPlaid = () => {
       setInstitutions(filteredInstitutions);
 
     } catch (error) {
-      console.error("Error creating link token:", error);
+      console.error("Error getting account list:", error);
     }
   };
 
@@ -278,9 +287,9 @@ export const ConfigPlaid = () => {
   const onExit: PlaidLinkOnExit = (error, metadata) => {
     // log onExit callbacks from Link, handle errors
     // https://plaid.com/docs/link/web/#onexit
-    console.log("Error:", error, metadata);
+    console.log("Error linking account:", error, metadata);
     if (error) {
-      setLink_Error("Error: " + error.error_message);
+      setLink_Error("Error linking account: " + error.error_message);
     }
   };
 
@@ -313,7 +322,7 @@ export const ConfigPlaid = () => {
         if (err != null) {
           // The user encountered a Plaid API error prior
           // to exiting.
-          //console.log("Error on exit: ", err);
+          console.log("Error updating account login: ", err);
           setLink_Error(err.display_message);
         }
         // metadata contains the most recent API request ID and the
@@ -454,6 +463,9 @@ export const ConfigPlaid = () => {
                   </Button>
                 </Box>
               </Box>
+              { (institution.err_code !== null) && (
+                <Box className="institution-header institution-error">Error: {institution.err_msg}</Box>
+              )}
               <Box className="account-container">
                 <Box className="account-list">
                 { PLAIDAccounts
@@ -505,7 +517,9 @@ export const ConfigPlaid = () => {
                 ))}
                 </Box>
                 <Box className="account-buttons">
-                  <Button variant="outlined" className='plaid-update-button' onClick={() => get_transactions(institution.institution_id)} disabled={!token}  style={{ marginBottom: '5px' }}>
+                  <Button variant="outlined" className='plaid-update-button'
+                    onClick={() => get_transactions(institution.institution_id)}
+                    disabled={!token || (institution.err_code !== null)}  style={{ marginBottom: '5px' }}>
                     Update Latest
                   </Button>
                   <Button variant="outlined" 
@@ -526,7 +540,7 @@ export const ConfigPlaid = () => {
                       
                       handleOpen();
                     }} 
-                    disabled={!token}>
+                    disabled={!token || (institution.err_code !== null)}>
                     Update by Date
                   </Button>
                 </Box>

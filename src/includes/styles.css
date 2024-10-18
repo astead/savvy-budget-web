@@ -584,6 +584,15 @@ select.envelopeDropDown-undefined {
   align-items: center;
 }
 
+.institution-error {
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-bottom: 10px;
+  text-align: left;
+  word-wrap: break-word;
+  max-width: 800px;
+}
+
 .account-container {
   display: flex;
   flex-direction: row;
