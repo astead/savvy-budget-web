@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from "react-router-dom";
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
-import { useParams } from 'react-router';
 import Chart from "react-apexcharts";
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
@@ -20,9 +18,6 @@ export const ChartsPie: React.FC = () => {
   interface ChartData {
     [key: string]: string | number | Date;
   }
-
-  const navigate = useNavigate();
-  const [navigateTo, setNavigateTo] = useState("");
 
   const [filterEnvList, setFilterEnvList] = useState<FilterList[]>([]);
   const [filterEnvListLoaded, setFilterEnvListLoaded] = useState(false);
@@ -213,12 +208,6 @@ export const ChartsPie: React.FC = () => {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterEnvID, filterEnvelopeName]);
-  
-  useEffect(() => {
-    if (navigateTo && navigate) {
-      navigate(navigateTo);
-    }
-  }, [navigateTo, navigate]);
 
   useEffect(() => {
     setGotMonthData(true);
