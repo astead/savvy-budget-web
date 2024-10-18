@@ -756,19 +756,20 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_UPDATE_LOGIN, async (re
   let enc_access_token = null;
   let iv = null;
   let tag = null;
+  let data = null;
 
   // Get the access token for this account
   await db.transaction(async (trx) => {
     // Set the current_user_id
     await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
-    const data = await trx('plaid_account')
+    data = await trx('plaid_account')
       .select('access_token', 'iv', 'tag')
       .where({ id: id, user_id: userId })
       .first();
   });
     
-  if (data !== undefined) {
+  if (data) {
     enc_access_token = data.access_token;
     iv = data.iv;
     tag = data.tag;
