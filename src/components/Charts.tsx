@@ -1,347 +1,65 @@
+// configure.tsx
+
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from "react-router-dom";
 import { Header } from './header.tsx';
-import { baseUrl, channels } from '../shared/constants.js';
-import { DropDown } from '../helpers/DropDown.tsx';
-import { useParams } from 'react-router';
-import Chart from "react-apexcharts";
-import axios from 'axios';
-import { useAuthToken } from '../context/AuthTokenContext.tsx';
+import { ChartsTrend } from './ChartsTrend.tsx';
 
-/*
-  TODO:
-  - pie chart?
-*/
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
 
-export const Charts: React.FC = () => {
-  const { config } = useAuthToken();
-  
-  const { in_envID } = useParams();
+export const Charts = () => {
 
-  interface EnvelopeList {
-    envID: string; 
-    category: string;
-    envelope: string; 
+  interface TabPanelProps {
+    children?: React.ReactNode;
+    index: number;
+    tabValue: number;
   }
 
-  interface ChartData {
-    [key: string]: string | number | Date;
+  function CustomTabPanel(props: TabPanelProps) {
+    const { children, tabValue, index, ...other } = props;
+
+    return (
+      <div
+        role="tabpanel"
+        hidden={tabValue !== index}
+        id={`simple-tabpanel-${index}`}
+        aria-labelledby={`simple-tab-${index}`}
+        {...other}
+      >
+        {tabValue === index && (
+          <Box sx={{ pt: 3, m: 'auto' }}>
+            <Typography component={"span"}>{children}</Typography>
+          </Box>
+        )}
+      </div>
+    );
   }
 
-  const navigate = useNavigate();
-  const [navigateTo, setNavigateTo] = useState("");
-
-  const [filterTimeFrame, setFilterTimeFrame] = useState<any[]>([]);
-  const [filterTimeFrameLoaded, setFilterTimeFrameLoaded] = useState(false);
-  const [filterTimeFrameID, setFilterTimeFrameID] = useState(1);
-
-  const [filterEnvList, setFilterEnvList] = useState<EnvelopeList[]>([]);
-  const [filterEnvListLoaded, setFilterEnvListLoaded] = useState(false);
-  const [filterEnvID, setFilterEnvID] = useState(in_envID);
-  const [filterEnvelopeName, setFilterEnvelopeName] = useState(null as any);
-
-  const [haveChartData, setHaveChartData] = useState(false);
-  const [chartData, setChartData] = useState<ChartData[]>([]);
-  const [chartOptions, setChartOptions] = useState(null as any);
-  const [chartSeriesData, setChartSeriesData] = useState(null as any);
-
-  const [savedValues, setSavedValues] = useState(null as any);
-
-  const handleFilterEnvChange = ({id, new_value, new_text}) => {
-    setHaveChartData(false);
-    setFilterEnvID(new_value);
-    setFilterEnvelopeName(new_text);
-    setSavedValues({...savedValues, filterEnvID: new_value});
-  };
-
-  const handleFilterTimeFrameChange = ({id, new_value, new_text}) => {
-    setHaveChartData(false);
-    setFilterTimeFrameID(new_value);
-    setSavedValues({...savedValues, filterTimeFrameID: new_value});
-  };
-
-  const load_filter_timeframe = () => {
-    setFilterTimeFrame([
-      {
-        id: 1,
-        text: '1 Year', 
-      },{
-        id: 2,
-        text: '2 Years', 
-      },{
-        id: 3,
-        text: '3 Years', 
-      },{
-        id: 4,
-        text: '4 Years', 
-      },{
-        id: 5,
-        text: '5 Years', 
-      },{
-        id: 10,
-        text: '10 Years', 
-      },{
-        id: 100,
-        text: 'All', 
-      }]);
-    setFilterTimeFrameLoaded(true);
+  function a11yProps(index: number) {
+    return {
+      id: `simple-tab-${index}`,
+      'aria-controls': `simple-tabpanel-${index}`,
+    };
   }
+  
+  const [tabValue, setTabValue] = useState(0);
 
-  const load_envelope_list = async () => {
-    // Signal we want to get data
-    if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_ENV_CAT, {onlyActive: 1}, config);
-
-    // Receive the data
-    let groupedItems = [{
-      id: "env-3",
-      text: "All",
-    },{
-      id: "env-2",
-      text: "All Spending",
-    },{
-      id: "env-1",
-      text: "Undefined",
-    }];
-
-    let tmpItems = response.data.map((item) => {
-      let node = {
-        envID: "env"+item.envID,
-        catID: "cat"+item.catID,
-        category: item.category,
-        envelope: item.envelope, 
-      };
-      return node;
-    });
-
-    if (tmpItems.length > 0) {
-      let cat = '';
-      for (let i = 0; i < tmpItems.length; i++) {
-        if (cat !== tmpItems[i].category) {
-          cat = tmpItems[i].category;
-          const node = {
-            envID: tmpItems[i].catID,
-            category: "All " + tmpItems[i].category,
-            envelope: "", 
-          };
-          tmpItems.splice(i, 0, node);
-        }
-      }
-    }
-
-    let tmpNewItems = tmpItems.map((i) => {
-      return {
-        id: i.envID,
-        text: i.category + (i.category?.length && i.envelope?.length?" : ":"") + i.envelope,
-      }
-    });
-
-    const tmpEnvList = [...groupedItems, ...tmpNewItems];
-    setFilterEnvList(tmpEnvList);
-
-    const tmpEnv = tmpEnvList.find((i) => {return (i.id === filterEnvID)});
-    if (tmpEnv) {
-      setFilterEnvelopeName(tmpEnv.text);
-    }
-    setFilterEnvListLoaded(true);
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    localStorage.setItem('tabValue-chart', JSON.stringify(newValue));
+    setTabValue(newValue);
   };
 
-  const load_chart = async () => {
-    // Signal we want to get data
-    if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_ENV_CHART_DATA, {filterEnvID, filterTimeFrameID}, config);
-
-    // Receive the data
-    let data = response.data;
-    let totalValue = 0;
-      
-    const myChartData = data.reduce((acc, obj) => {
-      // Find the existing entry for the date
-      const existingEntry = acc.find((entry) => {
-        return (
-          (entry.month as Date)
-            .toLocaleDateString('en-EN', {
-              month: 'short',
-              year: '2-digit',
-            }) === 
-          new Date(obj.month)
-            .toLocaleDateString('en-EN', {
-              month: 'short',
-              year: '2-digit',
-            })
-        )
-      });
-    
-      if (!obj.isBudget) {
-        // Let's show spending as positive, it's easier to read in a chart,
-        // and also compare against the budget.
-        if (!filterEnvelopeName.includes("Income") &&
-        filterEnvID !== "env-3") {
-          obj.totalAmt = -1 * obj.totalAmt;
-        }
-        totalValue += obj.totalAmt;
-      } else {
-        // Let's show income budget values as positive, for the same
-        // reason as above.
-        if (filterEnvelopeName.includes("Income") ||
-        filterEnvID === "env-3") {
-          obj.totalAmt = -1 * obj.totalAmt;
-        }
+  useEffect(() => {
+    // which tab were we on?
+    const my_tabValue_str = localStorage.getItem('tabValue-chart');
+    if (my_tabValue_str?.length) {
+      const my_tabValue = JSON.parse(my_tabValue_str);
+      if (my_tabValue) {
+        setTabValue(my_tabValue);
       }
-
-      if (existingEntry) {
-        // Update existing entry
-        if (obj.isBudget) {
-          existingEntry.budgetTotals = obj.totalAmt;
-        } else {
-          existingEntry.actualTotals = obj.totalAmt;
-        }
-      } else {
-        // Add a new entry
-        acc.push({
-          month: new Date(obj.month),
-          actualTotals: obj.isBudget ? 0 : obj.totalAmt,
-          budgetTotals: obj.isBudget ? obj.totalAmt : null,
-        });
-      }
-    
-      return acc;
-    }, []);
-
-    let averageValue = 0 as number;
-    if (myChartData?.length) {
-      averageValue = totalValue / myChartData?.length;
     }
-      
-    setChartData(myChartData as ChartData[]);
-      
-    const xData = myChartData.map((item) => item.month);
-    setChartOptions({
-      xaxis: {
-        categories: xData,
-        labels: {
-          formatter: function (value) {
-            if (value) {
-              return  new Date(value)
-              .toLocaleDateString('en-EN', {
-                month: 'short',
-                year: '2-digit',
-              })
-            }
-          }
-        },
-      },
-      yaxis: {
-        labels: {
-          formatter: function (value) {
-            if (value) {
-              return value.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
-            }
-          }
-        },
-      },
-      stroke: {
-        curve: 'smooth',
-        width: [4, 4, 2],
-      },
-      markers: { size: [ 4, 4, 0] },
-      chart: { events:{ markerClick: (event, chartContext, { seriesIndex, dataPointIndex, config}) => {
-        if (seriesIndex === 0) {
-          if (xData[dataPointIndex]) {
-            const targetMonth = xData[dataPointIndex] as Date;
-            
-            let envID = -3;
-            let catID = -1;
-            if (filterEnvID) {
-              if (filterEnvID.startsWith('env')) {
-                envID = parseInt(filterEnvID.substring(3));
-                if (envID === -2) {
-                  envID = -3;
-                }
-              } else if (filterEnvID.startsWith('cat')) {
-                catID = parseInt(filterEnvID.substring(3));
-              }
-              
-              setNavigateTo("/Transactions" +
-                "/" + catID + "/" + envID + 
-                "/1/" + targetMonth.getFullYear() + 
-                "/" + (parseInt(targetMonth.toLocaleDateString('en-EN', {month: 'numeric'}))-1)
-              );
-              
-            } else {
-              console.log("don't have filterEnvID: ");
-            }
-          } else {
-            console.log("don't have month data for that data point, chartData: " + chartData  );
-          }
-        } else {
-          console.log("clicked on wrong series.");
-        } } },
-      },
-    });
-    const yActual = myChartData.map((item) => item.actualTotals);
-    const yBudget = myChartData.map((item) => item.budgetTotals);
-    const yAverage = myChartData.map(() => averageValue);
-    setChartSeriesData([
-      { name: 'Actual', data: yActual, color: '#000000', markers: { size: 1 } },
-      { name: 'Budget', data: yBudget, color: '#1a4297', markers: { size: 1 } },
-      { name: 'Average', data: yAverage, color: '#c5c83a' },
-    ]);
-
-    setHaveChartData(true);
-  };
-
-  
-  useEffect(() => {
-    if (savedValues) {
-      localStorage.setItem(
-        'chart-filter', 
-        JSON.stringify(savedValues)
-      );
-    }
-  }, [savedValues]);
-
-  useEffect(() => {
-    if (chartData?.length > 0) {
-      setHaveChartData(true);
-    } else {
-      setHaveChartData(false);
-    }
-  }, [chartData]);
-
-  useEffect(() => {
-    if (filterEnvID && filterEnvelopeName?.length) {
-      load_chart();
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEnvID, filterEnvelopeName, filterTimeFrameID]);
-  
-  useEffect(() => {
-    if (navigateTo && navigate) {
-      navigate(navigateTo);
-    }
-  }, [navigateTo, navigate]);
-
-  useEffect(() => {
-    const my_filte_str = localStorage.getItem('chart-filter');
-    if (my_filte_str?.length) {
-      const my_filter = JSON.parse(my_filte_str);
-      if (my_filter) {
-        setSavedValues(my_filter);
-        if (in_envID === "env-2") {
-          setFilterEnvID(my_filter.filterEnvID);
-        }
-        setFilterTimeFrameID(my_filter.filterTimeFrameID);
-      }
-    } else {
-      setSavedValues({filterEnvID: 'env-2', filterTimeFrameID: 1});
-    }
-
-    load_envelope_list();
-    load_filter_timeframe();
-    
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -350,43 +68,33 @@ export const Charts: React.FC = () => {
         {<Header currTab="Charts"/>}
       </header>
       <div className="mainContent">
-        { filterTimeFrameLoaded && filterEnvListLoaded &&
-          <>
-          <div className="chart-filter-container">
-              <label className="chart-filter-label">Envelope:</label>
-            <DropDown 
-              id={-1}
-              selectedID={filterEnvID}
-              optionData={filterEnvList}
-              changeCallback={handleFilterEnvChange}
-              className="selectField"
-            />
-          </div>
-          <div className="chart-filter-container">
-              <label className="chart-filter-label">Time Frame:</label>
-            <DropDown 
-              id={1}
-              selectedID={filterTimeFrameID}
-              optionData={filterTimeFrame}
-              changeCallback={handleFilterTimeFrameChange}
-              className="selectField"
-            />
-          </div>
-          </>
-        }
-        {haveChartData &&
-          <div className="chartContainer">
-            <Chart
-              options={chartOptions}
-              series={chartSeriesData}
-              type="line"
-              width="800"
-            />
-          </div>
-        }
-
+          <Box 
+            sx={{ 
+              width: '800', 
+              bgcolor: 'lightgray', 
+              borderBottom: 1, 
+              borderColor: 'divider',
+            }}
+          >
+            <Tabs 
+              value={tabValue}
+              onChange={handleTabChange}
+              aria-label="basic tabs example"
+              variant="fullWidth"
+              textColor="inherit"
+              TabIndicatorProps={{
+                style: {
+                  backgroundColor: "black"
+                }
+              }}
+              sx={{ padding: 0, margin: 0, height: 30, minHeight:30, width: '100%', minWidth: '800px'}}>
+              <Tab label="Trend" {...a11yProps(0)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
+            </Tabs>
+          </Box>
+          <CustomTabPanel tabValue={tabValue} index={0}>
+            <ChartsTrend />
+          </CustomTabPanel>
       </div>
     </div>
   );
-
-}
+};
