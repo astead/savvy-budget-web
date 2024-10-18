@@ -3027,6 +3027,66 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_CHART_DATA, async (re
   }
 });
 
+app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async (req, res) => {
+  console.log(channels.GET_ENV_PIE_CHART_DATA);
+
+  const { filterEnvID, find_date } = req.body;
+  const userId = req.user_id; // Looked up user_id from middleware
+  
+  try {
+    const filterID = filterEnvID;
+    const month = dayjs(new Date(find_date + 'T00:00:00')).format('MM');
+    const year = dayjs(new Date(find_date + 'T00:00:00')).format('YYYY');
+    
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+
+      let query = trx('transaction')
+        .sum({ totalAmt: 'txAmt' })
+        .where({ isBudget: 0, isDuplicate: 0, isVisible: true, 'transaction.user_id': userId });
+
+      // PostgreSQL specific
+      query = query
+        .andWhereRaw(`EXTRACT(MONTH FROM "txDate") = ?`, [month])
+        .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
+
+      query = query
+        .leftJoin('envelope', function () {
+          this
+            .on('envelope.id', '=', 'transaction.envelopeID')
+            .andOn('envelope.user_id', '=', trx.raw(`?`, [userId]));
+        })
+        .leftJoin('category', function () {
+          this
+            .on('category.id', '=', 'envelope.categoryID')
+            .andOn('category.user_id', '=', trx.raw(`?`, [userId]));
+        });
+        
+      if (filterID === -2) {
+        // Get all spending categories
+        query = query
+          .andWhereNot({ category: 'Income' })
+          .select('category as label')
+          .groupBy('category');
+      } else {
+        // filter on specific categories
+        query = query
+          .andWhere({ categoryID: filterID })
+          .select('envelope as label')
+          .groupBy('envelope');
+      }
+
+      const data = await query;
+      res.json(data);
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 
 
 

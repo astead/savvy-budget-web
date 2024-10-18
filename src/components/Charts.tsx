@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Header } from './header.tsx';
 import { ChartsTrend } from './ChartsTrend.tsx';
+import { ChartsPie } from './ChartsPie.tsx';
 
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -88,11 +89,15 @@ export const Charts = () => {
                 }
               }}
               sx={{ padding: 0, margin: 0, height: 30, minHeight:30, width: '100%', minWidth: '800px'}}>
-              <Tab label="Trend" {...a11yProps(0)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
+              <Tab label="Trend Line" {...a11yProps(0)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
+              <Tab label="Pie Chart" {...a11yProps(1)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
             </Tabs>
           </Box>
           <CustomTabPanel tabValue={tabValue} index={0}>
             <ChartsTrend />
+          </CustomTabPanel>
+          <CustomTabPanel tabValue={tabValue} index={1}>
+            <ChartsPie />
           </CustomTabPanel>
       </div>
     </div>
