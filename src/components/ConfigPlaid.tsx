@@ -89,6 +89,7 @@ export const ConfigPlaid = () => {
     err_msg: string;
   }
   interface PLAIDInstitution {
+    id: number;
     institution_name: string;
     institution_id: string;
     err_code: string;
@@ -124,6 +125,7 @@ export const ConfigPlaid = () => {
       const filteredInstitutions = myAccounts
         .filter(acc => acc.isLinked)
         .map(acc => ({ 
+          id: acc.id,
           institution_name: acc.institution_name, 
           institution_id: acc.institution_id, 
           err_code: acc.verification_status, 
@@ -141,12 +143,9 @@ export const ConfigPlaid = () => {
     }
   };
 
-  const update_login = async (institution_id: string) => {
-    const filtered = PLAIDAccounts.filter((a) => a.institution_id === institution_id);
-    const acc = filtered[0];
-
+  const update_login = async (id: number) => {
     if (!config) return;
-    const response = await axios.post(baseUrl + channels.PLAID_UPDATE_LOGIN, { id: acc.id }, config);
+    const response = await axios.post(baseUrl + channels.PLAID_UPDATE_LOGIN, { id: id }, config);
     
     let { link_token, error } = response.data;
 
@@ -158,16 +157,13 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const remove_login = async (institution_id: string) => {
+  const remove_login = async (id: number) => {
     //console.log('remove_login ENTER');
-    const filtered = PLAIDAccounts.filter((a) => a.institution_id === institution_id && a.isLinked);
-    const acc = filtered[0];
-    
     if (token) {
       if (!config) return;
       //console.log('Calling ', channels.PLAID_REMOVE_LOGIN);
       const resp = await axios.post(baseUrl + channels.PLAID_REMOVE_LOGIN, 
-        { id: acc.id }, config);
+        { id: id }, config);
       
       if (resp.status === 200) {
         getAccountList();
@@ -177,10 +173,7 @@ export const ConfigPlaid = () => {
     }
   }
 
-  const get_transactions = async (institution_id: string) => {
-    const filtered = PLAIDAccounts.filter((a) => a.institution_id === institution_id && a.isLinked);
-    const acc = filtered[0];
-
+  const get_transactions = async (id: number) => {
     // Clear error message
     setLink_Error(null);
     
@@ -191,7 +184,7 @@ export const ConfigPlaid = () => {
     setDownloading(true);
     const response = await axios.post(baseUrl + channels.PLAID_GET_TRANSACTIONS, 
       {
-        id: acc.id,
+        id: id,
       }, config);
     
     if (response.status === 200) {
@@ -455,10 +448,10 @@ export const ConfigPlaid = () => {
               <Box className="institution-header">
                 <Typography variant="h6">{ (institution.institution_name === null ? "Blank Name?" : institution.institution_name)}</Typography>
                 <Box>
-                  <Button variant="contained" className='textButton' onClick={() => remove_login(institution.institution_id)} disabled={!token} style={{ marginRight: '10px' }}>
+                  <Button variant="contained" className='textButton' onClick={() => remove_login(institution.id)} disabled={!token} style={{ marginRight: '10px' }}>
                     Unlink
                   </Button>
-                  <Button variant="contained" className='textButton' onClick={() => update_login(institution.institution_id)} disabled={!token}>
+                  <Button variant="contained" className='textButton' onClick={() => update_login(institution.id)} disabled={!token}>
                     Update Login
                   </Button>
                 </Box>
@@ -518,7 +511,7 @@ export const ConfigPlaid = () => {
                 </Box>
                 <Box className="account-buttons">
                   <Button variant="outlined" className='plaid-update-button'
-                    onClick={() => get_transactions(institution.institution_id)}
+                    onClick={() => get_transactions(institution.id)}
                     disabled={!token || (institution.err_code !== null)}  style={{ marginBottom: '5px' }}>
                     Update Latest
                   </Button>
@@ -526,7 +519,7 @@ export const ConfigPlaid = () => {
                     className='plaid-update-button'
                     onClick={() => {
                       // Get the latest transaction date for this account
-                      const filtered = PLAIDAccounts.filter((a) => a.institution_id === institution.institution_id);
+                      const filtered = PLAIDAccounts.filter((a) => a.id === institution.id);
                       const only_dates = filtered.map((a) => new Date(a.lastTx + 'T00:00:00').getTime());
                       const max_date = Math.max(...only_dates);
                       const max_date_str = dayjs(max_date).format('YYYY-MM-DD');

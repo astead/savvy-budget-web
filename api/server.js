@@ -666,18 +666,26 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
     //console.log('itemPublicTokenExchange return:', response.data);
     //console.log('metadata:', metadata);
 
+    // Need to run this as it's own transaction because
+    // we want to ensure we capture this account info
+    // otherwise we can have some lost account connections
     await db.transaction(async (trx) => {
       // Set the current_user_id
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
-      metadata.accounts.forEach(async (p_account) => {
+      for (let p_account of metadata.accounts) {
 
         // Does this account exist already?
         // Let's try and update it
-        const updates = await trx('plaid_account')
-          .where({ user_id: userId, item_id: itemID, account_id: p_account.id, isActive: true })
+        const query = trx('plaid_account')
+          .where({ 
+            user_id: userId,
+            institution_id: metadata.institution.institution_id, 
+            item_id: itemID, 
+            account_id: p_account.id, 
+            isActive: true
+          })
           .update({
-            institution_id: metadata.institution.institution_id,
             institution_name: metadata.institution.name,
             mask: p_account.mask,
             account_name: p_account.name,
@@ -690,6 +698,8 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
             tag: tag,
             isLinked: true,
           }, ['id']);
+        
+        const updates = await query;
         
         if (updates?.length === 0) {
           console.log('Linked account did not exist, adding new.');
@@ -719,34 +729,85 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
               isActive: true,
               isLinked: true,
             });
-        } else {
-          console.log('Updated linked account, matching accounts: ', updates?.length);
         }
-      });
-
-      // We should also handle the case where accounts are no longer connected
-      let lookup_orphaned = await trx('plaid_account')
-        .select('id')
-        .where({ user_id: userId, item_id: itemID })
-        .whereNotIn('account_id', metadata.accounts.map(a => a.id) );
-
-      let orphaned_acc = await lookup_orphaned;
-      if (orphaned_acc?.length) {
-        for (const acc of orphaned_acc) {
-          // Remove the PLAID Account from the database
-          await remove_plaid_account(trx, userId, acc.id);
-        }
-      } else {
-        console.log('All accounts are accounted for.');
       }
     });
 
+    let had_errors = false;
+ 
+    // Separate this part into a new transaction so we don't 
+    // jeapordize the above calls to record the tokens.
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+
+      // There are some cases where we should unlink accounts
+      const acc_to_unlink = [];
+      
+      // We should also handle the case where accounts are no longer connected
+      // These are accounts under the same PLAID item that are not being
+      // returned anymore. 
+      let lookup_orphaned = await trx('plaid_account')
+        .select('id')
+        .where({
+          user_id: userId,
+          institution_id: metadata.institution.institution_id,
+          item_id: itemID
+        })
+        .whereNotIn('account_id', metadata.accounts.map(a => a.id) );
+      
+      if (lookup_orphaned.length) {
+        acc_to_unlink.push(...(await lookup_orphaned));
+      }
+      
+      // We should also handle the case where there are duplicate accounts
+      // linked multiple times.
+      // These are accounts for the same institution, account name and mask
+      // but the item ID doesn't match. 
+      /* PLAID Documentation: https://plaid.com/docs/link/duplicate-items/#preventing-duplicate-items */
+      let lookup_duplicates = trx('plaid_account')
+        .select('id')
+        .where({
+          user_id: userId,
+          institution_id: metadata.institution.institution_id
+        })
+        .whereNot({'item_id': itemID });
+
+      lookup_duplicates = lookup_duplicates.andWhere(function () {
+        for (let account of metadata.accounts) {
+          this.orWhere(function () {
+            this.where({ account_name: account.name, mask: account.mask });
+          });
+        }
+      });
+
+      const duplicate_results = await lookup_duplicates;
+
+      if (duplicate_results.length) {
+        acc_to_unlink.push(...(await duplicate_results));
+      }
+      
+      for (const acc of acc_to_unlink) {
+        // Use the account ID to remove the plaid login
+        // We shouldn't just set the plaid info to null
+        // we should actually try and remove it from PLAID
+        const resp = await remove_plaid_login(trx, userId, acc.id);
+        if (resp !== 0) {
+          had_errors = true;
+        }
+      }
+    });
+
+    if (had_errors) {
+      res.status(500).send('Error trying to unlink accounts no longer connected or duplicate accounts.');
+    } else {
+      res.status(200).send('Added or updated PLAID Account successfully');
+    }
   } catch (error) {
     // handle error
     console.log('Error: ', error);
     res.status(500).send('Internal Server Error');
   }
-  res.status(200).send('Added or updated PLAID Account successfully');
 });
 
 app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_UPDATE_LOGIN, async (req, res) => {
@@ -780,6 +841,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_UPDATE_LOGIN, async (re
       link_token: '',
       error: 'Error trying to get PLAID link token, no access token found.',
     });
+    return;
   }
 
   let access_token = null;
@@ -932,71 +994,75 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_REMOVE_LOGIN, async (re
       // Set the current_user_id
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
-      // Get the access token
-      const data = await trx('plaid_account')
-        .select('item_id','access_token', 'iv', 'tag')
-        .where({ id: id, user_id: userId })
-        .first();
-      
-      if (data !== undefined) {
-        const enc_access_token = data.access_token;
-
-        // Use the access token to remove the plaid login
-        const resp = await remove_plaid_login(enc_access_token, data.iv, data.tag);
-        
-        if (resp === 0) {
-          console.log("Unlink from PLAID successful");
-
-          // Pull the list of accounts using that item id
-          // Item ID is what PLAID uses for a login or connected account
-          const accts_to_delete = await trx('plaid_account')
-            .select('id')
-            .where({ item_id: data.item_id, user_id: userId });
-
-          // Go through and remove those accounts using the
-          // same item id
-          for (const item of accts_to_delete) {
-            // Remove the PLAID Account from the database
-            await remove_plaid_account(trx, userId, item.id);
-          }
-        } else {
-          res.status(500).send('Internal Server Error');
-        }
+      // Use the account ID to remove the plaid login
+      const resp = await remove_plaid_login(trx, userId, id);
+      if (resp === 0) {
+        res.status(200).send('Removed plaid login successfully');
+      } else {
+        res.status(500).send('Internal Server Error');
       }
     });
-    res.status(200).send('Removed plaid login successfully');
   } catch (err) {
     console.error(err);
     res.status(500).send('Internal Server Error');
   }
 });
 
-async function remove_plaid_login(enc_access_token, iv, tag) {
+async function remove_plaid_login(trx, userId, id) {
   console.log('remove_plaid_login ENTER');
   let access_token = null;
 
-  if (iv) {
-    console.log('we are using encrypted tokens, need to decrypt first');
-    access_token = decrypt(enc_access_token, iv, tag);
-  } else {
-    console.log('we are not using encrypted tokens');
-    access_token = enc_access_token;
-  }
+  // Get the access token to remove the account
+  const data = await trx('plaid_account')
+    .select('item_id','access_token', 'iv', 'tag')
+    .where({ id: id, user_id: userId })
+    .first();
 
-  let response = null;
-  try {
-    console.log('calling plaid itemRemove');
-    /* PLAID Documentation: https://plaid.com/docs/api/items/#itemremove */
-    response = await client.itemRemove({
-      access_token: access_token,
-    });
-    if (response.data.request_id) {
-      return 0;
+  if (data !== undefined) {
+    const enc_access_token = data.access_token;
+    const iv = data.iv;
+    const tag = data.tag;
+
+    if (iv) {
+      access_token = decrypt(enc_access_token, iv, tag);
     } else {
+      access_token = enc_access_token;
+    }
+
+    let response = null;
+    try {
+      if (access_token) {
+        /* PLAID Documentation: https://plaid.com/docs/api/items/#itemremove */
+        response = await client.itemRemove({
+          access_token: access_token,
+        });
+        if (response.data.request_id) {
+            // Pull the list of accounts using that item id
+            // Item ID is what PLAID uses for a login or connected account
+            const accts_to_delete = await trx('plaid_account')
+              .select('id')
+              .where({ item_id: data.item_id, user_id: userId });
+
+            // Go through and remove those accounts using the
+            // same item id
+            for (const item of accts_to_delete) {
+              // Remove the PLAID Account from the database
+              await remove_plaid_account(trx, userId, item.id);
+            }
+            return 0;
+        } else {
+          return -1;
+        }
+      } else {
+        return 0;
+      }
+    } catch (e) {
+      console.log('Error: ', e.response.data.error_code);
+      console.log('Error: ', e.response.data.error_message);
       return -1;
     }
-  } catch (e) {
-    console.log('Error: ', e.response.data.error_message);
+  } else {
+    console.log('Error: Existing account info appears to be missing.');
     return -1;
   }
 }
