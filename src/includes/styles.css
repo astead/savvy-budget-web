@@ -118,6 +118,7 @@ a {
   border: 1px solid black;
 }
 
+/* TODO: Who was using this?
 button {
   width: 30px;
   height: 30px;
@@ -135,6 +136,7 @@ button:hover {
   filter:brightness(120%);
   background-color: limegreen;
 }
+*/
 
 button.myButton-disabled {
   color: lightslategray;
@@ -652,4 +654,66 @@ select.envelopeDropDown-undefined {
   font-weight: bold;
   margin-left: 15px;
   margin-right: 15px;
+}
+
+
+ 
+div.mobile-App {
+  align-content:center;
+  align-items: center;
+  align-self: center;
+  text-align: center;
+  width:100%;
+}
+
+.main-page-body-text-mobile {
+  text-align: left;
+  padding-top: 15px;
+  padding-left: 5px;
+  padding-right: 5px;
+  padding-bottom: 56px; /* Adjust based on footer height */
+}
+
+/* HomePageMobile.css */
+body.mobile-body {
+  min-height: 100vh;
+  margin: 0;
+}
+
+.mobile-wrapper {
+  flex: 0;
+}
+
+div.mobile-tx-date {
+  background-color: #a7a6a6;
+  padding-left: 5px;
+}
+
+.mobile-tx-container {
+  background-color: white;
+  padding-left: 5px;
+  padding-right: 5px; /* Added for consistency */
+}
+
+.mobile-tx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-tx-description {
+  flex: 1;
+  text-align: left;
+}
+
+.mobile-tx-amt {
+  text-align: right;
+}
+
+.mobile-tx-envelope {
+  font-size: 0.9em; /* Slightly smaller font size */
+  margin-top: 3px;
+  padding-left: 3px;
+  width: 100%;
+  text-align: left; /* Default alignment */
 }

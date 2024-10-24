@@ -5,23 +5,32 @@ import { useAuth0 } from '@auth0/auth0-react';
 import axios from 'axios';
 import './includes/styles.css';
 import { HomePage } from './components/homePage.tsx';
+import { HomePageMobile } from './components/homePageMobile.tsx';
 import { Charts } from './components/Charts.tsx';
 import { Transactions } from './components/Transactions.tsx';
+import { TransactionsMobile } from './components/TransactionsMobile.tsx';
 import { Envelopes } from './components/Envelopes.tsx';
+import { EnvelopesMobile } from './components/EnvelopesMobile.tsx';
 import { Configure } from './components/Configure.tsx';
+import { AccountsMobile } from './components/AccountsMobile.tsx';
 import { Callback } from './components/Callback.tsx';
 import { AuthTokenProvider } from './context/AuthTokenContext.tsx';
+import { isMobile } from'./detectMobile.js';
 
 
 export const App: React.FC = () => {
   const [auth_token, setAuth_token] = useState<string | null>(null);
   const [config, setConfig] = useState<{ headers: { Authorization: string } } | null>(null);
-
   const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
-
   
   useEffect(() => {
     //console.log("App.tsx useEffect: [isAuthenticated, user, getAccessTokenSilently]");
+
+    if (isMobile()) {
+      document.body.classList.add('mobile-body');
+    } else {
+      document.body.classList.remove('mobile-body');
+    }
 
     const checkOrCreateUser = async () => {
       //console.log("App.tsx checkOrCreateUser");
@@ -58,7 +67,10 @@ export const App: React.FC = () => {
       <AuthTokenProvider auth_token={auth_token} config={config}>
         <Routes>
           <Route path="/callback" element={<Callback />} />
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={( isMobile() ) ? <HomePageMobile/> : <HomePage />} />
+          <Route path="/Transactions-mobile" element={<TransactionsMobile />} />
+          <Route path="/Budget-mobile" element={<EnvelopesMobile />} />
+          <Route path="/Accounts-mobile" element={<AccountsMobile />} />
           <Route path="/Charts/:in_envID" element={<Charts />} />
           <Route path="/Transactions/:in_catID/:in_envID/:in_force_date/:in_year/:in_month" element={<Transactions />} />
           <Route path="/Envelopes" element={<Envelopes />} />
