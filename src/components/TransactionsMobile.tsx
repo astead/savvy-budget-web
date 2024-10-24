@@ -16,7 +16,8 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
-import { IconButton } from '@mui/material';
+import { Button, IconButton } from '@mui/material';
+import Grid from '@mui/material/Grid2';
 import ClearIcon from '@mui/icons-material/Clear';
 import { FooterMobile } from './FooterMobile.tsx';
 
@@ -451,81 +452,88 @@ export const TransactionsMobile: React.FC = () => {
           </AccordionSummary>
           <AccordionDetails sx={{textAlign: 'left'}}>
             <>
-            <div>
-              <table>
-                <tbody>
-                  <tr>
-                    <td>Date:</td>
-                    <td>Account:</td>
-                    <td>Description:</td>
-                    <td>Amount:</td>
-                    <td>Envelope:</td>
-                    <td></td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <LocalizationProvider dateAdapter={AdapterDayjs}>
-                      <DatePicker
-                        value={newTxDate}
-                        onChange={(newValue) => setNewTxDate(newValue)}
-                        sx={{ width:150, pr:0 }}
-                        />
-                      </LocalizationProvider>
-                    </td>
-                    <td>
-                      <DropDown 
-                          id={-1}
-                          selectedID={newTxAccID}
-                          optionData={newTxAccList}
-                          changeCallback={({id, new_value, new_text}) => setNewTxAccID(new_value)}
-                          className="selectField"
-                        />
-                    </td>
-                    <td>
-                      <input
-                        name="newTxDescTemp"
-                        style={{ width: '250px', }}
-                        defaultValue={newTxDescTemp}
-                        onBlur={(e) => {
-                          setNewTxDesc(e.target.value);
-                          setNewError("");
-                        }}
-                        className={"inputField"}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        name="newTxAmountTemp"
-                        style={{ width: '100px', paddingRight: '5px' }}
-                        defaultValue={newTxAmountTemp}
-                        onBlur={(e) => {
-                          setNewTxAmount(e.target.value);
-                          setNewError("");
-                        }}
-                        className={"inputField Right"}
-                      />
-                    </td>
-                    <td>
-                      <DropDown 
-                          id={-1}
-                          selectedID={newTxEnvID}
-                          optionData={newTxEnvList}
-                          changeCallback={({id, new_value, new_text}) => setNewTxEnvID(new_value)}
-                          className="selectField"
-                        />
-                    </td>
-                    <td>
-                      <button onClick={() => add_new_transaction()}>
-                        <FontAwesomeIcon icon={faChevronRight} />
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              {newError?.length > 0 &&
-                <span className="Red">Error: {newError}</span>
-              }
-            </div>
+              <Grid container spacing={1} alignItems="center" columns={4}>
+                <Grid size={1} style={{ textAlign: 'right' }}>
+                  Date:
+                </Grid>
+                <Grid size={3}>
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DatePicker
+                      value={newTxDate}
+                      onChange={(newValue) => setNewTxDate(newValue)}
+                      sx={{ width: 150, pr: 0 }}
+                    />
+                  </LocalizationProvider>
+                </Grid>
+                
+                <Grid size={1} style={{ textAlign: 'right' }}>
+                  Account:
+                </Grid>
+                <Grid size={3}>
+                  <DropDown
+                    id={-1}
+                    selectedID={newTxAccID}
+                    optionData={newTxAccList}
+                    changeCallback={({ id, new_value, new_text }) => setNewTxAccID(new_value)}
+                    className="selectField"
+                  />
+                </Grid>
+                
+                <Grid size={1} style={{ textAlign: 'right' }}>
+                  Description:
+                </Grid>
+                <Grid size={3}>
+                  <input
+                    name="newTxDescTemp"
+                    style={{ width: '250px' }}
+                    defaultValue={newTxDescTemp}
+                    onBlur={(e) => {
+                      setNewTxDesc(e.target.value);
+                      setNewError("");
+                    }}
+                    className={"inputField"}
+                  />
+                </Grid>
+                
+                <Grid size={1} style={{ textAlign: 'right' }}>
+                  Amount:
+                </Grid>
+                <Grid size={3}>
+                  <input
+                    name="newTxAmountTemp"
+                    style={{ width: '100px', paddingRight: '5px' }}
+                    defaultValue={newTxAmountTemp}
+                    onBlur={(e) => {
+                      setNewTxAmount(e.target.value);
+                      setNewError("");
+                    }}
+                    className={"inputField Right"}
+                  />
+                </Grid>
+                
+                <Grid size={1} style={{ textAlign: 'right' }}>
+                  Envelope:
+                </Grid>
+                <Grid size={3}>
+                  <DropDown
+                    id={-1}
+                    selectedID={newTxEnvID}
+                    optionData={newTxEnvList}
+                    changeCallback={({ id, new_value, new_text }) => setNewTxEnvID(new_value)}
+                    className="selectField"
+                  />
+                </Grid>
+              </Grid>
+              
+              <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', alignItems:'center', alignContent: 'center', width: '100%' }}>   
+                <Button variant="contained" className='textButton' onClick={() => add_new_transaction()}>
+                  Add Transaction
+                </Button>       
+                
+                {newError?.length > 0 &&
+                  <span className="Red">Error: {newError}</span>
+                }
+              </div>
             </>
           </AccordionDetails>
           </Accordion>
