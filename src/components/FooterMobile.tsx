@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
+import Paper from '@mui/material/Paper';
 
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import BalanceIcon from '@mui/icons-material/Balance';
@@ -31,31 +32,19 @@ export const FooterMobile = ({ defaultValue }) => {
   };
 
   return (
-    <BottomNavigation
-      sx={{ 
-        width: '100%', 
-        position: 'fixed', 
-        bottom: 0,
-        left: 0,
-        backgroundColor: '#333', 
-        color: '#fff', 
-        display: 'flex', 
-        justifyContent: 'space-around', 
-        alignItems: 'center', 
-        padding: '0px 0',
-        zIndex: 1000,
-      }}
-      showLabels
-      value={value}
-      onChange={(event, newValue) => {
-        handleNavigation(newValue);
-      }}
-
-    >
-      <BottomNavigationAction label="Transactions" icon={<ReceiptIcon />} />
-      <BottomNavigationAction label="Budget" icon={<BalanceIcon />} />
-      <BottomNavigationAction label="Accounts" icon={<AccountBalanceIcon />} />
-    </BottomNavigation>
+    <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={3}>
+      <BottomNavigation
+        showLabels
+        value={value}
+        onChange={(event, newValue) => {
+          handleNavigation(newValue);
+        }}
+      >
+        <BottomNavigationAction label="Transactions" icon={<ReceiptIcon />} />
+        <BottomNavigationAction label="Budget" icon={<BalanceIcon />} />
+        <BottomNavigationAction label="Accounts" icon={<AccountBalanceIcon />} />
+      </BottomNavigation>
+    </Paper>
   );
 };
 
