@@ -694,6 +694,8 @@ div.mobile-tx-date {
   padding-left: 0px;
   padding-right: 5px;
   padding-bottom: 5px;
+  margin-top: 1px;
+  margin-bottom: 1px;
 }
 
 .mobile-tx-header {
