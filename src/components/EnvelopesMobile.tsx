@@ -10,6 +10,7 @@ import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import { EnvelopeRow } from './EnvelopeRow.tsx';
 import { FooterMobile } from './FooterMobile.tsx';
+import ProgressBar from '../helpers/BorderLinearProgress.tsx'
 
 /*
   TODO: Set a list of favorites to see
@@ -359,6 +360,17 @@ export const EnvelopesMobile: React.FC = () => {
                       }
                     </span>
                   </div>
+                  <ProgressBar 
+                    actual={
+                      item.category === 'Income' ? item.currActual : (-1 * item.currActual)
+                    }
+                    target={
+                      item.category === 'Income' ? (-1 * item.currBudget) : item.currBudget
+                    }
+                    overColor={
+                      item.category === 'Income' ? 'green' : 'red'
+                    }
+                  />
                 
                 </div>
               </React.Fragment>

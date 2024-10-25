@@ -693,6 +693,7 @@ div.mobile-tx-date {
   background-color: white;
   padding-left: 5px;
   padding-right: 5px; /* Added for consistency */
+  padding-bottom: 5px;
 }
 
 .mobile-tx-header {
