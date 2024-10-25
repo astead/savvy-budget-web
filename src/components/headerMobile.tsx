@@ -1,5 +1,5 @@
 // header.js
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import LoginButton from '../helpers/login.js';
 import LogoutButton from '../helpers/logout.js';

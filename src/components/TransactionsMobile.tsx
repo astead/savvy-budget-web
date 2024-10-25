@@ -79,15 +79,6 @@ export const TransactionsMobile: React.FC = () => {
   const [envList, setEnvList] = useState<any[]>([]);
   const [envListLoaded, setEnvListLoaded] = useState(false);
   
-  // Import filename
-  const [filename, setFilename] = useState('');
-  const [uploading, ] = useState(false);
-  const [progress, ] = React.useState(0);
-
-  // Export 
-  const [exporting, setExporting] = useState(false);
-  const [exportProgress, setExportProgress] = React.useState(0);
-
   // Transaction data
   const [txData, setTxData] = useState<any[]>([]);
 
@@ -224,15 +215,6 @@ export const TransactionsMobile: React.FC = () => {
       return tmpNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
     }
     return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
-  }
-
-  function nthIndex(str, pat, n){
-    var L= str.length, i= -1;
-    while(n-- && i++<L){
-        i= str.indexOf(pat, i);
-        if (i < 0) break;
-    }
-    return i;
   }
 
   const handleFilterCatChange = ({id, new_value, new_text}) => {

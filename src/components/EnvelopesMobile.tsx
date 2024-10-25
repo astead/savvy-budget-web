@@ -14,9 +14,9 @@ export const EnvelopesMobile: React.FC = () => {
   const { config } = useAuthToken();
   
   /* Month Selector code -------------------------------------------*/
-  const [year, setYear] = useState((new Date()).getFullYear());
-  const [month, setMonth] = useState((new Date()).getMonth());
-  const [curMonth, setCurMonth] = useState(dayjs(new Date(year, month)).format('YYYY-MM-DD'));
+  const [year, ] = useState((new Date()).getFullYear());
+  const [month, ] = useState((new Date()).getMonth());
+  const [curMonth, ] = useState(dayjs(new Date(year, month)).format('YYYY-MM-DD'));
   /* End Month Selector code ---------------------------------------*/
   
   interface BudgetNodeData {
@@ -64,37 +64,12 @@ export const EnvelopesMobile: React.FC = () => {
       return 0;
     }
   };
-
-  function monthDiff(d1, d2) {
-    var months;
-    months = (d2.getFullYear() - d1.getFullYear()) * 12;
-    months -= d1.getMonth();
-    months += d2.getMonth();
-    return months-1;
-  };
   
   const [budgetData, setBudgetData] = useState<BudgetNodeData[]>([]);
   const [loaded, setLoaded] = useState(false);  
-  const [haveCurrBudget, setHaveCurrBudget] = useState(false);
   const [loadedEnvelopes, setLoadedEnvelopes] = useState(false);
-  const [curTotalBudgetIncome, setCurTotalBudgetIncome] = useState(0);
-  const [curTotalBudgetSpending, setCurTotalBudgetSpending] = useState(0);
-  const [curTotalActualUndefined, setCurTotalActualUndefined] = useState(0);
   const [favorites, setFavorites] = useState<any[]>([]);
   
-  const [transferEnvList, setTransferEnvList] = useState<any[]>([]);
-  //const [transferEnvListLoaded, setTransferEnvListLoaded] = useState(false);
-
-  const load_envelope_list = async () => {
-    // Signal we want to get data
-    if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_ENV_LIST, {onlyActive: 1}, config);
-
-    setTransferEnvList(response.data.map((item) => {
-      return { id: item.envID, text: item.category + " : " + item.envelope };
-    }));
-  };
-
   const load_CurrBalance = async (currentData) => {
     // Signal we want to get data
     if (!config) return;
@@ -126,14 +101,6 @@ export const EnvelopesMobile: React.FC = () => {
       return match ? { envID: item.envID, currBudget: match.txAmt } : { envID: item.envID };
     });
 
-    const haveValues = rows.some((row) => row.txAmt !== 0);
-
-    if (haveValues) {
-      setHaveCurrBudget(true);
-    } else {
-      setHaveCurrBudget(false);
-    }
-    
     return updatedData;
   };
 
@@ -144,93 +111,15 @@ export const EnvelopesMobile: React.FC = () => {
     
     // Receive the data
     let rows = response.data;  
-    let myTotalCurr = 0;    
-  
+     
     // Go through the data and store it into our table array
     const updatedData = currentData.map((item) => {
       const match = rows.find((d) => d.envelopeID === item.envID);
       return match ? { envID: item.envID, currActual: match.totalAmt ?? 0 } : { envID: item.envID };
     });
 
-    // Sum the totalAmt values from rows where no match is found in budgetData
-    rows.forEach((row) => {
-      const match = budgetData.find((item) => item.envID === row.envelopeID);
-      if (!match) {
-        myTotalCurr += row.totalAmt ?? 0;
-      }
-    });
-  
-    setCurTotalActualUndefined(myTotalCurr);
     return updatedData;
   };
-
-  const load_MonthlyAvg = async (currentData) => {
-    // Signal we want to get data
-    if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_MONTHLY_AVG, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
-    
-    // Receive the data
-    let rows = response.data;  
-    
-    // Determine the earliest date from the data
-    const firstDate = rows.reduce((earliest, item) => {
-      const tmpDate = new Date(item.firstDate);
-      return tmpDate < earliest ? tmpDate : earliest;
-    }, new Date());
-    
-    const curDate = new Date(year, month);
-    const numMonths = monthDiff(firstDate, curDate) + 1;
-    
-    
-      const updatedData = currentData.map((item) => {
-        if (numMonths > 0) {
-          const match = rows.find((d) => d.envelopeID === item.envID);
-          const ttmAvg = match ? (match.totalAmt / numMonths) : 0;
-          return { envID: item.envID, monthlyAvg: ttmAvg };
-        } else {
-          return { envID: item.envID };
-        }
-      });
-
-      return updatedData; 
-  };
-
-  const handleBalanceTransfer = async ({ updatedRow, transferAmt, toID }) => {
-    let updatedData = budgetData.map((row) => {
-      if (row.envID === updatedRow.envID) {
-        return updatedRow;
-      } else if (row.envID === toID) {
-        const newBalance = row.currBalance + parseFloat(transferAmt);
-        return { ...row, currBalance: newBalance };
-      } else {
-        return row;
-      }
-    });
-
-    setBudgetData(updatedData);
-  }
-
-  const handleRowUpdate = (updatedRow) => {
-    const updatedData = budgetData.map((row) => (row.envID === updatedRow.envID ? updatedRow : row));
-    setBudgetData(updatedData);
-    get_totals(updatedData);
-  };
-
-  const get_totals = (currentData) => {
-    let myTotalBudgetIncome = 0;
-    let myTotalBudgetSpending = 0;
-
-    for (const [, n] of currentData.entries()) {
-      if (n.category === "Income") {
-        myTotalBudgetIncome += n.currBudget;
-      } else {
-        myTotalBudgetSpending += n.currBudget;
-      }
-    };
-    
-    setCurTotalBudgetIncome(myTotalBudgetIncome);
-    setCurTotalBudgetSpending(myTotalBudgetSpending);
-  }
   
   const load_initialEnvelopes = async () => {
     // Signal we want to get data
@@ -278,8 +167,6 @@ export const EnvelopesMobile: React.FC = () => {
       setBudgetData(combinedData);
 
       setLoaded(true);
-
-      get_totals(combinedData);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -333,7 +220,6 @@ export const EnvelopesMobile: React.FC = () => {
   useEffect(() => {
        
     load_favorites();
-    load_envelope_list();
     load_initialEnvelopes();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps

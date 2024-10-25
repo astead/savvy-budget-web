@@ -4,7 +4,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { HeaderMobile } from './headerMobile.tsx';
 
 export const HomePageMobile: React.FC = () => {
-  const { isAuthenticated, loginWithRedirect } = useAuth0();
+  const { isAuthenticated } = useAuth0();
 
   const year = new Date().getFullYear();
   const month = new Date().getMonth();
