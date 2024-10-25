@@ -669,7 +669,7 @@ export const TransactionsMobile: React.FC = () => {
           txData.map((tx, index, myArray) => (
           <React.Fragment key={index}>
               { (index === 0 || (index > 0 && tx.txDate !== myArray[index - 1].txDate)) && (
-                <div className='mobile-tx-date'>{ dayjs(tx.txDate).format('MMM D, YYYY') }</div>
+                <div className='mobile-tx-date'>{ dayjs(tx.txDate).format('MMMM D, YYYY') }</div>
               )}
               <div className='mobile-tx-container'>
                 <div className='mobile-tx-header'>

@@ -347,7 +347,7 @@ export const EnvelopesMobile: React.FC = () => {
       <div className="main-page-body-text-mobile">
         {loaded &&
           <>
-            <span style={{fontWeight: 'bold'}}>{ dayjs(new Date(year, month)).format("MMM 'YY") + '\nBudget' }</span>
+            <span style={{fontWeight: 'bold'}}>{ dayjs(new Date(year, month)).format("MMMM YYYY") + '\nBudget' }</span>
             
             { budgetData
               .filter(i => favorites.some(e => e === i.envID))
