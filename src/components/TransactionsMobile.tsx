@@ -3,7 +3,7 @@ import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import * as dayjs from 'dayjs'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronDown, faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 import { useParams } from 'react-router';
 import { Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers';
@@ -12,8 +12,6 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
-import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import { Button, IconButton } from '@mui/material';

@@ -9,10 +9,6 @@ import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { IconButton } from '@mui/material';
 
-/*
-  TODO: Set a list of favorites to see
- */
-
 export const EnvelopesMobile: React.FC = () => {
   const { config } = useAuthToken();
   
