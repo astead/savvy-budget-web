@@ -524,7 +524,7 @@ export const TransactionsMobile: React.FC = () => {
                   />
                 </Grid>
               </Grid>
-              
+
               <div style={{ paddingTop: '10px', display: 'flex', flexDirection: 'column', alignItems:'center', alignContent: 'center', width: '100%' }}>   
                 <Button variant="contained" className='textButton' onClick={() => add_new_transaction()}>
                   Add Transaction
@@ -549,129 +549,118 @@ export const TransactionsMobile: React.FC = () => {
             Filter
           </AccordionSummary>
           <AccordionDetails>
-            <table><tbody>
-              <tr>
-                <td className="Right">
-                  <span>Start Date: </span>
-                </td>
-                <td className="Left">
-                  <span className="filterSize">
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <DatePicker
-                      value={filterStartDate}
-                      onChange={(newValue) => {
-                        if (isValidDate(newValue)) {
-                          setFilterStartDate(newValue)
-                                                    
-                          if (filterEndDate && newValue && filterEndDate.diff(newValue) <= 0 ) {
-                            setFilterEndDate(newValue?.add(1, 'day'));
-                          }
+          <Grid container spacing={1} alignItems="center" columns={4}>
+            <Grid size={1} style={{ textAlign: 'right' }}>
+              Start Date: 
+            </Grid>
+            <Grid size={3}>
+              <span className="filterSize">
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    value={filterStartDate}
+                    onChange={(newValue) => {
+                      if (isValidDate(newValue)) {
+                        setFilterStartDate(newValue)
+                                                  
+                        if (filterEndDate && newValue && filterEndDate.diff(newValue) <= 0 ) {
+                          setFilterEndDate(newValue?.add(1, 'day'));
                         }
-                      }}
-                      sx={{ border: 'none' }}
-                    />
-                  </LocalizationProvider>
-                  <IconButton onClick={clearStartDate} aria-label="clear date">
-                    <ClearIcon />
-                  </IconButton>
-                  </span>
-                </td>
-                <td width="50"></td>
-                <td className="Right">
-                  <span>Description: </span>
-                </td>
-                <td className="Left">
-                  <input
-                    name="filterDescTemp"
-                    defaultValue={filterDescTemp}
-                    onChange={(e) => {
-                      setFilterDescTemp(e.target.value);
+                      }
                     }}
-                    onBlur={handleFilterDescChange}
-                    className="inputField filterSize"
+                    sx={{ border: 'none' }}
                   />
-                </td>
-              </tr>
-              <tr>
-                <td className="Right">
-                  <span>End Date: </span>
-                </td>
-                <td className="Left">
-                  <span className="filterSize">
-                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                      <DatePicker
-                        value={filterEndDate}
-                        onChange={(newValue) => {
-                          if (isValidDate(newValue)) {
-                            setFilterEndDate(newValue);
-                          }
-                        }}
-                        sx={{ border: 'none' }}
-                      />
-                    </LocalizationProvider>
-                    <IconButton onClick={clearEndDate} aria-label="clear date">
-                      <ClearIcon />
-                    </IconButton>
-                  </span>
-                </td>
-                <td></td>
-                <td className="Right">
-                  <span>Amount: </span>
-                </td>
-                <td className="Left">
-                  <input
-                      name="filterAmountTemp"
-                      defaultValue={filterAmountTemp}
-                      onChange={(e) => {
-                        setFilterAmountTemp(e.target.value);
-                      }}
-                      onBlur={handleFilterAmountChange}
-                      className="inputField filterSize"
-                    />
-                </td>
-              </tr>
-              <tr>
-                <td className="Right">
-                  <span>Category: </span>
-                </td>
-                <td className="Left">
-                  <DropDown 
-                    id={-1}
-                    selectedID={filterCatID}
-                    optionData={filterCatList}
-                    changeCallback={handleFilterCatChange}
-                    className="selectField selectFilterSize"
+                </LocalizationProvider>
+                <IconButton onClick={clearStartDate} aria-label="clear date" sx={{ padding: '0'}}>
+                  <ClearIcon />
+                </IconButton>
+              </span>
+            </Grid>
+            <Grid size={1} style={{ textAlign: 'right' }}>
+              End Date:
+            </Grid>
+            <Grid size={3}>
+              <span className="filterSize">
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    value={filterEndDate}
+                    onChange={(newValue) => {
+                      if (isValidDate(newValue)) {
+                        setFilterEndDate(newValue);
+                      }
+                    }}
+                    sx={{ border: 'none' }}
                   />
-                </td>
-                <td></td>
-                <td className="Right">
-                  <span>Envelope: </span>
-                </td>
-                <td className="Left">
-                  <DropDown 
-                    id={-1}
-                    selectedID={filterEnvID}
-                    optionData={filterEnvList}
-                    changeCallback={handleFilterEnvChange}
-                    className="selectField selectFilterSize"
-                  />
-                </td>
-              </tr>
-              <tr>
-                <td className="Right">
-                  <span>Account: </span>
-                </td>
-                <td className="Left">
-                  <DropDown 
-                    id={-1}
-                    selectedID={filterAccID}
-                    optionData={filterAccList}
-                    changeCallback={handleFilterAccChange}
-                    className="selectField selectFilterSize"
-                  />
-                </td>
-              </tr>
-              </tbody></table>
+                </LocalizationProvider>
+                <IconButton onClick={clearEndDate} aria-label="clear date" sx={{ padding: '0'}}>
+                  <ClearIcon />
+                </IconButton>
+              </span>
+            </Grid>
+            <Grid size={1} style={{ textAlign: 'right' }}>
+              Description:
+            </Grid>
+            <Grid size={3}>
+              <input
+                name="filterDescTemp"
+                defaultValue={filterDescTemp}
+                onChange={(e) => {
+                  setFilterDescTemp(e.target.value);
+                }}
+                onBlur={handleFilterDescChange}
+                className="inputField filterSize"
+              />
+            </Grid>
+            <Grid size={1} style={{ textAlign: 'right' }}>
+              Category:
+            </Grid>
+            <Grid size={3}>
+              <DropDown 
+                id={-1}
+                selectedID={filterCatID}
+                optionData={filterCatList}
+                changeCallback={handleFilterCatChange}
+                className="selectField selectFilterSize"
+              />
+            </Grid>
+            <Grid size={1} style={{ textAlign: 'right' }}>
+              Envelope:
+            </Grid>
+            <Grid size={3}>
+              <DropDown 
+                id={-1}
+                selectedID={filterEnvID}
+                optionData={filterEnvList}
+                changeCallback={handleFilterEnvChange}
+                className="selectField selectFilterSize"
+              />
+            </Grid>
+            <Grid size={1} style={{ textAlign: 'right' }}>
+              Account:
+            </Grid>
+            <Grid size={3}>
+              <DropDown 
+                id={-1}
+                selectedID={filterAccID}
+                optionData={filterAccList}
+                changeCallback={handleFilterAccChange}
+                className="selectField selectFilterSize"
+              />
+            </Grid>
+            <Grid size={1} style={{ textAlign: 'right' }}>
+              Amount:
+            </Grid>
+            <Grid size={3}>
+              <input
+                name="filterAmountTemp"
+                defaultValue={filterAmountTemp}
+                onChange={(e) => {
+                  setFilterAmountTemp(e.target.value);
+                }}
+                onBlur={handleFilterAmountChange}
+                className="inputField filterSize"
+              />
+            </Grid>
+          </Grid> 
           </AccordionDetails>
           </Accordion>
         }
