@@ -246,7 +246,12 @@ export const EnvelopesMobile: React.FC = () => {
                 { index === 0 && (
                   <div className='mobile-tx-date'>Favorites</div>
                 )}
-                <div className='mobile-budget-container' style={{ display: 'flex', alignItems: 'center' }}>
+                <div className='mobile-budget-container'
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center', 
+                    marginBottom: index === myArray.length-1 ? '20px' : '0'
+                  }}>
                   <IconButton onClick={() => handleFavoriteClick(item)} style={{ marginLeft: '0px', marginRight: '0px' }}>
                     {favorites.some(e => e === item.envID) ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
                   </IconButton>
@@ -289,13 +294,17 @@ export const EnvelopesMobile: React.FC = () => {
               </React.Fragment>
             ))}
             
-            <br/>
             { budgetData.map((item, index, myArray) => (
               <React.Fragment key={index}>
                 { (index === 0 || (index > 0 && item.category !== myArray[index - 1].category)) && (
                   <div className='mobile-tx-date'>{item.category}</div>
                 )}
-                <div className='mobile-budget-container' style={{ display: 'flex', alignItems: 'center' }}>
+                <div className='mobile-budget-container'
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center', 
+                    marginBottom: index === myArray.length-1 ? '20px' : '0'
+                  }}>
                   <IconButton onClick={() => handleFavoriteClick(item)} style={{ marginLeft: '0px', marginRight: '0px' }}>
                     {favorites.some(e => e === item.envID) ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
                   </IconButton>
