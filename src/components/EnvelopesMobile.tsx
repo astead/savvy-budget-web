@@ -356,12 +356,12 @@ export const EnvelopesMobile: React.FC = () => {
                 { index === 0 && (
                   <div className='mobile-tx-date'>Favorites</div>
                 )}
-                <div className='mobile-tx-container' style={{ display: 'flex', alignItems: 'center' }}>
+                <div className='mobile-budget-container' style={{ display: 'flex', alignItems: 'center' }}>
                   <IconButton onClick={() => handleFavoriteClick(item)} style={{ marginLeft: '0px', marginRight: '0px' }}>
                     {favorites.some(e => e === item.envID) ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
                   </IconButton>
                   <div style={{ flex: 1 }}>
-                    <div className='mobile-tx-header'>
+                    <div className='mobile-budget-header'>
                       <span className='mobile-tx-description'>
                         {item.envelope}
                       </span>
@@ -405,12 +405,12 @@ export const EnvelopesMobile: React.FC = () => {
                 { (index === 0 || (index > 0 && item.category !== myArray[index - 1].category)) && (
                   <div className='mobile-tx-date'>{item.category}</div>
                 )}
-                <div className='mobile-tx-container' style={{ display: 'flex', alignItems: 'center' }}>
+                <div className='mobile-budget-container' style={{ display: 'flex', alignItems: 'center' }}>
                   <IconButton onClick={() => handleFavoriteClick(item)} style={{ marginLeft: '0px', marginRight: '0px' }}>
                     {favorites.some(e => e === item.envID) ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
                   </IconButton>
                   <div style={{ flex: 1 }}>
-                    <div className='mobile-tx-header'>
+                    <div className='mobile-budget-header'>
                       <span className='mobile-tx-description'>
                         {item.envelope}
                       </span>
