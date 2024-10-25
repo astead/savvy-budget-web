@@ -2226,6 +2226,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_CUR_ACTUAL, async (req, r
         .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
 
       const data = await query;
+      console.log('returning actual data: ', data.length);
       res.json(data);
     });
 

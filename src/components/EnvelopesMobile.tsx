@@ -110,7 +110,9 @@ export const EnvelopesMobile: React.FC = () => {
     const response = await axios.post(baseUrl + channels.GET_CUR_ACTUAL, { find_date: dayjs(new Date(year, month+1)).format('YYYY-MM-DD') }, config);
     
     // Receive the data
-    let rows = response.data;  
+    let rows = response.data;
+    
+    console.log('got actual data: ', rows.length);
      
     // Go through the data and store it into our table array
     const updatedData = currentData.map((item) => {
