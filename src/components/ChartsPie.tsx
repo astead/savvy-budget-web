@@ -222,9 +222,9 @@ export const ChartsPie: React.FC = () => {
       if (tmpEnv && tmpEnv.id !== filterCatID) {
         handleFilterEnvChange({id: null, new_value: tmpEnv.id, new_text: filterCatName});
       }
-
     }
-  }, [filterCatName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterEnvListLoaded, filterEnvList, filterCatID, filterCatName]);
 
   
   useEffect(() => {
@@ -234,7 +234,8 @@ export const ChartsPie: React.FC = () => {
         load_chart();
       }
     }
-  }, [filterCatID, filterCatName, filterEnvName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterEnvListLoaded, filterCatID, filterCatName, filterEnvName]);
 
 
   useEffect(() => {

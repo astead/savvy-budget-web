@@ -17,8 +17,7 @@ const BorderLinearProgress = styled(LinearProgress)(({ theme }) => ({
 
 const ProgressBar: React.FC<ProgressBarProps> = ({ actual, target, overColor }) => {
   const primaryValue = Math.min((actual / target) * 100, 100);
-  const overBudgetValue = actual > target ? ((actual - target) / target) * 100 : 0;
-
+  
   return (
     <Box position="relative" display="flex" alignItems="center" width="100%">
       <Box width="100%" mr={1} position="relative">

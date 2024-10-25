@@ -75,10 +75,6 @@ export const TransactionsMobile: React.FC = () => {
   const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
   const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
 
-  // Category : Envelope data for drop down lists
-  const [envList, setEnvList] = useState<any[]>([]);
-  const [envListLoaded, setEnvListLoaded] = useState(false);
-  
   // Transaction data
   const [txData, setTxData] = useState<any[]>([]);
 
@@ -146,9 +142,6 @@ export const TransactionsMobile: React.FC = () => {
     setNewTxEnvList(tmpFilterEnvList);
     setNewTxEnvID(firstID);
     setNewTxEnvListLoaded(true);
-
-    setEnvList([{ id: -1, text: "Undefined"}, ...(tmpFilterEnvList)]);
-    setEnvListLoaded(true);
 
     setFilterEnvList([
       { id: -3, text: "All" },
@@ -649,7 +642,7 @@ export const TransactionsMobile: React.FC = () => {
           </Accordion>
         }
         <br/>
-        {envListLoaded &&
+        {
           txData.map((tx, index, myArray) => (
           <React.Fragment key={index}>
               { (index === 0 || (index > 0 && tx.txDate !== myArray[index - 1].txDate)) && (
