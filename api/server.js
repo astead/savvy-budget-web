@@ -2170,8 +2170,8 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_PREV_ACTUAL, async (req, 
   const userId = req.user_id; // Looked up user_id from middleware
   
   try {
-    const month = dayjs(new Date(find_date)).format('MM');
-    const year = dayjs(new Date(find_date)).format('YYYY');
+    const month = dayjs(new Date(find_date + 'T00:00:00')).format('MM');
+    const year = dayjs(new Date(find_date + 'T00:00:00')).format('YYYY');
 
     await db.transaction(async (trx) => {
       // Set the current_user_id
@@ -2206,8 +2206,8 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_CUR_ACTUAL, async (req, r
   const userId = req.user_id; // Looked up user_id from middleware
   
   try {
-    const month = dayjs(new Date(find_date)).format('MM');
-    const year = dayjs(new Date(find_date)).format('YYYY');
+    const month = dayjs(new Date(find_date + 'T00:00:00')).format('MM');
+    const year = dayjs(new Date(find_date + 'T00:00:00')).format('YYYY');
 
     await db.transaction(async (trx) => {
       // Set the current_user_id
@@ -2225,9 +2225,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_CUR_ACTUAL, async (req, r
         .andWhereRaw(`EXTRACT(MONTH FROM "txDate") = ?`, [month])
         .andWhereRaw(`EXTRACT(YEAR FROM "txDate") = ?`, [year]);
 
-      console.log(query.toString());
       const data = await query;
-      console.log('returning actual data: ', data.length);
       res.json(data);
     });
 

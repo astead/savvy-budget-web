@@ -140,7 +140,9 @@ export const Envelopes: React.FC = () => {
   const load_PrevActual = async (currentData) => {
     // Signal we want to get data
     if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_PREV_ACTUAL, { find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD') }, config);
+    const response = await axios.post(baseUrl + channels.GET_PREV_ACTUAL, { 
+      find_date: dayjs(new Date(year, month)).subtract(1, 'month').format('YYYY-MM-DD')
+    }, config);
 
     // Receive the data
     let rows = response.data;
@@ -199,7 +201,9 @@ export const Envelopes: React.FC = () => {
   const load_CurrActual = async (currentData) => {
     // Signal we want to get data
     if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_CUR_ACTUAL, { find_date: dayjs(new Date(year, month+1)).format('YYYY-MM-DD') }, config);
+    const response = await axios.post(baseUrl + channels.GET_CUR_ACTUAL, {
+      find_date: dayjs(new Date(year, month)).format('YYYY-MM-DD')
+    }, config);
     
     // Receive the data
     let rows = response.data;  
