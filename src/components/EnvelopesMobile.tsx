@@ -342,7 +342,21 @@ export const EnvelopesMobile: React.FC = () => {
                       {item.envelope}
                     </span>
                     <span className='mobile-tx-amt'>
-                      {formatWholeCurrency(item.currActual)} of {formatWholeCurrency(item.currBudget)}
+                      { 
+                        formatWholeCurrency(
+                          item.category === 'Income' ? 
+                            item.currActual :
+                            (item.currActual === 0 ? 0 : -1*item.currActual)
+                        )
+                      } 
+                      {' of '}
+                      {
+                        formatWholeCurrency(
+                          item.category === 'Income' ? 
+                            (item.currBudget === 0 ? 0 : -1*item.currBudget) : 
+                            item.currBudget
+                        )
+                      }
                     </span>
                   </div>
                 
