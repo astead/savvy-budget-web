@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Header } from './header.tsx';
 import { baseUrl, channels } from '../shared/constants.js'
-import { MonthSelector } from '../helpers/MonthSelector.tsx';
 import * as dayjs from 'dayjs';
-import { Link } from 'react-router-dom';
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
-import { EnvelopeRow } from './EnvelopeRow.tsx';
 import { FooterMobile } from './FooterMobile.tsx';
-import ProgressBar from '../helpers/BorderLinearProgress.tsx'
+import ProgressBar from '../helpers/BorderLinearProgress.tsx';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import { IconButton } from '@mui/material';
 
 /*
   TODO: Set a list of favorites to see
@@ -86,6 +83,7 @@ export const EnvelopesMobile: React.FC = () => {
   const [curTotalBudgetIncome, setCurTotalBudgetIncome] = useState(0);
   const [curTotalBudgetSpending, setCurTotalBudgetSpending] = useState(0);
   const [curTotalActualUndefined, setCurTotalActualUndefined] = useState(0);
+  const [favorites, setFavorites] = useState<any[]>([]);
   
   const [transferEnvList, setTransferEnvList] = useState<any[]>([]);
   //const [transferEnvListLoaded, setTransferEnvListLoaded] = useState(false);
@@ -290,6 +288,24 @@ export const EnvelopesMobile: React.FC = () => {
     }
   };
 
+  const handleFavoriteClick = (item) => {
+    if (!favorites.includes(item.envID)) {
+      favorites.push(item.envID);
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+      setFavorites([...favorites]);
+    } else {
+      let tmp_favorites = favorites.filter(id => id !== item.envID);
+      localStorage.setItem('favorites', JSON.stringify(tmp_favorites));
+      setFavorites([...tmp_favorites]);
+    }
+  };
+
+  const load_favorites = () => {
+    const favs = localStorage.getItem('favorites');
+    let favorites = (favs) ? JSON.parse(favs) : [];
+    setFavorites(favorites);
+  };
+
   useEffect(() => {
     setLoadedEnvelopes(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -319,7 +335,7 @@ export const EnvelopesMobile: React.FC = () => {
 
   useEffect(() => {
        
-
+    load_favorites();
     load_envelope_list();
     load_initialEnvelopes();
 
@@ -332,46 +348,102 @@ export const EnvelopesMobile: React.FC = () => {
         {loaded &&
           <>
             <span style={{fontWeight: 'bold'}}>{ dayjs(new Date(year, month)).format("MMM 'YY") + '\nBudget' }</span>
+            
+            { budgetData
+              .filter(i => favorites.some(e => e === i.envID))
+              .map((item, index, myArray) => (
+              <React.Fragment key={index}>
+                { index === 0 && (
+                  <div className='mobile-tx-date'>Favorites</div>
+                )}
+                <div className='mobile-tx-container' style={{ display: 'flex', alignItems: 'center' }}>
+                  <IconButton onClick={() => handleFavoriteClick(item)} style={{ marginLeft: '0px', marginRight: '0px' }}>
+                    {favorites.some(e => e === item.envID) ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
+                  </IconButton>
+                  <div style={{ flex: 1 }}>
+                    <div className='mobile-tx-header'>
+                      <span className='mobile-tx-description'>
+                        {item.envelope}
+                      </span>
+                      <span className='mobile-tx-amt'>
+                        { 
+                          formatWholeCurrency(
+                            item.category === 'Income' ? 
+                              item.currActual :
+                              (item.currActual === 0 ? 0 : -1*item.currActual)
+                          )
+                        } 
+                        {' of '}
+                        {
+                          formatWholeCurrency(
+                            item.category === 'Income' ? 
+                              (item.currBudget === 0 ? 0 : -1*item.currBudget) : 
+                              item.currBudget
+                          )
+                        }
+                      </span>
+                    </div>
+                    <ProgressBar 
+                      actual={
+                        item.category === 'Income' ? item.currActual : (-1 * item.currActual)
+                      }
+                      target={
+                        item.category === 'Income' ? (-1 * item.currBudget) : item.currBudget
+                      }
+                      overColor={
+                        item.category === 'Income' ? 'green' : 'red'
+                      }
+                    />
+                  </div>
+                </div>
+              </React.Fragment>
+            ))}
+            
+            <br/>
             { budgetData.map((item, index, myArray) => (
               <React.Fragment key={index}>
                 { (index === 0 || (index > 0 && item.category !== myArray[index - 1].category)) && (
                   <div className='mobile-tx-date'>{item.category}</div>
                 )}
-                <div className='mobile-tx-container'>
-                  <div className='mobile-tx-header'>
-                    <span className='mobile-tx-description'>
-                      {item.envelope}
-                    </span>
-                    <span className='mobile-tx-amt'>
-                      { 
-                        formatWholeCurrency(
-                          item.category === 'Income' ? 
-                            item.currActual :
-                            (item.currActual === 0 ? 0 : -1*item.currActual)
-                        )
-                      } 
-                      {' of '}
-                      {
-                        formatWholeCurrency(
-                          item.category === 'Income' ? 
-                            (item.currBudget === 0 ? 0 : -1*item.currBudget) : 
-                            item.currBudget
-                        )
+                <div className='mobile-tx-container' style={{ display: 'flex', alignItems: 'center' }}>
+                  <IconButton onClick={() => handleFavoriteClick(item)} style={{ marginLeft: '0px', marginRight: '0px' }}>
+                    {favorites.some(e => e === item.envID) ? <FavoriteIcon color="error" /> : <FavoriteBorderIcon />}
+                  </IconButton>
+                  <div style={{ flex: 1 }}>
+                    <div className='mobile-tx-header'>
+                      <span className='mobile-tx-description'>
+                        {item.envelope}
+                      </span>
+                      <span className='mobile-tx-amt'>
+                        { 
+                          formatWholeCurrency(
+                            item.category === 'Income' ? 
+                              item.currActual :
+                              (item.currActual === 0 ? 0 : -1*item.currActual)
+                          )
+                        } 
+                        {' of '}
+                        {
+                          formatWholeCurrency(
+                            item.category === 'Income' ? 
+                              (item.currBudget === 0 ? 0 : -1*item.currBudget) : 
+                              item.currBudget
+                          )
+                        }
+                      </span>
+                    </div>
+                    <ProgressBar 
+                      actual={
+                        item.category === 'Income' ? item.currActual : (-1 * item.currActual)
                       }
-                    </span>
+                      target={
+                        item.category === 'Income' ? (-1 * item.currBudget) : item.currBudget
+                      }
+                      overColor={
+                        item.category === 'Income' ? 'green' : 'red'
+                      }
+                    />
                   </div>
-                  <ProgressBar 
-                    actual={
-                      item.category === 'Income' ? item.currActual : (-1 * item.currActual)
-                    }
-                    target={
-                      item.category === 'Income' ? (-1 * item.currBudget) : item.currBudget
-                    }
-                    overColor={
-                      item.category === 'Income' ? 'green' : 'red'
-                    }
-                  />
-                
                 </div>
               </React.Fragment>
             ))}

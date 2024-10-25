@@ -691,8 +691,8 @@ div.mobile-tx-date {
 
 .mobile-tx-container {
   background-color: white;
-  padding-left: 5px;
-  padding-right: 5px; /* Added for consistency */
+  padding-left: 0px;
+  padding-right: 5px;
   padding-bottom: 5px;
 }
 
@@ -700,6 +700,7 @@ div.mobile-tx-date {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-right: 8px;
 }
 
 .mobile-tx-description {
