@@ -677,7 +677,7 @@ export const TransactionsMobile: React.FC = () => {
                   <span className='mobile-tx-amt'>{formatCurrency(tx.txAmt)}</span>
                 </div>
                 <div className='mobile-tx-envelope'>
-                  <span>{tx.envelope}</span>
+                  <span>{tx.category} : {tx.envelope}</span>
                 </div>
               </div>
             </React.Fragment>
