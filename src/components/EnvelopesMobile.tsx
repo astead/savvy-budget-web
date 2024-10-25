@@ -8,6 +8,7 @@ import ProgressBar from '../helpers/BorderLinearProgress.tsx';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import { IconButton } from '@mui/material';
+import { HeaderMobile } from './headerMobile.tsx';
 
 export const EnvelopesMobile: React.FC = () => {
   const { config } = useAuthToken();
@@ -340,10 +341,15 @@ export const EnvelopesMobile: React.FC = () => {
 
   return (
     <>
+      <div className="App-header">
+        <HeaderMobile currTab="Budget"/>
+      </div>
       <div className="main-page-body-text-mobile">
         {loaded &&
           <>
-            <span style={{fontWeight: 'bold'}}>{ dayjs(new Date(year, month)).format("MMMM YYYY") + '\nBudget' }</span>
+            <div style={{ paddingBottom: '10px', fontWeight: 'bold' }}>
+              { dayjs(new Date(year, month)).format("MMMM YYYY") + ' Budget' }
+            </div>
             
             { budgetData
               .filter(i => favorites.some(e => e === i.envID))

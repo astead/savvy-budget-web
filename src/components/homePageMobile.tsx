@@ -1,6 +1,7 @@
 import React from 'react';
 import { FooterMobile } from './FooterMobile.tsx';
 import { useAuth0 } from '@auth0/auth0-react';
+import { HeaderMobile } from './headerMobile.tsx';
 
 export const HomePageMobile: React.FC = () => {
   const { isAuthenticated, loginWithRedirect } = useAuth0();
@@ -10,17 +11,12 @@ export const HomePageMobile: React.FC = () => {
 
     return (
       <>
+        <div className="App-header">
+          <HeaderMobile currTab="Home"/>
+        </div>
         <div className="main-page-body-text-mobile">
             <b>Welcome to Savvy Budget.</b>
             <br/><br/>
-            { !isAuthenticated && <>
-              <span onClick={() => loginWithRedirect()} className={"menuLink"}>
-                Log In<br/>
-                or<br/>
-                Sign Up
-              </span>
-            </> }
-            { isAuthenticated && <>
               <b>History</b><br/>
               Savvy Budget was initially created in 2002 as a way to track my personal budget.
               I set it up so it would require uploading downloaded bank transaction exports. 
@@ -156,8 +152,6 @@ export const HomePageMobile: React.FC = () => {
         
               <br/><br/>
               <a href="https://www.flaticon.com/free-icons/budget" title="budget icons">Budget icons created by khulqi Rosyid - Flaticon</a>
-              </>
-            }
         </div>
         { isAuthenticated && 
           <FooterMobile defaultValue={null} />

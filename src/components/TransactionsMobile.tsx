@@ -18,6 +18,7 @@ import { Button, IconButton } from '@mui/material';
 import Grid from '@mui/material/Grid2';
 import ClearIcon from '@mui/icons-material/Clear';
 import { FooterMobile } from './FooterMobile.tsx';
+import { HeaderMobile } from './headerMobile.tsx';
 
 
 /*
@@ -437,6 +438,9 @@ export const TransactionsMobile: React.FC = () => {
 
   return (
     <>
+      <div className="App-header">
+        <HeaderMobile currTab="Transaction"/>
+      </div>
       <div className="main-page-body-text-mobile">
         { newTxEnvListLoaded && newTxAccListLoaded &&
           <Accordion>

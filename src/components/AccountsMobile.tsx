@@ -24,6 +24,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { styled } from '@mui/material/styles';
+import { HeaderMobile } from './headerMobile.tsx';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -450,11 +451,14 @@ export const AccountsMobile = () => {
 
   return (
     <>
+      <div className="App-header">
+        <HeaderMobile currTab="Accounts"/>
+      </div>
       <div className="main-page-body-text-mobile">
-  {link_Error && 
-    <div className="Error"><br/>{link_Error}</div>
-  }
-  <>
+      {link_Error && 
+        <div className="Error"><br/>{link_Error}</div>
+      }
+      <>
     {token &&
       <Box>
         { GuidanceText() }
@@ -723,9 +727,9 @@ export const AccountsMobile = () => {
         </Modal>
       </Box>
     }
-  </>
-  </div>
-  <FooterMobile defaultValue={2} />
+      </>
+    </div>
+    <FooterMobile defaultValue={2} />
   </>
   );
 };
