@@ -77,11 +77,16 @@ export const TransactionsMobile: React.FC = () => {
 
   // Transaction data
   const [txData, setTxData] = useState<any[]>([]);
-
   
   const [basicLoaded, setBasicLoaded] = useState(false);
   const [accLoaded, setAccLoaded] = useState(false);
   const [envLoaded, setEnvLoaded] = useState(false);
+
+  const [visibleItems, setVisibleItems] = useState(10); 
+
+  const loadMore = () => {
+    setVisibleItems((prev) => prev + 10); // Load 10 more items
+  };
 
   const isValidDate = (date: any): date is Dayjs | null => {
     return (dayjs.isDayjs(date) && date.isValid()) || date === null;
@@ -643,7 +648,7 @@ export const TransactionsMobile: React.FC = () => {
         }
         <br/>
         {
-          txData.map((tx, index, myArray) => (
+          txData.slice(0, visibleItems).map((tx, index, myArray) => (
           <React.Fragment key={index}>
               { (index === 0 || (index > 0 && tx.txDate !== myArray[index - 1].txDate)) && (
                 <div className='mobile-tx-date'>{ dayjs(tx.txDate).format('MMMM D, YYYY') }</div>
@@ -660,6 +665,14 @@ export const TransactionsMobile: React.FC = () => {
             </React.Fragment>
           ))
         }
+        
+        { visibleItems < txData.length && (
+          <div style={{ paddingTop: '10px', paddingBottom: '10px', display: 'flex', flexDirection: 'column', alignItems:'center', alignContent: 'center', width: '100%' }}>   
+            <Button variant="contained" className='textButton' onClick={loadMore}>
+              Load More
+            </Button>
+          </div>
+        )}
       </div>
       <FooterMobile defaultValue={0} />
     </>
