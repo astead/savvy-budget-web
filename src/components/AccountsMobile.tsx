@@ -19,6 +19,11 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { EditText } from 'react-edit-text';
 import { FooterMobile } from './FooterMobile.tsx';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { styled } from '@mui/material/styles';
 
 const style = {
   position: 'absolute' as 'absolute',
@@ -389,7 +394,38 @@ export const AccountsMobile = () => {
       console.log('Error trying to set account visibility.');
     }
   };
- 
+  
+  const StyledAccordion = styled(Accordion)(({ theme }) => ({
+    marginBottom: '16px',
+    '&.Mui-expanded': {
+      marginBottom: '16px',
+    },
+  }));
+  
+  const GuidanceText = () => (
+    <StyledAccordion>
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        aria-controls="panel1a-content"
+        id="panel1a-header"
+      >
+        <Typography>How to use this page</Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        <Typography>
+          You can add linked bank accounts or unlinked ones.  Linked ones will connect using PLAID and pull your 
+          transaction data.  Unlinked accounts will need to have bank transaction exports uploaded on the transaction 
+          page.<br/><br/>
+          You can rename accounts by clicking on the name. This will allow you to group different accounts 
+          under a common name, for instance putting all credit card accounts under "credit card". I found this
+          useful when getting an updated credit card and wanting to keep it under the same name. I also did this
+          if the bank created separate account for multiple account holders. The full original account name will 
+          still be visible when hovering over the account name.
+        </Typography>
+      </AccordionDetails>
+    </StyledAccordion>
+  );
+
   useEffect(() => {
     if (accountsLoaded) {
       if (!token) {
@@ -421,198 +457,189 @@ export const AccountsMobile = () => {
   <>
     {token &&
       <Box>
-        <p style={{ textAlign: 'left' }}>
-          You can add linked bank accounts or unlinked ones.  Linked ones will connect using PLAID and pull your 
-          transaction data.  Unlinked accounts will need to have bank transaction exports uploaded on the transaction 
-          page.<br/><br/>
-          You can rename accounts by clicking on the name. This will allow you to group different accounts 
-          under a common name, for instance putting all credit card accounts under "credit card". I found this
-          useful when getting an updated credit card and wanting to keep it under the same name. I also did this
-          if the bank created separate account for multiple account holders. The full original account name will 
-          still be visible when hovering over the account name.
-        </p>
-          { updateConfig && <UpdatePlaid/>}
+        { GuidanceText() }
+        { updateConfig && <UpdatePlaid/>}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', alignContent:'center'}}>
           <Button variant="contained" className='textButton' onClick={() => handleOpenNewAccount()} style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
             Create a new unlinked account
           </Button>
-
           <Button variant="contained" className='textButton' onClick={() => openLink()} disabled={!readyLink} style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
             Connect a new linked account
           </Button>
-
-          { downloading && 
-            <Box sx={{ width: '100%' }}>
-              <LinearProgressWithLabel variant="determinate" value={progress} style={{ marginBottom: '20px' }} />
+        </div>
+        { downloading && 
+          <Box sx={{ width: '100%' }}>
+            <LinearProgressWithLabel variant="determinate" value={progress} style={{ marginBottom: '20px' }} />
+          </Box>
+        }
+        { institutions.map(institution => (
+          <Paper key={institution.institution_id} style={{ marginBottom: '20px' }}>
+            <Box className="institution-header">
+              <Typography variant="h6">{ (institution.institution_name === null ? "Blank Name?" : institution.institution_name)}</Typography>
+              <Box>
+                <Button variant="contained" className='textButton' onClick={() => remove_login(institution.id)} disabled={!token} style={{ marginRight: '10px' }}>
+                  Unlink
+                </Button>
+                <Button variant="contained" className='textButton' onClick={() => update_login(institution.id)} disabled={!token}>
+                  Update Login
+                </Button>
+              </Box>
             </Box>
-          }
-          { institutions.map(institution => (
-            <Paper key={institution.institution_id} style={{ marginBottom: '20px' }}>
-              <Box className="institution-header">
-                <Typography variant="h6">{ (institution.institution_name === null ? "Blank Name?" : institution.institution_name)}</Typography>
-                <Box>
-                  <Button variant="contained" className='textButton' onClick={() => remove_login(institution.id)} disabled={!token} style={{ marginRight: '10px' }}>
-                    Unlink
-                  </Button>
-                  <Button variant="contained" className='textButton' onClick={() => update_login(institution.id)} disabled={!token}>
-                    Update Login
-                  </Button>
-                </Box>
-              </Box>
-              { (institution.err_code !== null) && (
-                <Box className="institution-header institution-error">Error: {institution.err_msg}</Box>
-              )}
-              <Box className="account-container">
-                <Box className="account-list">
-                { PLAIDAccounts
-                  .filter(acc => (acc.institution_id === institution.institution_id) && (acc.isLinked))
-                  .map(acc => (
+            { (institution.err_code !== null) && (
+              <Box className="institution-header institution-error">Error: {institution.err_msg}</Box>
+            )}
+            <Box className="account-container">
+              <Box className="account-list">
+              { PLAIDAccounts
+                .filter(acc => (acc.institution_id === institution.institution_id) && (acc.isLinked))
+                .map(acc => (
 
-                  <Box key={acc.id} className="account-details">
-                    <Box sx={{ flex: '1 0', textAlign: 'left' }}>
-                      <Tooltip title={ acc.full_account_name } placement="top"
-                        slotProps={{
-                          popper: {
-                            modifiers: [
-                              {
-                                name: 'offset',
-                                options: {
-                                  offset: [0, -14],
-                                },
+                <Box key={acc.id} className="account-details">
+                  <Box sx={{ flex: '1 0', textAlign: 'left' }}>
+                    <Tooltip title={ acc.full_account_name } placement="top"
+                      slotProps={{
+                        popper: {
+                          modifiers: [
+                            {
+                              name: 'offset',
+                              options: {
+                                offset: [0, -14],
                               },
-                            ],
-                          },
-                        }}>
-                        <span>
-                          <EditText
-                            name={ acc.id.toString() }
-                            defaultValue={ acc.common_name }
-                            onSave={({name, value, previousValue}) => {
-                              // Request we rename the account in the DB
-                              if (!config) return;
-                              axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
-                            }}
-                            style={{padding: '0px', margin: '0px', minHeight: '1rem' }}
-                            className={"editableText"}
-                            inputClassName={"normalInput"}
-                          />
-                        </span>
-                      </Tooltip>
-                    </Box>
-                    <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
-                      { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
-                    </Typography>
-                    { acc.lastTx && (
-                      <>
-                      <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
-                        <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
-                      </Tooltip>
-                      </>
-                    )}
+                            },
+                          ],
+                        },
+                      }}>
+                      <span>
+                        <EditText
+                          name={ acc.id.toString() }
+                          defaultValue={ acc.common_name }
+                          onSave={({name, value, previousValue}) => {
+                            // Request we rename the account in the DB
+                            if (!config) return;
+                            axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
+                          }}
+                          style={{padding: '0px', margin: '0px', minHeight: '1rem' }}
+                          className={"editableText"}
+                          inputClassName={"normalInput"}
+                        />
+                      </span>
+                    </Tooltip>
                   </Box>
-                ))}
+                  <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
+                    { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
+                  </Typography>
+                  { acc.lastTx && (
+                    <>
+                    <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
+                      <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
+                    </Tooltip>
+                    </>
+                  )}
                 </Box>
-                <Box className="account-buttons">
-                  <Button variant="outlined" className='plaid-update-button'
-                    onClick={() => get_transactions(institution.id)}
-                    disabled={!token || (institution.err_code !== null)}  style={{ marginBottom: '5px' }}>
-                    Update Latest
-                  </Button>
-                  <Button variant="outlined" 
-                    className='plaid-update-button'
-                    onClick={() => {
-                      // Get the latest transaction date for this account
-                      const filtered = PLAIDAccounts.filter((a) => a.id === institution.id);
-                      const only_dates = filtered.map((a) => new Date(a.lastTx + 'T00:00:00').getTime());
-                      const max_date = Math.max(...only_dates);
-                      const max_date_str = dayjs(max_date).format('YYYY-MM-DD');
-                      if (max_date_str) {
-                        setGetStart(max_date_str);
-                      } else {
-                        setGetStart(dayjs().startOf('month').format("YYYY-MM-DD"));
-                      }
-                      setGetEnd(dayjs().format("YYYY-MM-DD"));
-                      setGetAcc(filtered[0]);
-                      
-                      handleOpen();
-                    }} 
-                    disabled={!token || (institution.err_code !== null)}>
-                    Update by Date
-                  </Button>
-                </Box>
+              ))}
               </Box>
-            </Paper>
-          ))}
-          <Paper key='_Unlinked_Accounts' style={{ marginBottom: '20px' }}>
-              <Box className="institution-header">
-                <Typography variant="h6">Unlinked Accounts</Typography>
+              <Box className="account-buttons">
+                <Button variant="outlined" className='plaid-update-button'
+                  onClick={() => get_transactions(institution.id)}
+                  disabled={!token || (institution.err_code !== null)}  style={{ marginBottom: '5px' }}>
+                  Update Latest
+                </Button>
+                <Button variant="outlined" 
+                  className='plaid-update-button'
+                  onClick={() => {
+                    // Get the latest transaction date for this account
+                    const filtered = PLAIDAccounts.filter((a) => a.id === institution.id);
+                    const only_dates = filtered.map((a) => new Date(a.lastTx + 'T00:00:00').getTime());
+                    const max_date = Math.max(...only_dates);
+                    const max_date_str = dayjs(max_date).format('YYYY-MM-DD');
+                    if (max_date_str) {
+                      setGetStart(max_date_str);
+                    } else {
+                      setGetStart(dayjs().startOf('month').format("YYYY-MM-DD"));
+                    }
+                    setGetEnd(dayjs().format("YYYY-MM-DD"));
+                    setGetAcc(filtered[0]);
+                    
+                    handleOpen();
+                  }} 
+                  disabled={!token || (institution.err_code !== null)}>
+                  Update by Date
+                </Button>
               </Box>
-              <Box className="account-container">
-                <Box className="account-list">
-                { PLAIDAccounts.filter(acc => (!acc.isLinked))
-                  .sort((a, b) => a.common_name.localeCompare(b.common_name))
-                  .map(acc => (
-                  
-                  <Box key={acc.id} className="account-details">
-                    <Box sx={{ flex: '1 0', textAlign: 'left' }}>
-                      <Tooltip title={ acc.full_account_name } placement="top"
-                        slotProps={{
-                          popper: {
-                            modifiers: [
-                              {
-                                name: 'offset',
-                                options: {
-                                  offset: [0, -14],
-                                },
+            </Box>
+          </Paper>
+        ))}
+        <Paper key='_Unlinked_Accounts' style={{ marginBottom: '20px' }}>
+            <Box className="institution-header">
+              <Typography variant="h6">Unlinked Accounts</Typography>
+            </Box>
+            <Box className="account-container">
+              <Box className="account-list">
+              { PLAIDAccounts.filter(acc => (!acc.isLinked))
+                .sort((a, b) => a.common_name.localeCompare(b.common_name))
+                .map(acc => (
+                
+                <Box key={acc.id} className="account-details">
+                  <Box sx={{ flex: '1 0', textAlign: 'left' }}>
+                    <Tooltip title={ acc.full_account_name } placement="top"
+                      slotProps={{
+                        popper: {
+                          modifiers: [
+                            {
+                              name: 'offset',
+                              options: {
+                                offset: [0, -14],
                               },
-                            ],
-                          },
-                        }}>
-                        <span>
-                          <EditText
-                            name={ acc.id.toString() }
-                            defaultValue={ acc.common_name }
-                            onSave={({name, value, previousValue}) => {
-                              // Request we rename the account in the DB
-                              if (!config) return;
-                              axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
-                            }}
-                            style={{padding: '0px', margin: '0px', minHeight: '1rem' }}
-                            className={"editableText"}
-                            inputClassName={"normalInput"}
-                          />
-                        </span>
-                      </Tooltip>
-                    </Box>
-                    <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
-                      { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
-                    </Typography>
-                    { acc.lastTx && (
-                      <>
-                      <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
-                        <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
-                      </Tooltip>
-                      <Tooltip title="Toggle if account is currently active" sx={{ width: 'fit-content', flex: '0 0' }}>
-                      <Button 
-                        className={ acc.isActive ? "" : "trash" } sx={{ margin: '0px', marginLeft: '5px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto', verticalAlign:'middle' }}
-                        onClick={() => handleAccountDeactivate({ id: acc.id, set_active: acc.isActive ? false : true })}>
-                            {acc.isActive && <VisibilityIcon fontSize="small" />}
-                            {!acc.isActive && <VisibilityOffIcon fontSize="small" />}
-                      </Button>
-                      </Tooltip>
-                      </>
-                    )}
-                    { !acc.lastTx && (
-                      <Button 
-                        className="trash" sx={{ margin: '0px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto' }}
-                        onClick={() => handleAccountDelete(acc.id)}>
-                            <DeleteForeverIcon fontSize="small" />
-                      </Button>
-                    )}
+                            },
+                          ],
+                        },
+                      }}>
+                      <span>
+                        <EditText
+                          name={ acc.id.toString() }
+                          defaultValue={ acc.common_name }
+                          onSave={({name, value, previousValue}) => {
+                            // Request we rename the account in the DB
+                            if (!config) return;
+                            axios.post(baseUrl + channels.UPDATE_ACCOUNT, { id: acc.id, new_value: value }, config);
+                          }}
+                          style={{padding: '0px', margin: '0px', minHeight: '1rem' }}
+                          className={"editableText"}
+                          inputClassName={"normalInput"}
+                        />
+                      </span>
+                    </Tooltip>
                   </Box>
-                ))}
+                  <Typography variant="body2" color="textSecondary" sx={{ marginLeft: '4px', width: 'fit-content', flex: '0 0' }}>
+                    { acc.lastTx && dayjs(acc.lastTx).format('M/D/YYYY') }
+                  </Typography>
+                  { acc.lastTx && (
+                    <>
+                    <Tooltip title="Last transaction date" sx={{ width: 'fit-content', flex: '0 0' }}>
+                      <InfoIcon fontSize="small" sx={{ marginLeft: '4px', color: 'grey.500', opacity: 0.7 }} />
+                    </Tooltip>
+                    <Tooltip title="Toggle if account is currently active" sx={{ width: 'fit-content', flex: '0 0' }}>
+                    <Button 
+                      className={ acc.isActive ? "" : "trash" } sx={{ margin: '0px', marginLeft: '5px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto', verticalAlign:'middle' }}
+                      onClick={() => handleAccountDeactivate({ id: acc.id, set_active: acc.isActive ? false : true })}>
+                          {acc.isActive && <VisibilityIcon fontSize="small" />}
+                          {!acc.isActive && <VisibilityOffIcon fontSize="small" />}
+                    </Button>
+                    </Tooltip>
+                    </>
+                  )}
+                  { !acc.lastTx && (
+                    <Button 
+                      className="trash" sx={{ margin: '0px', padding: '0px', width: 'min-content', height: '1rem', flex: '0 0', minWidth: 'auto' }}
+                      onClick={() => handleAccountDelete(acc.id)}>
+                          <DeleteForeverIcon fontSize="small" />
+                    </Button>
+                  )}
                 </Box>
+              ))}
               </Box>
-            </Paper>
+            </Box>
+          </Paper>
         <Modal
           open={open}
           onClose={handleClose}
