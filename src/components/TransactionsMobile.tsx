@@ -67,9 +67,6 @@ export const TransactionsMobile: React.FC = () => {
   const [filterAccList, setFilterAccList] = useState<any[]>([]);
   const [filterAccListLoaded, setFilterAccListLoaded] = useState(false);
 
-  const [filterDescTemp, setFilterDescTemp] = useState('');
-  const [filterAmountTemp, setFilterAmountTemp] = useState('');
-
   // Transaction data
   const [txData, setTxData] = useState<any[]>([]);
   
