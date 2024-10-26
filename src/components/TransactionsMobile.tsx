@@ -4,7 +4,6 @@ import { DropDown } from '../helpers/DropDown.tsx';
 import * as dayjs from 'dayjs'
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
-import { useParams } from 'react-router';
 import { Dayjs } from 'dayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -31,8 +30,6 @@ import { HeaderMobile } from './headerMobile.tsx';
 export const TransactionsMobile: React.FC = () => {
   const { config } = useAuthToken();
   
-  const { in_catID, in_envID, in_force_date, in_year, in_month } = useParams();
- 
   // Add new Transaction values
   const [newTxDate, setNewTxDate] = useState<Dayjs | null>(dayjs(new Date()));
   const [newTxAmount, setNewTxAmount] = useState('');
@@ -47,33 +44,31 @@ export const TransactionsMobile: React.FC = () => {
   const [newTxAccListLoaded, setNewTxAccListLoaded] = useState(false);
   const [newError, setNewError] = useState("");
 
+  const initialFilters = {
+    startDate: dayjs().startOf('month').toISOString(),
+    endDate: dayjs().toISOString(),
+    catID: -1,
+    envID: -3,
+    accID: "All",
+    desc: '',
+    amount: ''
+  };
+  const [filters, setFilters] = useState(initialFilters);
+
   // Filter by category
   const [filterCatList, setFilterCatList] = useState<any[]>([]);
   const [filterCatListLoaded, setFilterCatListLoaded] = useState(false);
-  const [filterCatID, setFilterCatID] = useState(in_catID);
 
   // Filter by envelope
   const [filterEnvList, setFilterEnvList] = useState<any[]>([]);
   const [filterEnvListLoaded, setFilterEnvListLoaded] = useState(false);
-  const [filterEnvID, setFilterEnvID] = useState(in_envID);
 
   // Filter by account
   const [filterAccList, setFilterAccList] = useState<any[]>([]);
   const [filterAccListLoaded, setFilterAccListLoaded] = useState(false);
-  const [filterAccID, setFilterAccID] = useState("All");
-  //const [filterAccName, setFilterAccName] = useState(null);
 
-  // Filter by description
-  const [filterDesc, setFilterDesc] = useState('');
   const [filterDescTemp, setFilterDescTemp] = useState('');
-
-  // Filter by amount
-  const [filterAmount, setFilterAmount] = useState('');
   const [filterAmountTemp, setFilterAmountTemp] = useState('');
-  
-  // Filter by Date
-  const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(dayjs().startOf('month'));
-  const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(dayjs());
 
   // Transaction data
   const [txData, setTxData] = useState<any[]>([]);
@@ -91,24 +86,25 @@ export const TransactionsMobile: React.FC = () => {
   const isValidDate = (date: any): date is Dayjs | null => {
     return (dayjs.isDayjs(date) && date.isValid()) || date === null;
   };
-  const clearStartDate = () => {
-    setFilterStartDate(null);
-  };
-  const clearEndDate = () => {
-    setFilterEndDate(null);
-  };
 
+  const updateFilters = (newFilterValues) => {
+    const updatedFilters = { ...filters, ...newFilterValues };
+    setFilters(updatedFilters);
+    localStorage.setItem('filterSettings', JSON.stringify(updatedFilters));
+  };
+  
   const load_transactions = async () => {
     // Signal we want to get data
     if (!config) return;
+
     const response = await axios.post(baseUrl + channels.GET_TX_DATA, 
-      { filterStartDate : filterStartDate?.format('YYYY-MM-DD'),
-        filterEndDate: filterEndDate?.format('YYYY-MM-DD'),
-        filterCatID: filterCatID,
-        filterEnvID: filterEnvID,
-        filterAccID: filterAccID,
-        filterDesc: filterDesc,
-        filterAmount: filterAmount }, config);
+      { filterStartDate : dayjs(filters.startDate)?.format('YYYY-MM-DD'),
+        filterEndDate: dayjs(filters.endDate)?.format('YYYY-MM-DD'),
+        filterCatID: filters.catID,
+        filterEnvID: filters.envID,
+        filterAccID: filters.accID,
+        filterDesc: filters.desc,
+        filterAmount: filters.amount }, config);
     
     // Receive the data
     const tmpData = [...response.data]; 
@@ -215,46 +211,6 @@ export const TransactionsMobile: React.FC = () => {
     return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
   }
 
-  const handleFilterCatChange = ({id, new_value, new_text}) => {
-    localStorage.setItem(
-      'transaction-filter-catID', 
-      JSON.stringify({ filterCatID: new_value})
-    );
-    setFilterCatID(new_value);
-  };
-
-  const handleFilterEnvChange = ({id, new_value, new_text}) => {
-    localStorage.setItem(
-      'transaction-filter-envID', 
-      JSON.stringify({ filterEnvID: new_value})
-    );
-    setFilterEnvID(new_value);
-  };
-
-  const handleFilterAccChange = ({id, new_value, new_text}) => {
-    localStorage.setItem(
-      'transaction-filter-accID', 
-      JSON.stringify({ filterAccID: new_value})
-    );
-    setFilterAccID(new_value);
-  };
-
-  const handleFilterDescChange = () => {
-    localStorage.setItem(
-      'transaction-filter-desc', 
-      JSON.stringify({ filterDesc: filterDescTemp})
-    );
-    setFilterDesc(filterDescTemp);
-  };  
-
-  const handleFilterAmountChange = () => {
-    localStorage.setItem(
-      'transaction-filter-amount', 
-      JSON.stringify({ filterAmount: filterAmountTemp})
-    );
-    setFilterAmount(filterAmountTemp);
-  }; 
-
   const add_new_transaction = async () => {
     let errorMsg = "";
     if (newTxAmount?.length === 0) {
@@ -286,33 +242,41 @@ export const TransactionsMobile: React.FC = () => {
     load_transactions();      
   }
 
+  const clearStartDate = () => {
+    updateFilters({ startDate: '' });
+  };
+  
+  const clearEndDate = () => {
+    updateFilters({ endDate: '' });
+  };
+  
   useEffect(() => {
-    if (filterStartDate) {
-      localStorage.setItem(
-        'transaction-filter-startDate',
-        JSON.stringify({ filterStartDate: filterStartDate.format('YYYY-MM-DD') })
-      );
-    } else {
-      if (basicLoaded) {
-        localStorage.removeItem('transaction-filter-startDate');
+    if (basicLoaded) {
+      if (filters.startDate) {
+        localStorage.setItem('filterSettings', JSON.stringify({ ...filters, startDate: filters.startDate }));
+      } else {
+        if (basicLoaded) {
+          const updatedFilters = { ...filters, startDate: '' };
+          setFilters(updatedFilters);
+          localStorage.setItem('filterSettings', JSON.stringify(updatedFilters));
+        }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStartDate]);
-
+  }, [filters.startDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  
   useEffect(() => {
-    if (filterEndDate) {
-      localStorage.setItem(
-        'transaction-filter-endDate',
-        JSON.stringify({ filterEndDate: filterEndDate.format('YYYY-MM-DD') })
-      );
-    } else {
-      if (basicLoaded) {
-        localStorage.removeItem('transaction-filter-endDate');
+    if (basicLoaded) {
+      if (filters.endDate) {
+        localStorage.setItem('filterSettings', JSON.stringify({ ...filters, endDate: filters.endDate }));
+      } else {
+        if (basicLoaded) {
+          const updatedFilters = { ...filters, endDate: '' };
+          setFilters(updatedFilters);
+          localStorage.setItem('filterSettings', JSON.stringify(updatedFilters));
+        }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEndDate]);
+  }, [filters.endDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (basicLoaded && accLoaded && envLoaded) {
@@ -320,95 +284,14 @@ export const TransactionsMobile: React.FC = () => {
     }
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterCatID, filterEnvID, filterAccID, filterDesc,
-      filterStartDate, filterEndDate, filterAmount,
-      basicLoaded, accLoaded, envLoaded]);
+  }, [filters, basicLoaded, accLoaded, envLoaded]);
 
   useEffect(() => {
-    const my_filter_startDate_str = localStorage.getItem('transaction-filter-startDate');
-    if (my_filter_startDate_str?.length) {
-      const my_filter_startDate = JSON.parse(my_filter_startDate_str);
-      if (my_filter_startDate?.filterStartDate) {
-        const my_tmpStartDate = dayjs(my_filter_startDate.filterStartDate);
-        setFilterStartDate(my_tmpStartDate);        
-      }
+    const savedFilters = localStorage.getItem('filterSettings');
+    if (savedFilters) {
+      setFilters(JSON.parse(savedFilters));
     }
 
-    const my_filter_endDate_str = localStorage.getItem('transaction-filter-endDate');
-    if (my_filter_endDate_str?.length) {
-      const my_filter_endDate = JSON.parse(my_filter_endDate_str);
-      if (my_filter_endDate?.filterEndDate) {
-        const my_tmpEndDate = dayjs(my_filter_endDate.filterEndDate);
-        setFilterEndDate(my_tmpEndDate);
-      }
-    }
-
-    const my_filter_catID_str = localStorage.getItem('transaction-filter-catID');
-    if (my_filter_catID_str?.length) {
-      const my_filter_catID = JSON.parse(my_filter_catID_str);
-      if (my_filter_catID) {
-        if (in_catID === "-1" && my_filter_catID.filterCatID) {
-          setFilterCatID(my_filter_catID.filterCatID);
-        }
-      }
-    }
-
-    const my_filter_envID_str = localStorage.getItem('transaction-filter-envID');
-    if (my_filter_envID_str?.length) {
-      const my_filter_envID = JSON.parse(my_filter_envID_str);
-      if (my_filter_envID) {
-        if (in_envID === "-3" && my_filter_envID.filterEnvID) {
-          setFilterEnvID(my_filter_envID.filterEnvID);
-        }
-      }
-    }
-      
-    const my_filter_accID_str = localStorage.getItem('transaction-filter-accID');
-    if (my_filter_accID_str?.length) {
-      const my_filter_accID = JSON.parse(my_filter_accID_str);
-      if (my_filter_accID) {
-        setFilterAccID(my_filter_accID.filterAccID);
-      }
-    }
-      
-    const my_filter_desc_str = localStorage.getItem('transaction-filter-desc');
-    if (my_filter_desc_str?.length) {
-      const my_filter_desc = JSON.parse(my_filter_desc_str);
-      if (my_filter_desc) {
-        setFilterDescTemp(my_filter_desc.filterDesc);
-        setFilterDesc(my_filter_desc.filterDesc);
-      }
-    }
-      
-    const my_filter_amount_str = localStorage.getItem('transaction-filter-amount');
-    if (my_filter_amount_str?.length) {
-      const my_filter_amount = JSON.parse(my_filter_amount_str);
-      if (my_filter_amount) {
-        setFilterAmountTemp(my_filter_amount.filterAmount);
-        setFilterAmount(my_filter_amount.filterAmount);
-      }
-    }
-
-    if (in_force_date === "1" && in_year && in_month) {
-      let tmpStartDate = dayjs(new Date(parseInt(in_year), parseInt(in_month)));
-      let tmpEndDate = dayjs(new Date(parseInt(in_year), parseInt(in_month)+1,0));
-      setFilterStartDate(tmpStartDate);
-      setFilterEndDate(tmpEndDate);
-      localStorage.setItem(
-        'transaction-filter-startDate', 
-        JSON.stringify({ filterStartDate: tmpStartDate?.format('YYYY-MM-DD')}));
-      localStorage.setItem(
-        'transaction-filter-endDate', 
-        JSON.stringify({ filterEndDate: tmpEndDate?.format('YYYY-MM-DD')}));
-
-      // If we came in from a link, we should clear out any other filters
-      setFilterAccID("All");
-      setFilterAmountTemp("");
-      setFilterAmount("");
-      setFilterDescTemp("");
-      setFilterDesc("");
-    }
-    
     load_envelope_list();
     load_account_list();
     setBasicLoaded(true);
@@ -539,13 +422,13 @@ export const TransactionsMobile: React.FC = () => {
               <span className="filterSize">
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DatePicker
-                    value={filterStartDate}
+                    value={dayjs(filters.startDate)}
                     onChange={(newValue) => {
                       if (isValidDate(newValue)) {
-                        setFilterStartDate(newValue)
+                        updateFilters({ startDate: newValue })
                                                   
-                        if (filterEndDate && newValue && filterEndDate.diff(newValue) <= 0 ) {
-                          setFilterEndDate(newValue?.add(1, 'day'));
+                        if (filters.endDate && newValue && dayjs(filters.endDate).diff(newValue) <= 0 ) {
+                          updateFilters({ endDate: dayjs(newValue)?.add(1, 'day') });
                         }
                       }
                     }}
@@ -564,10 +447,10 @@ export const TransactionsMobile: React.FC = () => {
               <span className="filterSize">
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DatePicker
-                    value={filterEndDate}
+                    value={dayjs(filters.endDate)}
                     onChange={(newValue) => {
                       if (isValidDate(newValue)) {
-                        setFilterEndDate(newValue);
+                        updateFilters({ endDate: newValue });
                       }
                     }}
                     sx={{ border: 'none' }}
@@ -584,11 +467,10 @@ export const TransactionsMobile: React.FC = () => {
             <Grid size={3}>
               <input
                 name="filterDescTemp"
-                defaultValue={filterDescTemp}
-                onChange={(e) => {
-                  setFilterDescTemp(e.target.value);
+                defaultValue={filters.desc}
+                onBlur={(e) => {
+                  updateFilters({ desc: e.target.value });
                 }}
-                onBlur={handleFilterDescChange}
                 className="inputField filterSize"
               />
             </Grid>
@@ -598,9 +480,11 @@ export const TransactionsMobile: React.FC = () => {
             <Grid size={3}>
               <DropDown 
                 id={-1}
-                selectedID={filterCatID}
+                selectedID={filters.catID}
                 optionData={filterCatList}
-                changeCallback={handleFilterCatChange}
+                changeCallback={({id, new_value, new_text}) => {
+                  updateFilters({ catID: new_value });
+                }}
                 className="selectField selectFilterSize"
               />
             </Grid>
@@ -610,9 +494,11 @@ export const TransactionsMobile: React.FC = () => {
             <Grid size={3}>
               <DropDown 
                 id={-1}
-                selectedID={filterEnvID}
+                selectedID={filters.envID}
                 optionData={filterEnvList}
-                changeCallback={handleFilterEnvChange}
+                changeCallback={({id, new_value, new_text}) => {
+                  updateFilters({ envID: new_value });
+                }}
                 className="selectField selectFilterSize"
               />
             </Grid>
@@ -622,9 +508,11 @@ export const TransactionsMobile: React.FC = () => {
             <Grid size={3}>
               <DropDown 
                 id={-1}
-                selectedID={filterAccID}
+                selectedID={filters.accID}
                 optionData={filterAccList}
-                changeCallback={handleFilterAccChange}
+                changeCallback={({id, new_value, new_text}) => {
+                  updateFilters({ accID: new_value });
+                }}
                 className="selectField selectFilterSize"
               />
             </Grid>
@@ -634,11 +522,10 @@ export const TransactionsMobile: React.FC = () => {
             <Grid size={3}>
               <input
                 name="filterAmountTemp"
-                defaultValue={filterAmountTemp}
-                onChange={(e) => {
-                  setFilterAmountTemp(e.target.value);
+                defaultValue={filters.amount}
+                onBlur={(e) => {
+                  updateFilters({ amount: e.target.value });
                 }}
-                onBlur={handleFilterAmountChange}
                 className="inputField filterSize"
               />
             </Grid>
