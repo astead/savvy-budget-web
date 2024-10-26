@@ -72,8 +72,8 @@ export const TransactionsMobile: React.FC = () => {
   const [filterAmountTemp, setFilterAmountTemp] = useState('');
   
   // Filter by Date
-  const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(null);
-  const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(null);
+  const [filterStartDate, setFilterStartDate] = useState<Dayjs | null>(dayjs().startOf('month'));
+  const [filterEndDate, setFilterEndDate] = useState<Dayjs | null>(dayjs());
 
   // Transaction data
   const [txData, setTxData] = useState<any[]>([]);
