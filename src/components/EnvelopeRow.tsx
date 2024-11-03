@@ -28,7 +28,12 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
   }, [item.currBalance, item.currBudget, item.currActual, item.monthlyAvg]);
 
   function formatCurrency(currencyNumber:number) {
-    return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
+    if (currencyNumber) {
+      return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
+    } else {
+      const tmp_currency = 0;
+      return tmp_currency.toLocaleString('en-EN', {style: 'currency', currency: 'USD'});
+    }
   };
 
   const handleUpdateBudget = async ({ id, date, value }) => {
