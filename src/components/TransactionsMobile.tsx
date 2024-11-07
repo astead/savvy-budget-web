@@ -94,14 +94,18 @@ export const TransactionsMobile: React.FC = () => {
     // Signal we want to get data
     if (!config) return;
 
+    const my_filters = {
+      filterStartDate : filters.startDate ? dayjs(filters.startDate)?.format('YYYY-MM-DD') : null,
+      filterEndDate: filters.endDate ? dayjs(filters.endDate)?.format('YYYY-MM-DD') : null,
+      filterCatID: filters.catID,
+      filterEnvID: filters.envID,
+      filterAccID: filters.accID,
+      filterDesc: filters.desc,
+      filterAmount: filters.amount
+    };
+
     const response = await axios.post(baseUrl + channels.GET_TX_DATA, 
-      { filterStartDate : dayjs(filters.startDate)?.format('YYYY-MM-DD'),
-        filterEndDate: dayjs(filters.endDate)?.format('YYYY-MM-DD'),
-        filterCatID: filters.catID,
-        filterEnvID: filters.envID,
-        filterAccID: filters.accID,
-        filterDesc: filters.desc,
-        filterAmount: filters.amount }, config);
+      my_filters, config);
     
     // Receive the data
     const tmpData = [...response.data]; 
