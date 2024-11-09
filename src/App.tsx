@@ -16,13 +16,16 @@ import { AccountsMobile } from './components/AccountsMobile.tsx';
 import { Callback } from './components/Callback.tsx';
 import { AuthTokenProvider } from './context/AuthTokenContext.tsx';
 import { isMobile } from'./detectMobile.js';
-
+import PrivateRoute from './components/PrivateRoute.tsx';
+import useAxiosInterceptor from './useAxiosInterceptor';
 
 export const App: React.FC = () => {
   const [auth_token, setAuth_token] = useState<string | null>(null);
   const [config, setConfig] = useState<{ headers: { Authorization: string } } | null>(null);
   const { user, isAuthenticated, getAccessTokenSilently } = useAuth0();
   
+  useAxiosInterceptor();
+
   useEffect(() => {
     //console.log("App.tsx useEffect: [isAuthenticated, user, getAccessTokenSilently]");
 
@@ -68,13 +71,13 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/callback" element={<Callback />} />
           <Route path="/" element={( isMobile() ) ? <HomePageMobile/> : <HomePage />} />
-          <Route path="/Transactions-mobile" element={<TransactionsMobile />} />
-          <Route path="/Budget-mobile" element={<EnvelopesMobile />} />
-          <Route path="/Accounts-mobile" element={<AccountsMobile />} />
-          <Route path="/Charts/:in_envID" element={<Charts />} />
-          <Route path="/Transactions/:in_catID/:in_envID/:in_force_date/:in_year/:in_month" element={<Transactions />} />
-          <Route path="/Envelopes" element={<Envelopes />} />
-          <Route path="/Configure" element={<Configure />} />
+          <Route path="/Transactions-mobile" element={<PrivateRoute element={TransactionsMobile} />} />
+          <Route path="/Budget-mobile" element={<PrivateRoute element={EnvelopesMobile} />} />
+          <Route path="/Accounts-mobile" element={<PrivateRoute element={AccountsMobile} />} />
+          <Route path="/Charts/:in_envID" element={<PrivateRoute element={Charts} />} />
+          <Route path="/Transactions/:in_catID/:in_envID/:in_force_date/:in_year/:in_month" element={<PrivateRoute element={Transactions} />} />
+          <Route path="/Envelopes" element={<PrivateRoute element={Envelopes} />} />
+          <Route path="/Configure" element={<PrivateRoute element={Configure} />} />
         </Routes>
       </AuthTokenProvider>
     
