@@ -104,8 +104,7 @@ export const TransactionsMobile: React.FC = () => {
       filterAmount: filters.amount
     };
 
-    const response = await axios.post(baseUrl + channels.GET_TX_DATA, 
-      my_filters, config);
+    const response = await axios.post(baseUrl + channels.GET_TX_DATA, my_filters, config);
     
     // Receive the data
     const tmpData = [...response.data]; 
