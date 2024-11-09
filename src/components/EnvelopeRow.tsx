@@ -72,7 +72,7 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
           {formatCurrency(item.prevActual)}
         </Link>
       </td>
-      <td className="Table BTC Right TCInput"
+      <td className="Table Right TCInput"
         style={{ backgroundColor: cellColors.currBalanceColor }}>
         <BudgetBalanceModal 
           balanceAmt={item.currBalance}
@@ -84,7 +84,7 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
           callback_change={handleBalanceChange}
         />
       </td>
-      <td className="Table TC Right">
+      <td className="Table Right">
         <InputText
           in_ID={item.envID}
           in_value={item.currBudget}
@@ -93,7 +93,7 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
           }}
           err_callback={null}
           className={"Curr"}
-          style={{ backgroundColor: cellColors.currBudgetColor }}
+          style={{ paddingLeft: '2px', paddingRight: '2px', backgroundColor: cellColors.currBudgetColor }}
           isNum={true}
         />
       </td>
