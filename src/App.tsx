@@ -17,7 +17,7 @@ import { Callback } from './components/Callback.tsx';
 import { AuthTokenProvider } from './context/AuthTokenContext.tsx';
 import { isMobile } from'./detectMobile.js';
 import PrivateRoute from './components/PrivateRoute.tsx';
-import useAxiosInterceptor from './useAxiosInterceptor';
+import useAxiosInterceptor from './useAxiosInterceptor.tsx';
 
 export const App: React.FC = () => {
   const [auth_token, setAuth_token] = useState<string | null>(null);
