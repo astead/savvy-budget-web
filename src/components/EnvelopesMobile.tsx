@@ -280,10 +280,10 @@ export const EnvelopesMobile: React.FC = () => {
                     </div>
                     <ProgressBar 
                       actual={
-                        item.category === 'Income' ? item.currActual : (-1 * item.currActual)
+                        item.category === 'Income' ? Math.floor(item.currActual) : Math.floor(-1 * item.currActual)
                       }
                       target={
-                        item.category === 'Income' ? (-1 * item.currBudget) : item.currBudget
+                        item.category === 'Income' ? Math.floor(-1 * item.currBudget) : Math.floor(item.currBudget)
                       }
                       overColor={
                         item.category === 'Income' ? 'green' : 'red'
@@ -333,10 +333,10 @@ export const EnvelopesMobile: React.FC = () => {
                     </div>
                     <ProgressBar 
                       actual={
-                        item.category === 'Income' ? item.currActual : (-1 * item.currActual)
+                        item.category === 'Income' ? Math.floor(item.currActual) : Math.floor(-1 * item.currActual)
                       }
                       target={
-                        item.category === 'Income' ? (-1 * item.currBudget) : item.currBudget
+                        item.category === 'Income' ? Math.floor(-1 * item.currBudget) : Math.floor(item.currBudget)
                       }
                       overColor={
                         item.category === 'Income' ? 'green' : 'red'
