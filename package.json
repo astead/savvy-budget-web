@@ -25,6 +25,7 @@
     "apexcharts": "^3.53.0",
     "axios": "^1.7.7",
     "base64url": "^3.0.1",
+    "concurrently": "^9.0.1",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dayjs": "^1.11.13",
@@ -44,8 +45,7 @@
     "react-plaid-link": "^3.6.0",
     "react-router-dom": "^6.26.2",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4",
-    "concurrently": "^9.0.1"
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "concurrently \"react-scripts start\" \"node api/server.js\"",
@@ -70,8 +70,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
   },
   "_moduleAliases": {
     "@shared": "src/shared"
