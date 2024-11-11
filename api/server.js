@@ -472,11 +472,11 @@ async function auth0_check_or_create_user({ enc_token, iv, tag, auth0Id, user_id
           .returning('id');
         
         // Set the current_user_id
-        await trx.raw(`SET myapp.current_user_id = ${userId}`);
+        await trx.raw(`SET myapp.current_user_id = ${userId.id}`);
 
         // Create default DB data
-        await trx('category').insert({ category: 'Uncategorized', user_id: userId }).then();
-        await trx('category').insert({ category: 'Income', user_id: userId }).then();
+        await trx('category').insert({ category: 'Uncategorized', user_id: userId.id }).then();
+        await trx('category').insert({ category: 'Income', user_id: userId.id }).then();
 
         console.log('User created successfully');
         
@@ -3844,7 +3844,7 @@ async function lookup_account(trx, userId, account_str) {
         .returning('id');
 
       if (result?.length) {
-        accountID = result[0];
+        accountID = result[0].id;
       }
     }
   } catch (err) {
@@ -3915,7 +3915,7 @@ async function lookup_plaid_account({ trx, id, userId, acc }) {
           .returning('id');
 
         if (result?.length) {
-          accountID = result[0];
+          accountID = result[0].id;
           console.log('New account created: ', accountID);
         }
       }
@@ -3962,7 +3962,7 @@ async function lookup_envelope(trx, userId, envelope, defaultCategoryID) {
           .returning('id');
 
         if (result?.length) {
-          envelopeID = result[0];
+          envelopeID = result[0].id;
           console.log('New envelope created: ', envelopeID);
         }
       }
