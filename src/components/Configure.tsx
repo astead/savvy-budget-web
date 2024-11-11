@@ -5,6 +5,7 @@ import { Header } from './header.tsx';
 import { ConfigCatEnv } from './ConfigCatEnv.tsx';
 import { ConfigKeyword } from './ConfigKeyword.tsx';
 import { ConfigPlaid } from './ConfigPlaid.tsx';
+import { Profile } from './Profile.tsx';
 
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
@@ -93,6 +94,7 @@ export const Configure = () => {
               <Tab label="Categories" {...a11yProps(0)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
               <Tab label="Key Words" {...a11yProps(1)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
               <Tab label="Accounts" {...a11yProps(2)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
+              <Tab label="Profile" {...a11yProps(3)} className="TabButton" sx={{ padding: 0, margin: 0, height: 30, minHeight:30 }} />
             </Tabs>
           </Box>
           <CustomTabPanel tabValue={tabValue} index={0}>
@@ -103,6 +105,9 @@ export const Configure = () => {
           </CustomTabPanel>
           <CustomTabPanel tabValue={tabValue} index={2}>
             <ConfigPlaid />
+          </CustomTabPanel>
+          <CustomTabPanel tabValue={tabValue} index={3}>
+            <Profile />
           </CustomTabPanel>
       </div>
     </div>

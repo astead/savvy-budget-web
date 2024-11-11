@@ -532,8 +532,100 @@ async function auth0_check_or_create_user({ enc_token, iv, tag, auth0Id, user_id
     //res.status(500).json({ message: 'Error checking or creating user' });
     return { returnCode: 500, message: 'Error checking or creating user' };
   }
-}
+};
 
+app.delete(process.env.API_SERVER_BASE_PATH+channels.DELETE_PROFILE, async (req, res) => {
+  console.log('DELETE_PROFILE ENTER');
+  const auth0Id = req.auth0Id;
+  const userId = req.user_id;
+
+  const { returnCode, message } = await delete_user({ auth0Id, userId });
+  res.status(returnCode).json({ message: message });
+});
+
+async function delete_user({ auth0Id, userId }) {
+  console.log("delete_user ENTER");
+
+  try {
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+
+      // Unlink all the PLAID accounts
+      const acc_to_unlink = await trx('plaid_account')
+        .select('id', 'full_account_name')
+        .where({ user_id: userId })
+        .whereNotNull('access_token');
+      
+      for (const acc of acc_to_unlink) {
+        // Use the account ID to remove the plaid login
+        // We shouldn't just set the plaid info to null
+        // we should actually try and remove it from PLAID
+        const resp = await remove_plaid_login(trx, userId, acc.id);
+        if (resp !== 0) {
+          return { returnCode: 500, message: 'Error unlinking ' + acc.full_account_name };
+        }
+      }
+
+      // Remove all the transactions, keywords, accounts, envelopes, and categories
+      await trx('transaction').where({ user_id: userId }).delete();
+      await trx('keyword').where({ user_id: userId }).delete();
+      await trx('plaid_account').where({ user_id: userId }).delete();
+      await trx('envelope').where({ user_id: userId }).delete();
+      await trx('category').where({ user_id: userId }).delete();
+
+      // Remove the auth0 login
+      // First we need to get a management access_token
+      var options = {
+        method: 'POST',
+        url: `https://${process.env.AUTH0_DOMAIN}/oauth/token`,
+        headers: {
+          'content-type': 'application/json'
+        },
+        data: {
+          grant_type: 'client_credentials',
+          client_id: process.env.AUTH0_CLIENT_ID,
+          client_secret: process.env.AUTH0_CLIENT_SECRET,
+          audience: `https://${process.env.AUTH0_DOMAIN}/api/v2/`
+        }
+      };
+
+      let token_response = await axios.request(options);
+      
+      // Then we can use that access_token to call the users delete endpoint
+      let auth0_token = token_response.data.access_token;
+      if (auth0_token !== null) {
+        let delete_config = {
+          method: 'DELETE',
+          maxBodyLength: Infinity,
+          url: `https://${process.env.AUTH0_DOMAIN}/api/v2/users/${auth0Id}`,
+          headers: { 
+            'content-type': 'application/json',
+            authorization: `Bearer ${auth0_token}`
+          },
+        };
+
+        let delete_response = await axios.request(delete_config);
+        if (delete_response.status === 204) {
+          // Set the current_auth0_id and remove the user
+          await trx.raw(`SET myapp.current_auth0_id = '${auth0Id}'`);
+          await trx('users').where({ id: userId }).delete();
+        } else {
+          console.log("Deleting user unsuccessful");
+          console.log(delete_response.status);
+          console.log(delete_response.statusText);
+        }
+      }
+    });
+    
+    console.log("User deleted successfully");
+    return { returnCode: 200, message: 'User deleted successfully' };
+
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return { returnCode: 500, message: 'Error deleting user' };
+  }
+};
 
 // PLAID stuff
 const {
