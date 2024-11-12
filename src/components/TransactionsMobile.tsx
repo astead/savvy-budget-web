@@ -18,7 +18,7 @@ import Grid from '@mui/material/Grid2';
 import ClearIcon from '@mui/icons-material/Clear';
 import { FooterMobile } from './FooterMobile.tsx';
 import { HeaderMobile } from './headerMobile.tsx';
-
+import TransactionDetailsMobile from './TransactionDetailsMobile.tsx';
 
 /*
   TODO:
@@ -75,6 +75,21 @@ export const TransactionsMobile: React.FC = () => {
   const [envLoaded, setEnvLoaded] = useState(false);
 
   const [visibleItems, setVisibleItems] = useState(10); 
+
+  // Transaction Details
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [txDetailsEnvList, setTxDetailsEnvList] = useState<any[]>([]);
+  
+  const handleOpenDialog = (transaction) => {
+    setSelectedTransaction(transaction);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setSelectedTransaction(null);
+  };
 
   const loadMore = () => {
     setVisibleItems((prev) => prev + 10); // Load 10 more items
@@ -154,6 +169,10 @@ export const TransactionsMobile: React.FC = () => {
     setFilterCatList([
       { id: -1, text: "All" },
       ...(tmpFilterCatList)
+    ]);
+
+    setTxDetailsEnvList([
+      { id: -1, text: "Undefined" }, ...(tmpFilterEnvList)
     ]);
     setFilterCatListLoaded(true);
     setEnvLoaded(true);
@@ -540,7 +559,7 @@ export const TransactionsMobile: React.FC = () => {
               { (index === 0 || (index > 0 && tx.txDate !== myArray[index - 1].txDate)) && (
                 <div className='mobile-tx-date'>{ dayjs(tx.txDate).format('MMMM D, YYYY') }</div>
               )}
-              <div className='mobile-tx-container'>
+              <div className='mobile-tx-container' onClick={() => handleOpenDialog(tx)}>
                 <div className='mobile-tx-header'>
                   <span className='mobile-tx-description'>{tx.description}</span>
                   <span className='mobile-tx-amt'>{formatCurrency(tx.txAmt)}</span>
@@ -559,6 +578,16 @@ export const TransactionsMobile: React.FC = () => {
               Load More
             </Button>
           </div>
+        )}
+
+        { selectedTransaction && (
+          <TransactionDetailsMobile
+            open={dialogOpen}
+            handleClose={handleCloseDialog}
+            transaction={selectedTransaction}
+            envList={txDetailsEnvList}
+            callback={load_transactions}
+          />
         )}
       </div>
       <FooterMobile defaultValue={0} />
