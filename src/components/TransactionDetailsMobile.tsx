@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
