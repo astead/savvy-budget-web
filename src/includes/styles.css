@@ -154,6 +154,16 @@ div.NavBar {
   width: 100%; /* Ensures it spans the full width of the viewport */
   z-index: 1000; /* Ensures it stays above other content */
 }
+
+.NavLeft {
+  display: flex;
+  align-items: center;
+}
+
+.NavRight {
+  display: flex;
+  align-items: center;
+}
  
 div.App {
   align-content:center;

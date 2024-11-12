@@ -6,6 +6,7 @@ import axios from 'axios';
 import './includes/styles.css';
 import { HomePage } from './components/homePage.tsx';
 import { HomePageMobile } from './components/homePageMobile.tsx';
+import { ProfileMobile } from './components/ProfileMobile.tsx';
 import { Charts } from './components/Charts.tsx';
 import { Transactions } from './components/Transactions.tsx';
 import { TransactionsMobile } from './components/TransactionsMobile.tsx';
@@ -71,6 +72,7 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/callback" element={<Callback />} />
           <Route path="/" element={( isMobile() ) ? <HomePageMobile/> : <HomePage />} />
+          <Route path="/ProfileMobile" element={<ProfileMobile />} />
           <Route path="/Transactions-mobile" element={<PrivateRoute element={TransactionsMobile} />} />
           <Route path="/Budget-mobile" element={<PrivateRoute element={EnvelopesMobile} />} />
           <Route path="/Accounts-mobile" element={<PrivateRoute element={AccountsMobile} />} />

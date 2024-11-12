@@ -10,9 +10,18 @@ export const HeaderMobile = ({currTab}) => {
 
   return (
     <div className="NavBar">
-      <Link to="/" className={currTab === "Home"?"menuLink menuLink-selected":"menuLink"}>Home</Link>
-      { !isAuthenticated && <LoginButton/> }
-      { isAuthenticated && <LogoutButton/> }
+      <div className="NavLeft">
+        <Link to="/" className={currTab === "Home"?"menuLink menuLink-selected":"menuLink"}>Home</Link>
+      </div>
+      <div className="NavRight">
+        { !isAuthenticated && <LoginButton/> }
+        { isAuthenticated && 
+          <>
+            <Link to="/ProfileMobile" className={currTab === "ProfileMobile"?"menuLink menuLink-selected":"menuLink"}>Profile</Link>
+            <LogoutButton/>
+          </>
+        }
+      </div>
     </div>
   );
 };
