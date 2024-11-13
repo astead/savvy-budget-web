@@ -32,7 +32,10 @@ const BorderLinearProgressNoLeftRadius = styled(LinearProgress)(({ theme }) => (
 }));
 
 const ProgressBar: React.FC<ProgressBarProps> = ({ actual, target, overColor }) => {
-  const primaryValue = Math.min((actual / target) * 100, 100);
+  let primaryValue = Math.min((actual / target) * 100, 100);
+  if (actual === 0 && target === 0) {
+    primaryValue = 0;
+  }
   
   return (
     <Box position="relative" display="flex" alignItems="center" width="100%">
