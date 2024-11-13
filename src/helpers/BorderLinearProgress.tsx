@@ -49,7 +49,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ actual, target, overColor }) 
             }}
           />
         )}
-        {actual > target && (
+        {target !== 0 && actual > target && (
           <>
             <BorderLinearProgressNoRightRadius
               variant="determinate"
@@ -65,6 +65,18 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ actual, target, overColor }) 
                 position: 'absolute',
                 top: 0,
                 left: `${100 * (target / actual)}%`,
+                width: `${100 - ( 100 * (target / actual) )}%`,
+                '& .MuiLinearProgress-bar': { backgroundColor: overColor },
+              }}
+            />
+          </>
+        )}
+        {target === 0 && actual > target && (
+          <>
+            <BorderLinearProgress
+              variant="determinate"
+              value={100}
+              sx={{
                 width: `${100 - ( 100 * (target / actual) )}%`,
                 '& .MuiLinearProgress-bar': { backgroundColor: overColor },
               }}
