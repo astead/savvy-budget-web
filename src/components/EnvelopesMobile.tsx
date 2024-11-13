@@ -288,6 +288,7 @@ export const EnvelopesMobile: React.FC = () => {
                       overColor={
                         item.category === 'Income' ? 'green' : 'red'
                       }
+                      balance={item.currBalance}
                     />
                   </div>
                 </div>
@@ -341,6 +342,7 @@ export const EnvelopesMobile: React.FC = () => {
                       overColor={
                         item.category === 'Income' ? 'green' : 'red'
                       }
+                      balance={item.currBalance}
                     />
                   </div>
                 </div>

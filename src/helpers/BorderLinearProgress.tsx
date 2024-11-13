@@ -1,9 +1,10 @@
 import React from 'react';
-import { Box, LinearProgress, styled } from '@mui/material';
+import { Box, LinearProgress, styled, Typography } from '@mui/material';
 
 interface ProgressBarProps {
   actual: number;
   target: number;
+  balance: number;
   overColor: string;
 }
 
@@ -31,7 +32,12 @@ const BorderLinearProgressNoLeftRadius = styled(LinearProgress)(({ theme }) => (
   },
 }));
 
-const ProgressBar: React.FC<ProgressBarProps> = ({ actual, target, overColor }) => {
+function formatWholeCurrency(currencyNumber:number) {
+  return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+};
+
+
+const ProgressBar: React.FC<ProgressBarProps> = ({ actual, target, balance, overColor }) => {
   let primaryValue = Math.min((actual / target) * 100, 100);
   if (actual === 0 && target === 0) {
     primaryValue = 0;
@@ -83,7 +89,9 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ actual, target, overColor }) 
             />
           </>
         )}
+        <Typography variant="body2" sx={{ position: 'absolute', top: '50%', right: '0', transform: 'translateY(-50%)', fontSize: '0.75rem', fontWeight: 'bold', color: 'black' }} > Balance: {formatWholeCurrency(balance)} </Typography>
       </Box>
+      
     </Box>
   );
 };
