@@ -87,27 +87,24 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ actual, budget, balance, over
             backgroundColor: "#3498DB", // Dark Blue
           }}
         />
+        { /* Over spent in the current month beyond our balance */ }
+        <Box
+          sx={{
+            height: 10,
+            width: `${
+              (actualPercentage > budgetPercentage + savedBalancePercentage ) ? 
+              actualPercentage - (budgetPercentage + savedBalancePercentage) :
+              0
+            }%`,
+            backgroundColor: "#C0392B", // Bright Red
+          }}
+        />
         { /* Previously spent based on balance */ }
         <Box
           sx={{
             height: 10,
-            width: `${
-              (actualPercentage + spentBalancePercentage < budgetPercentage + savedBalancePercentage ) ?
-              spentBalancePercentage :
-              budgetPercentage + savedBalancePercentage - actualPercentage
-            }%`,
+            width: `${spentBalancePercentage}%`,
             backgroundColor: "#E67E22", // Deep Orange
-          }}
-        />
-        { /* Over spent beyond our balance */ }
-        <Box
-          sx={{
-            height: 10,
-            width: `${
-              (actualPercentage + spentBalancePercentage > budgetPercentage + savedBalancePercentage) ?
-              actualPercentage + spentBalancePercentage - budgetPercentage - savedBalancePercentage : 0
-            }%`,
-            backgroundColor: "#C0392B", // Bright Red
           }}
         />
       </Box>
