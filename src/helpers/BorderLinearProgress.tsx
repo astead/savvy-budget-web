@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 
 interface ProgressBarProps {
   actual: number;
@@ -7,11 +7,6 @@ interface ProgressBarProps {
   balance: number;
   overColor: string;
 }
-
-function formatWholeCurrency(currencyNumber:number) {
-  return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
-};
-
 
 const ProgressBar: React.FC<ProgressBarProps> = ({ actual, budget, balance, overColor }) => {
   const prevBalance = balance + actual - budget;
