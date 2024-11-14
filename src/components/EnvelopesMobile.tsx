@@ -289,10 +289,8 @@ export const EnvelopesMobile: React.FC = () => {
                       budget={
                         item.category === 'Income' ? Math.floor(-1 * item.currBudget) : Math.floor(item.currBudget)
                       }
-                      overColor={
-                        item.category === 'Income' ? 'green' : 'red'
-                      }
                       balance={item.currBalance}
+                      isIncome={item.category === 'Income'}
                     />
                   </div>
                 </div>
@@ -347,10 +345,8 @@ export const EnvelopesMobile: React.FC = () => {
                       budget={
                         item.category === 'Income' ? Math.floor(-1 * item.currBudget) : Math.floor(item.currBudget)
                       }
-                      overColor={
-                        item.category === 'Income' ? 'green' : 'red'
-                      }
                       balance={item.currBalance}
+                      isIncome={item.category === 'Income'}
                     />
                   </div>
                 </div>
