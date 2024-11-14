@@ -3,97 +3,145 @@ import { Box, LinearProgress, styled, Typography } from '@mui/material';
 
 interface ProgressBarProps {
   actual: number;
-  target: number;
+  budget: number;
   balance: number;
   overColor: string;
 }
-
-const BorderLinearProgress = styled(LinearProgress)(({ theme }) => ({
-  height: 10,
-  borderRadius: '5px 5px 5px 5px',
-  '& .MuiLinearProgress-bar': {
-    borderRadius: '5px 5px 5px 5px',
-  },
-}));
-
-const BorderLinearProgressNoRightRadius = styled(LinearProgress)(({ theme }) => ({
-  height: 10,
-  borderRadius: '5px 0 0 5px',
-  '& .MuiLinearProgress-bar': {
-    borderRadius: '5px 0 0 5px',
-  },
-}));
-
-const BorderLinearProgressNoLeftRadius = styled(LinearProgress)(({ theme }) => ({
-  height: 10,
-  borderRadius: '0 5px 5px 0',
-  '& .MuiLinearProgress-bar': {
-    borderRadius: '0 5px 5px 0',
-  },
-}));
 
 function formatWholeCurrency(currencyNumber:number) {
   return currencyNumber.toLocaleString('en-EN', {style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 };
 
 
-const ProgressBar: React.FC<ProgressBarProps> = ({ actual, target, balance, overColor }) => {
-  let primaryValue = Math.min((actual / target) * 100, 100);
-  if (actual === 0 && target === 0) {
-    primaryValue = 0;
-  }
+const ProgressBar: React.FC<ProgressBarProps> = ({ actual, budget, balance, overColor }) => {
+  const prevBalance = balance + actual - budget;
   
+  const totalSaved = 
+    (budget > 0 ? budget : 0) + 
+    (actual < 0 ? (-1 * actual) : 0) + 
+    (prevBalance > 0 ? prevBalance : 0);
+
+  const totalSpent = 
+    (actual > 0 ? actual : 0) +
+    (budget < 0 ? (-1 * budget) : 0) + 
+    (prevBalance < 0 ? -1 * prevBalance : 0);
+
+  const maxTotal = Math.max(totalSaved, totalSpent);
+  
+  const budgetPercentage = (budget === 0) ? 0 : (budget / maxTotal) * 100;
+  const actualPercentage = (actual === 0) ? 0 : (actual / maxTotal) * 100;
+
+  const savedBalancePercentage = (prevBalance > 0) ? (prevBalance / maxTotal) * 100 : 0;
+  const spentBalancePercentage = (prevBalance < 0) ? (-1 * prevBalance / maxTotal) * 100 : 0;
+  
+ 
   return (
-    <Box position="relative" display="flex" alignItems="center" width="100%">
-      <Box width="100%" mr={1} position="relative">
-        {actual <= target && (
-          <BorderLinearProgress
-            variant="determinate"
-            value={primaryValue}
-            sx={{ 
-              width: `${ actual > target ? ( 100 * (target / actual) ) : 100 }%`,
-            }}
-          />
-        )}
-        {target !== 0 && actual > target && (
-          <>
-            <BorderLinearProgressNoRightRadius
-              variant="determinate"
-              value={primaryValue}
-              sx={{ 
-                width: `${ actual > target ? ( 100 * (target / actual) ) : 100 }%`,
-              }}
-            />
-            <BorderLinearProgressNoLeftRadius
-              variant="determinate"
-              value={100}
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: `${100 * (target / actual)}%`,
-                width: `${100 - ( 100 * (target / actual) )}%`,
-                '& .MuiLinearProgress-bar': { backgroundColor: overColor },
-              }}
-            />
-          </>
-        )}
-        {target === 0 && actual > target && (
-          <>
-            <BorderLinearProgress
-              variant="determinate"
-              value={100}
-              sx={{
-                width: `${100 - ( 100 * (target / actual) )}%`,
-                '& .MuiLinearProgress-bar': { backgroundColor: overColor },
-              }}
-            />
-          </>
-        )}
-        <Typography variant="body2" sx={{ position: 'absolute', top: '50%', right: '0', transform: 'translateY(-50%)', fontSize: '0.75rem', fontWeight: 'bold', color: 'black' }} > Balance: {formatWholeCurrency(balance)} </Typography>
+    <Box width="100%" display="flex" flexDirection="column" alignItems="center"  position="relative">
+
+      { /* SAVED progress bar */ }
+      <Box width="100%" mb={1} display="flex" height="20px"
+        sx={{
+          position: 'relative',
+          zIndex: '1',
+        }}>
+        { /* Current month's budget */ }
+        <Box
+          sx={{
+            backgroundColor: "#85C1E9", //Light Blue, previously: "#27AE60", // Medium Green
+            width: `${ budgetPercentage }%`,
+          }}
+        />
+        { /* Previously saved based on balance */ }
+        <Box
+          sx={{
+            backgroundColor: '#2ECC71', // Deep Green
+            width: `${ savedBalancePercentage }%`,
+          }}
+        />
+        { /* If we had negative spending this month, let's include it in the saved row */ }
+        <Box
+          sx={{
+            backgroundColor: "#A9DFBF", // Light Green
+            width: `${ actual < 0 ? actualPercentage : 0 }%`,
+          }}
+        />
       </Box>
       
+      { /* SPENT progress bar */ }
+      <Box width="100%" display="flex" height="10px"
+        sx={{
+          position: 'absolute',
+          top: '5px',
+          left: 0, 
+          zIndex: '2',
+        }}>
+        { /* Current month's spending */ }
+        <Box
+          sx={{
+            height: 10,
+            width: `${
+              (actualPercentage < budgetPercentage + savedBalancePercentage ) ? 
+              actualPercentage :
+              budgetPercentage + savedBalancePercentage
+            }%`,
+            backgroundColor: "#3498DB", // Dark Blue
+          }}
+        />
+        { /* Previously spent based on balance */ }
+        <Box
+          sx={{
+            height: 10,
+            width: `${
+              (actualPercentage + spentBalancePercentage < budgetPercentage + savedBalancePercentage ) ?
+              spentBalancePercentage :
+              budgetPercentage + savedBalancePercentage - actualPercentage
+            }%`,
+            backgroundColor: "#E67E22", // Deep Orange
+          }}
+        />
+        { /* Over spent beyond our balance */ }
+        <Box
+          sx={{
+            height: 10,
+            width: `${
+              (actualPercentage + spentBalancePercentage > budgetPercentage + savedBalancePercentage) ?
+              actualPercentage + spentBalancePercentage - budgetPercentage - savedBalancePercentage : 0
+            }%`,
+            backgroundColor: "#C0392B", // Bright Red
+          }}
+        />
+      </Box>
+      {/* Wrapper for SPENT progress bar with border */}
+      { totalSpent > 0 && 
+        <Box display="flex" height="10px"
+          sx={{
+            position: 'absolute',
+            top: '5px',
+            left: 0,
+            zIndex: '3',
+            border: '1px solid black',
+            boxSizing:'border-box',
+            width: `${(totalSpent / maxTotal) * 100}%`,
+          }}
+        />
+      }
+      <Typography
+        variant="body2"
+        sx={{
+          position: "absolute",
+          top: "18px",
+          right: "0",
+          fontSize: "0.75rem",
+          fontWeight: "bold",
+          color: "black",
+          zIndex: '1',
+        }}
+      >
+        Balance: {formatWholeCurrency(balance)}
+      </Typography>
     </Box>
   );
 };
 
 export default ProgressBar;
+  

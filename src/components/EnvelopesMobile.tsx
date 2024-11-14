@@ -282,7 +282,7 @@ export const EnvelopesMobile: React.FC = () => {
                       actual={
                         item.category === 'Income' ? Math.floor(item.currActual) : Math.floor(-1 * item.currActual)
                       }
-                      target={
+                      budget={
                         item.category === 'Income' ? Math.floor(-1 * item.currBudget) : Math.floor(item.currBudget)
                       }
                       overColor={
@@ -336,7 +336,7 @@ export const EnvelopesMobile: React.FC = () => {
                       actual={
                         item.category === 'Income' ? Math.floor(item.currActual) : Math.floor(-1 * item.currActual)
                       }
-                      target={
+                      budget={
                         item.category === 'Income' ? Math.floor(-1 * item.currBudget) : Math.floor(item.currBudget)
                       }
                       overColor={
