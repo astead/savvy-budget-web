@@ -122,20 +122,6 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ actual, budget, balance, over
           }}
         />
       }
-      <Typography
-        variant="body2"
-        sx={{
-          position: "absolute",
-          top: "18px",
-          right: "0",
-          fontSize: "0.75rem",
-          fontWeight: "bold",
-          color: "black",
-          zIndex: '1',
-        }}
-      >
-        Balance: {formatWholeCurrency(balance)}
-      </Typography>
     </Box>
   );
 };

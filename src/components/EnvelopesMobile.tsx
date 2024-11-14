@@ -276,6 +276,10 @@ export const EnvelopesMobile: React.FC = () => {
                               item.currBudget
                           )
                         }
+                        {', left over '}
+                        {
+                          formatWholeCurrency(item.currBalance)
+                        }
                       </span>
                     </div>
                     <ProgressBar 
@@ -329,6 +333,10 @@ export const EnvelopesMobile: React.FC = () => {
                               (item.currBudget === 0 ? 0 : -1*item.currBudget) : 
                               item.currBudget
                           )
+                        }
+                        {', left over '}
+                        {
+                          formatWholeCurrency(item.currBalance)
                         }
                       </span>
                     </div>

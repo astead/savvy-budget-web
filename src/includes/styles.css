@@ -737,6 +737,7 @@ div.mobile-tx-date {
 
 .mobile-tx-amt {
   text-align: right;
+  font-size: .75rem;
 }
 
 .mobile-tx-envelope {
