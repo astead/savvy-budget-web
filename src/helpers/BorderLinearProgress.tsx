@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, LinearProgress, styled, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
 interface ProgressBarProps {
   actual: number;
