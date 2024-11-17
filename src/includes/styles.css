@@ -576,12 +576,28 @@ td.TCInput {
   color: lightgreen;
 }
 
+.Toggle-inactive {
+  color: rgb(139, 139, 139);
+}
+
 .Toggle:hover {
   color:limegreen;
 }
 
 .Toggle-active:hover {
   color: lightgreen;
+}
+
+.ToggleMobile {
+  color: black;
+}
+
+.ToggleMobile-active {
+  color: limegreen;
+}
+
+.ToggleMobile-inactive {
+  color: rgb(139, 139, 139);
 }
 
 select.envelopeDropDown-undefined {
