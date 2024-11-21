@@ -121,11 +121,11 @@ export const AccountsMobile = () => {
     
     // Receive the data
     let data = response.data;
-    if (data.link_token?.length) {
+    if (data && data.link_token?.length) {
       setToken(data.link_token);
       setLink_Error(null);
     }
-    if (data.error_message?.length) {
+    if (data && data.error_message?.length) {
       console.log(data);
       setLink_Error("Error getting Link Token: " + data.error_message);
     }
@@ -483,7 +483,7 @@ export const AccountsMobile = () => {
         <div className="Error"><br/>{link_Error}</div>
       }
       <>
-    {token &&
+    
       <Box>
         { GuidanceText() }
         { updateConfig && <UpdatePlaid/>}
@@ -495,7 +495,7 @@ export const AccountsMobile = () => {
             variant="contained"
             className='textButton'
             onClick={() => openLink()}
-            disabled={!readyLink || !hasSubscription(subscriptionLevel, SubscriptionLevels.LINKED_BANK_ACCOUNTS)}
+            disabled={!token || !readyLink || !hasSubscription(subscriptionLevel, SubscriptionLevels.LINKED_BANK_ACCOUNTS)}
             style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
             Connect a new linked account
           </Button>
@@ -505,7 +505,7 @@ export const AccountsMobile = () => {
             <LinearProgressWithLabel variant="determinate" value={progress} style={{ marginBottom: '20px' }} />
           </Box>
         }
-        { institutions.map(institution => (
+        { token && institutions.map(institution => (
           <Paper key={institution.institution_id} style={{ marginBottom: '20px' }}>
             <Box className="institution-header">
               <Typography variant="h6">{ (institution.institution_name === null ? "Blank Name?" : institution.institution_name)}</Typography>
@@ -755,7 +755,6 @@ export const AccountsMobile = () => {
           </Box>
         </Modal>
       </Box>
-    }
       </>
     </div>
     <FooterMobile defaultValue={2} />

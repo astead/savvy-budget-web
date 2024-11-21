@@ -660,9 +660,6 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_SUBSCRIPTION, async (r
 
   const subscriptionLevel = req.body.subscriptionLevel;
 
-  console.log('req.body:', req.body);
-  console.log('subscriptionLevel:', subscriptionLevel);
-
   try {
     await db.transaction(async (trx) => {
       // Set the current_user_id
@@ -681,6 +678,35 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_SUBSCRIPTION, async (r
     res.status(500).json({ message: 'Error setting user subscription level' });
   }
 });
+
+const SubscriptionLevels = {
+  FREE: 0,                  // 0000
+  LINKED_BANK_ACCOUNTS: 1,  // 0001
+};
+
+function hasSubscription(level, flag) {
+  return (level & flag) !== 0;
+}
+
+const getSubscriptionLevel = async (userId) => {
+  let acc_info = null;
+  try {
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+    
+      acc_info = await trx('users').where({ id: userId }).select('subscriptionLevel');
+    });
+    
+    if (acc_info && acc_info.length > 0) {
+      return acc_info[0].subscriptionLevel;
+    } else {
+      return -1;
+    }
+  } catch (error) {
+    return -2;
+  }
+}
 
 // PLAID stuff
 const {
@@ -768,25 +794,32 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_TOKEN, async (req, 
 
   const userId = req.user_id; // Looked up user_id from middleware
 
-  if (PLAID_CLIENT_ID?.length) {
-    try {
-      
-      await plaid_setup_client(userId);
-      await plaid_get_link_token();
-      
-      //console.log("PLAID_GET_TOKEN returning:");
-      //console.log({ link_token: plaid_link_token, expiration: plaid_link_token_exp });
-      
-      res.json({ link_token: plaid_link_token, expiration: plaid_link_token_exp });
-    } catch (error) {
-      console.log(error);
-      // handle error
-      console.log('Error: ', error.message);
+  const subscriptionLevel = await getSubscriptionLevel(userId);
+  
+  if (subscriptionLevel > 0 && 
+    hasSubscription(subscriptionLevel, SubscriptionLevels.LINKED_BANK_ACCOUNTS)) {
 
-      res.json(error.response.data);
+    if (PLAID_CLIENT_ID?.length) {
+      try {
+        
+        await plaid_setup_client(userId);
+        await plaid_get_link_token();
+        
+        //console.log("PLAID_GET_TOKEN returning:");
+        //console.log({ link_token: plaid_link_token, expiration: plaid_link_token_exp });
+        
+        res.json({ link_token: plaid_link_token, expiration: plaid_link_token_exp });
+      } catch (error) {
+        console.log(error);
+        // handle error
+        console.log('Error: ', error.message);
+
+        res.json(error.response.data);
+      }
+    } else {
+      res.json(null);
     }
   } else {
-    console.log("PLAID_CLIENT_ID is null, or length is 0?: " + PLAID_CLIENT_ID);
     res.json(null);
   }
 });
