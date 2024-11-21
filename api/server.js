@@ -669,6 +669,10 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_SUBSCRIPTION, async (r
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
     
       await trx('users').where({ id: userId }).update({ subscriptionLevel: subscriptionLevel });
+
+      // TODO: If they are turning off their account linking
+      // we need to go through and unline their bank accounts.
+
     });
 
     res.status(200).send('Updated subscriptionLevel successfully');
