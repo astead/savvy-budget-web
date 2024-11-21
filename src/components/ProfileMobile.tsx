@@ -189,7 +189,7 @@ export const ProfileMobile: React.FC = () => {
 
         <Box mt={0} p={2} border="1px solid grey" borderRadius="5px">
           <Typography variant="h6">
-            DELETE ACCOUNT
+            Delete Account
           </Typography>
           <Typography variant="body2">
             This will delete your account and all your data. There is no
