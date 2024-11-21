@@ -18,7 +18,7 @@ export const Profile: React.FC = () => {
   const [cancelInputText, setCancelInputText] = useState<string>("");
   const [pageLoaded, setPageLoaded] = useState<boolean>(false);
   const [subscriptionLevel, setSubscriptionLevel] = useState<number>(0);
-  const { isAuthenticated, logout } = useAuth0();
+  const { logout } = useAuth0();
 
   const handleCheckboxChange = async (
     event: React.ChangeEvent<HTMLInputElement>
