@@ -627,6 +627,57 @@ async function delete_user({ auth0Id, userId }) {
   }
 };
 
+app.get(process.env.API_SERVER_BASE_PATH+channels.GET_PROFILE, async (req, res) => {
+  console.log('GET_PROFILE ENTER');
+  const auth0Id = req.auth0Id;
+  const userId = req.user_id;
+
+  let acc_info = null;
+
+  try {
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+    
+      acc_info = await trx('users').where({ id: userId }).select('subscriptionLevel');
+    });
+    
+    if (acc_info && acc_info.length > 0) {
+      res.status(200).json({ subscriptionLevel: acc_info[0].subscriptionLevel });
+    } else {
+      res.status(500).json({ message: 'User info not found' });
+    }
+  } catch (error) {
+    console.error('Error getting user info:', error);
+    res.status(500).json({ message: 'Error getting user info' });
+  }
+});
+
+app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_SUBSCRIPTION, async (req, res) => {
+  console.log('UPDATE_SUBSCRIPTION ENTER');
+  const auth0Id = req.auth0Id;
+  const userId = req.user_id;
+
+  const subscriptionLevel = req.body.subscriptionLevel;
+
+  console.log('req.body:', req.body);
+  console.log('subscriptionLevel:', subscriptionLevel);
+
+  try {
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+    
+      await trx('users').where({ id: userId }).update({ subscriptionLevel: subscriptionLevel });
+    });
+
+    res.status(200).send('Updated subscriptionLevel successfully');
+  } catch (error) {
+    console.error('Error setting user subscription level:', error);
+    res.status(500).json({ message: 'Error setting user subscription level' });
+  }
+});
+
 // PLAID stuff
 const {
   Configuration,

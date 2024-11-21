@@ -85,6 +85,8 @@ module.exports = {
     AUTH0_CHECK_CREATE_USER: 'auth0_check_or_create_user',
     AUTH0_GET_TOKENS: 'auth0_get_tokens',
     DELETE_PROFILE: 'delete_profile',
+    GET_PROFILE: 'get_profile',
+    UPDATE_SUBSCRIPTION: 'update_subscription',
 
     PROGRESS: 'progress',
   },
