@@ -38,6 +38,15 @@ const style = {
   p: 4,
 };
 
+const SubscriptionLevels = {
+  FREE: 0,                  // 0000
+  LINKED_BANK_ACCOUNTS: 1,  // 0001
+};
+
+function hasSubscription(level, flag) {
+  return (level & flag) !== 0;
+}
+
 /* 
   TODO:
   - Update list of accounts after adding new one
@@ -74,6 +83,9 @@ export const AccountsMobile = () => {
   
   // PLAID update config
   const [updateConfig, setUpdateConfig] = React.useState<any>(null);
+
+  // Subscription level
+  const [subscriptionLevel, setSubscriptionLevel] = useState<number>(0);
   
   // Used to track if the popup modal is open or closed.
   // That modal is used to enter start/end dates to force
@@ -118,6 +130,17 @@ export const AccountsMobile = () => {
       setLink_Error("Error getting Link Token: " + data.error_message);
     }
   };
+
+  const getProfile = async () => {
+    const response = await axios.get(baseUrl + channels.GET_PROFILE);
+    if (response.status === 200) {
+      setSubscriptionLevel(response.data.subscriptionLevel);
+    } else {
+      console.log('status: ', response.status);
+      console.log('message: ', response.data.message);
+      alert("Failed to get account.");
+    }
+  }
 
   const getAccountList = async () => {
     try {
@@ -433,6 +456,7 @@ export const AccountsMobile = () => {
         createLinkToken();
       }
       getAccountList();
+      getProfile();
     }
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -467,7 +491,12 @@ export const AccountsMobile = () => {
           <Button variant="contained" className='textButton' onClick={() => handleOpenNewAccount()} style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
             Create a new unlinked account
           </Button>
-          <Button variant="contained" className='textButton' onClick={() => openLink()} disabled={!readyLink} style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
+          <Button
+            variant="contained"
+            className='textButton'
+            onClick={() => openLink()}
+            disabled={!readyLink || !hasSubscription(subscriptionLevel, SubscriptionLevels.LINKED_BANK_ACCOUNTS)}
+            style={{ marginBottom: '20px', marginLeft: '20px', marginRight: '20px' }}>
             Connect a new linked account
           </Button>
         </div>
