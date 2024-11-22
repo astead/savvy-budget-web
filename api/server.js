@@ -2488,6 +2488,10 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_TX_DATA, async (req, res)
   } = req.body;
   const userId = req.user_id; // Looked up user_id from middleware
 
+  // TODO: Should probably do this when we first login
+  set_future_transactions_to_unrealized(userId);
+  set_past_transactions_to_realized(userId);
+
   try {
     await db.transaction(async (trx) => {
       // Set the current_user_id
@@ -4406,6 +4410,81 @@ async function insert_transaction_node(
     }
   } catch (err) {
     console.error('Error inserting transaction node: ', err);
+  }
+}
+
+async function set_future_transactions_to_unrealized(userId) {
+  
+  try {
+
+    const find_date = dayjs(new Date()).format('YYYY-MM-DD');
+    
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+      
+      const future_realized = await trx('transaction')
+        .select(
+          'id',
+          'envelopeID',
+          'txDate',
+          'description'
+        )
+        .where({ user_id: userId })
+        .where({ realized: true })
+        .whereRaw(`?::date - "txDate" < 0`, [find_date]);
+            
+      for (let tx of future_realized) {
+        // Need to set this to unrealized
+        await trx('transaction').update({ realized: false }).where({ user_id: userId, id: tx.id });
+
+        // Need to adjust envelope balance and remove this amount
+        if (tx.envelopeID !== -1) {
+          await adjust_balance(trx, userId, tx.id, 'rem');
+        }
+      }
+
+    });
+    
+  } catch (err) {
+    console.error('Error setting all future transactions to unrealized: ', err);
+  }
+}
+
+async function set_past_transactions_to_realized(userId) {
+  try {
+
+    const find_date = dayjs(new Date()).format('YYYY-MM-DD');
+    
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+      
+      const past_unrealized = await trx('transaction')
+        .select(
+          'id',
+          'envelopeID',
+          'txDate',
+          'description'
+        )
+        .where({ user_id: userId })
+        .where({ realized: false })
+        .whereRaw(`?::date - "txDate" > 0`, [find_date]);
+            
+      for (let tx of past_unrealized) {
+        // Need to set this to realized
+        await trx('transaction').update({ realized: true }).where({ user_id: userId, id: tx.id });
+
+        // Need to adjust envelope balance and add this amount
+        if (tx.envelopeID !== -1) {
+          await adjust_balance(trx, userId, tx.id, 'add');
+        }
+      }
+
+    });
+    
+  } catch (err) {
+    console.error('Error setting unrealized past transactions to realized: ', err);
   }
 }
 
