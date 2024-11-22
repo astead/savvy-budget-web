@@ -1830,6 +1830,11 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.SPLIT_TX, async (req, res) =>
 
         // Loop through each new split
         for (let item of split_tx_list) {
+          
+          const currentDate = dayjs().format('YYYY-MM-DD');
+          const formattedDate = dayjs(item.txDate).format('YYYY-MM-DD');
+          const isFutureDate = dayjs(formattedDate).isAfter(currentDate);
+          
           // Insert the new transaction
           await trx('transaction')
             .insert({
@@ -1847,14 +1852,17 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.SPLIT_TX, async (req, res) =>
               accountID: data[0].accountID,
               isVisible: data[0].isVisible,
               user_id: userId,
+              realized: !isFutureDate,
             });
 
-          // Adjust that envelope balance
-          await trx('envelope')
-            .where({ id: item.txEnvID, user_id: userId })
-            .update({
-              balance: trx.raw('balance + ?', [item.txAmt])
-            });
+          if (!isFutureDate) {
+            // Adjust that envelope balance
+            await trx('envelope')
+              .where({ id: item.txEnvID, user_id: userId })
+              .update({
+                balance: trx.raw('balance + ?', [item.txAmt])
+              });
+          }
         }
       }
     });
@@ -2609,6 +2617,10 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_TX, async (req, res) => {
   const userId = req.user_id; // Looked up user_id from middleware
   
   try {
+    const currentDate = dayjs().format('YYYY-MM-DD');
+    const formattedDate = dayjs(txDate).format('YYYY-MM-DD');
+    const isFutureDate = dayjs(formattedDate).isAfter(currentDate);
+    
     // Prepare the data node
     const myNode = {
       envelopeID: txEnvID,
@@ -2623,6 +2635,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_TX, async (req, res) => {
       accountID: txAccID,
       isVisible: true,
       user_id: userId,
+      realized: !isFutureDate,
     };
 
     await db.transaction(async (trx) => {
@@ -2632,8 +2645,10 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.ADD_TX, async (req, res) => {
       // Insert the node
       await trx('transaction').insert(myNode);
 
-      // Update the envelope balance
-      await update_env_balance(trx, userId, txEnvID, txAmt);
+      if (!isFutureDate) {
+        // Update the envelope balance
+        await update_env_balance(trx, userId, txEnvID, txAmt);
+      }
     });
 
     res.status(200).send('Added transaction successfully.');
@@ -3882,16 +3897,18 @@ async function update_tx_env(trx, userId, txID, envID) {
 async function adjust_balance(trx, userId, txID, add_or_remove) {
   try {
     const rows = await trx('transaction')
-      .select('envelopeID', 'txAmt')
+      .select('envelopeID', 'txAmt', 'isVisible', 'isDuplicate', 'realized')
       .where({ id: txID, user_id: userId });
 
     if (rows.length > 0) {
-      const { envelopeID, txAmt } = rows[0];
+      const { envelopeID, txAmt, isVisible, isDuplicate, realized } = rows[0];
 
-      await update_env_balance(
-        trx, userId, envelopeID,
-        add_or_remove === 'add' ? txAmt : -1 * txAmt
-      );
+      if (isVisible && isDuplicate === 0 && realized) {
+        await update_env_balance(
+          trx, userId, envelopeID,
+          add_or_remove === 'add' ? txAmt : -1 * txAmt
+        );
+      }
     }
   } catch (err) {
     console.error('Error adjusting the balance: ', err);
@@ -4262,6 +4279,9 @@ async function basic_insert_transaction_node({
   envID
 }) {
   let my_txDate = dayjs(new Date(txDate + 'T00:00:00')).format('YYYY-MM-DD');
+  const currentDate = dayjs().format('YYYY-MM-DD');
+  const formattedDate = dayjs(my_txDate).format('YYYY-MM-DD');
+  const isFutureDate = dayjs(formattedDate).isAfter(currentDate);
 
   // Prepare the data node
   const myNode = {
@@ -4277,13 +4297,14 @@ async function basic_insert_transaction_node({
     accountID: accountID,
     isVisible: true,
     user_id: userId,
+    realized: !isFutureDate,
   };
 
   // Insert the node
   await trx('transaction').insert(myNode);
 
   // Update the envelope balance
-  if (envID !== -1) {
+  if (envID !== -1 && !isFutureDate) {
     await update_env_balance(trx, userId, envID, txAmt);
   }
 
@@ -4293,13 +4314,13 @@ async function basic_insert_transaction_node({
 async function remove_transaction(trx, userId, txID) {
   try {
     const data = await trx('transaction')
-      .select('envelopeID', 'txAmt', 'isDuplicate', 'isVisible')
+      .select('envelopeID', 'txAmt', 'isDuplicate', 'isVisible', 'realized')
       .where({ id: txID, user_id: userId });
     
     if (data?.length) {
-      const { envelopeID, txAmt, isDuplicate, isVisible } = data[0];
+      const { envelopeID, txAmt, isDuplicate, isVisible, realized } = data[0];
 
-      if (isVisible && !isDuplicate) {
+      if (isVisible && isDuplicate === 0 && realized) {
         await update_env_balance(trx, userId, envelopeID, -1 * txAmt);
       }
 
@@ -4319,6 +4340,9 @@ async function basic_remove_transaction_node({ trx, userId, account_id, refNumbe
         'transaction.id as id',
         'transaction.envelopeID as envelopeID',
         'transaction.txAmt as txAmt',
+        'transaction.isVisible as isVisible',
+        'transaction.isDuplicate as isDuplicate',
+        'transaction.realized as realized',
       )
       .join('transaction', function() {
         this.on('transaction.accountID', '=', 'plaid_account.id')
@@ -4331,15 +4355,19 @@ async function basic_remove_transaction_node({ trx, userId, account_id, refNumbe
       });
 
     if (rows?.length) {
-      const { id, envelopeID, txAmt } = rows[0];
+      const { id, envelopeID, txAmt, isVisible, isDuplicate, realized } = rows[0];
 
       console.log(
         `Deleting transaction id: ${id}, amt: ${txAmt}, envID: ${envelopeID}`
       );
+      
       await trx('transaction')
         .delete()
         .where({ id: id, user_id: userId });
-      await update_env_balance(trx, userId, envelopeID, -1 * txAmt);
+      
+      if (isVisible && isDuplicate === 0 && realized) {
+        await update_env_balance(trx, userId, envelopeID, -1 * txAmt);
+      }
     } else {
       console.log(
         `No TX to delete, looking for refNumber: ${refNumber} and account_id: ${account_id}`
@@ -4370,6 +4398,10 @@ async function insert_transaction_node(
     return;
   }
 
+  const currentDate = dayjs().format('YYYY-MM-DD');
+  const formattedDate = dayjs(my_txDate).format('YYYY-MM-DD');
+  const isFutureDate = dayjs(formattedDate).isAfter(currentDate);
+
   // Check if this matches a keyword
   let envID = await lookup_keyword({ trx, userId, accountID, description, txDate: my_txDate });
 
@@ -4398,6 +4430,7 @@ async function insert_transaction_node(
     accountID: accountID,
     isVisible: true,
     user_id: userId,
+    realized: !isFutureDate,
   };
 
   try {
@@ -4405,7 +4438,7 @@ async function insert_transaction_node(
     await trx('transaction').insert(myNode);
 
     // Update the envelope balance
-    if (envID !== -1 && isDuplicate !== 1) {
+    if (envID !== -1 && isDuplicate === 0 && !isFutureDate) {
       await update_env_balance(trx, userId, envID, txAmt);
     }
   } catch (err) {
