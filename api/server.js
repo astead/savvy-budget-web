@@ -3870,9 +3870,14 @@ async function update_tx_env(trx, userId, txID, envID) {
   }
 }
 
+/*
+ Adjusts the balance of a transaction's envelope, either
+ adding or removing based on the input parameter.
+ We should probably check to make sure the envelopeID is not -1
+*/
 async function adjust_balance(trx, userId, txID, add_or_remove) {
   try {
-    const rows = trx('transaction')
+    const rows = await trx('transaction')
       .select('envelopeID', 'txAmt')
       .where({ id: txID, user_id: userId });
 
