@@ -2761,6 +2761,55 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_TX_DATE, async (req, r
       await trx('transaction')
         .where({ id: txID, user_id: userId })
         .update({ txDate: new_value });
+
+      // A date change could impact if this is a realized transaction or not
+      // Is this new data a realized or unrealized transaction
+      let my_txDate = dayjs(new Date(new_value + 'T00:00:00')).format('YYYY-MM-DD');
+      const currentDate = dayjs().format('YYYY-MM-DD');
+      const formattedDate = dayjs(my_txDate).format('YYYY-MM-DD');
+      const isFutureDate = dayjs(formattedDate).isAfter(currentDate);
+      
+      // We need to find out if it was previously realized
+      const txData = await trx('transaction')
+        .where({ id: txID, user_id: userId })
+        .select('realized');
+
+      if (txData?.length > 0) {
+        // If realized === isFutureDate that means the transacation is jumping
+        // across today (either forward or backward).
+        // If we were previously realized (past transaction, realized = true) and 
+        // now we have isFutureDate = true, its in the future, and vice versa.
+        if (txData[0].realized === isFutureDate) {
+          // Since we are changing our realized value we need to update the
+          // realized value and we need to adjust our budget for the envelope
+          
+          // Since adjust_balance only impacts realized transactions, we need
+          // to do the order of operations a certain way here so realized is
+          // set to true while we are adjusting the balance.
+          // TODO: It would probably be more efficient to just adjust the balance here.
+          //       If we do, we need to also check isVisible && isDuplicate
+          // TODO: We could also improve efficiency by updating the realized value
+          //       while updating the date up above.
+          if (isFutureDate) {
+            // Remove this amount from the envelope's budget
+            await adjust_balance(trx, userId, txID, isFutureDate ? "rem" : "add");
+
+            // Set the realized bit to false
+            await trx('transaction')
+              .where({ id: txID, user_id: userId })
+              .update({ realized: !isFutureDate });
+          } else {
+            // Set the realized bit to false
+            await trx('transaction')
+              .where({ id: txID, user_id: userId })
+              .update({ realized: !isFutureDate });
+
+            // Remove this amount from the envelope's budget
+            await adjust_balance(trx, userId, txID, isFutureDate ? "rem" : "add");
+          }
+        }
+      }
+
     });
 
     res.status(200).send('Updated transaction date successfully.');
@@ -4449,6 +4498,7 @@ async function insert_transaction_node(
   }
 }
 
+/* This is not called anymore, was only used to initially set future tx to unrealized */
 async function set_future_transactions_to_unrealized(userId) {
   
   try {
@@ -4460,12 +4510,7 @@ async function set_future_transactions_to_unrealized(userId) {
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
       
       const future_realized = await trx('transaction')
-        .select(
-          'id',
-          'envelopeID',
-          'txDate',
-          'description'
-        )
+        .select('id','envelopeID')
         .where({ user_id: userId })
         .where({ realized: true })
         .whereRaw(`?::date - "txDate" < 0`, [find_date]);
@@ -4497,12 +4542,7 @@ async function set_past_transactions_to_realized(userId) {
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
       
       const past_unrealized = await trx('transaction')
-        .select(
-          'id',
-          'envelopeID',
-          'txDate',
-          'description'
-        )
+        .select('id','envelopeID')
         .where({ user_id: userId })
         .where({ realized: false })
         .whereRaw(`?::date - "txDate" > 0`, [find_date]);
@@ -4521,6 +4561,32 @@ async function set_past_transactions_to_realized(userId) {
     
   } catch (err) {
     console.error('Error setting unrealized past transactions to realized: ', err);
+  }
+}
+
+async function check_for_missing_budget(userId) {
+  try {
+
+    // Get current day's budget date
+    const find_date = dayjs(new Date()).format('YYYY-MM-DD');
+    
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+      
+      // Get the latest budget data's date, as long as we actually have data
+
+
+      // if less than current budget copy the budget forward
+
+
+      // Somehow loop till we get to today
+      
+
+    });
+    
+  } catch (err) {
+    console.error('Error checking for missing budget: ', err);
   }
 }
 
