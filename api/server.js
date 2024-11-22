@@ -524,6 +524,13 @@ async function auth0_check_or_create_user({ enc_token, iv, tag, auth0Id, user_id
       }
     });
 
+    // If we already have an account, let's look for any unrealized transactions
+    // in the past to set to realized.
+    // This is probably also where we should run any potential updates for the user.
+    if (user_id) {
+      set_past_transactions_to_realized(user_id);
+    }
+
     //res.status(201).json({ message: 'User created successfully' });
     return { returnCode: 200, message: 'User check or create ran successfully' };
 
@@ -2495,10 +2502,6 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_TX_DATA, async (req, res)
     filterAmount,
   } = req.body;
   const userId = req.user_id; // Looked up user_id from middleware
-
-  // TODO: Should probably do this when we first login
-  set_future_transactions_to_unrealized(userId);
-  set_past_transactions_to_realized(userId);
 
   try {
     await db.transaction(async (trx) => {
