@@ -2803,7 +2803,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.SET_DUPLICATE, async (req, re
         .where({ id: txID, user_id: userId });
 
       // Need to adjust envelope balance
-      await adjust_balance(trx, txID, isDuplicate ? 'rem' : 'add');
+      await adjust_balance(trx, userId, txID, isDuplicate ? 'rem' : 'add');
     });
 
     res.status(200).send('Set as duplicate successfully.');
@@ -2829,7 +2829,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.SET_VISIBILITY, async (req, r
         .where({ id: txID, user_id: userId });
 
       // Need to adjust envelope balance
-      await adjust_balance(trx, txID, isVisible ? 'add' : 'rem');
+      await adjust_balance(trx, userId, txID, isVisible ? 'add' : 'rem');
     });
 
     res.status(200).send('Set visibility successfully.');
