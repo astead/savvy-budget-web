@@ -3908,13 +3908,13 @@ async function set_or_update_budget_item(trx, userId, newEnvelopeID, newtxDate, 
 async function update_tx_env(trx, userId, txID, envID) {
   try {
     const rows = await trx('transaction')
-      .select('id', 'txAmt', 'envelopeID')
+      .select('id', 'txAmt', 'envelopeID', 'isVisible', 'isDuplicate', 'realized')
       .where({ id: txID, user_id: userId });
 
     if (rows.length > 0) {
-      const { envelopeID, txAmt } = rows[0];
+      const { txAmt, envelopeID, isVisible, isDuplicate, realized } = rows[0];
 
-      if (envelopeID > 0) {
+      if (envelopeID > 0 && isVisible && isDuplicate === 0 && realized) {
         await trx('envelope')
         .where({ id: envelopeID, user_id: userId })
         .update({
@@ -3922,11 +3922,13 @@ async function update_tx_env(trx, userId, txID, envID) {
         });
       }
 
-      await trx('envelope')
-      .where({ id: envID, user_id: userId })
-      .update({
-        balance: trx.raw('"balance" + ?', [txAmt])
-      });
+      if (envID > 0 && isVisible && isDuplicate === 0 && realized) {
+        await trx('envelope')
+        .where({ id: envID, user_id: userId })
+        .update({
+          balance: trx.raw('"balance" + ?', [txAmt])
+        });
+      }
 
       await trx('transaction')
         .where({ id: txID, user_id: userId })
