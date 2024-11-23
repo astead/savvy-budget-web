@@ -675,9 +675,25 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_SUBSCRIPTION, async (r
     
       await trx('users').where({ id: userId }).update({ subscriptionLevel: subscriptionLevel });
 
-      // TODO: If they are turning off their account linking
-      // we need to go through and unline their bank accounts.
-
+      // If they are turning off their account linking
+      // we need to go through and unlink their bank accounts.
+      if (!hasSubscription(subscriptionLevel, SubscriptionLevels.LINKED_BANK_ACCOUNTS)) {
+        // Unlink all the PLAID accounts
+        const acc_to_unlink = await trx('plaid_account')
+          .select('id', 'full_account_name')
+          .where({ user_id: userId })
+          .whereNotNull('access_token');
+        
+        for (const acc of acc_to_unlink) {
+          // Use the account ID to remove the plaid login
+          // We shouldn't just set the plaid info to null
+          // we should actually try and remove it from PLAID
+          const resp = await remove_plaid_login(trx, userId, acc.id);
+          if (resp !== 0) {
+            return { returnCode: 500, message: 'Error unlinking ' + acc.full_account_name };
+          }
+        }
+      }
     });
 
     res.status(200).send('Updated subscriptionLevel successfully');
