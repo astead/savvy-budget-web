@@ -529,6 +529,7 @@ async function auth0_check_or_create_user({ enc_token, iv, tag, auth0Id, user_id
     // This is probably also where we should run any potential updates for the user.
     if (user_id) {
       set_past_transactions_to_realized(user_id);
+      check_for_missing_budget(user_id);
     }
 
     //res.status(201).json({ message: 'User created successfully' });
@@ -4567,24 +4568,58 @@ async function set_past_transactions_to_realized(userId) {
 }
 
 async function check_for_missing_budget(userId) {
+  console.log('check_for_missing_budget ENTER');
   try {
 
     // Get current day's budget date
-    const find_date = dayjs(new Date()).format('YYYY-MM-DD');
+    const currentDate = dayjs(new Date()).format('YYYY-MM-DD');
+    console.log('current date: ', currentDate);
     
     await db.transaction(async (trx) => {
       // Set the current_user_id
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
       
       // Get the latest budget data's date, as long as we actually have data
-
-
-      // if less than current budget copy the budget forward
-
-
-      // Somehow loop till we get to today
+      const [lastBudgetRecord] = await trx('transaction')
+        .max({ lastBudget: 'txDate' })
+        .where({ user_id: userId , isBudget: 1 });
       
+      console.log("lastBudgetRecord: ", lastBudgetRecord);
 
+      // If we have previous budget data
+      if (lastBudgetRecord?.lastBudget) {
+        const lastBudgetDate = dayjs(lastBudgetRecord.lastBudget).format('YYYY-MM-DD');
+        console.log('last budget: ', lastBudgetDate);
+      
+        // lets set the max budget date as an iterator
+        let lastDate = dayjs(lastBudgetDate);
+
+        if (lastDate.isBefore(currentDate, 'month')) {
+
+          // Get our last budget data
+          const lastBudgetData = await trx('transaction')
+            .select('envID', 'txAmt')
+            .where({ user_id: userId , txDate: lastBudgetDate, isBudget: 1 });
+
+          // While out last budget is before the current month lets
+          // copy that budget to the next month
+          while (lastDate.isBefore(currentDate, 'month')) {
+            // Update our iterator to the next month without data
+            lastDate = lastDate.add(1, 'month').startOf('month');
+                        
+            for (let item of lastBudgetData) {
+              await set_or_update_budget_item(trx, userId, item.envID, lastDate, item.txAmt);
+            }
+            
+            console.log('Added missing budget for:', lastDate.format('YYYY-MM-DD'));
+          }
+        }
+        
+        console.log('Budget is up to date');
+      
+      } else {
+        console.log('No last budget');
+      }
     });
     
   } catch (err) {
