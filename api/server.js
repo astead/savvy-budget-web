@@ -4614,7 +4614,7 @@ async function check_for_missing_budget(userId) {
 
           // Get our last budget data
           const lastBudgetData = await trx('transaction')
-            .select('envID', 'txAmt')
+            .select('envelopeID', 'txAmt')
             .where({ user_id: userId , txDate: lastBudgetDate, isBudget: 1 });
 
           // While out last budget is before the current month lets
@@ -4624,7 +4624,7 @@ async function check_for_missing_budget(userId) {
             lastDate = lastDate.add(1, 'month').startOf('month');
                         
             for (let item of lastBudgetData) {
-              await set_or_update_budget_item(trx, userId, item.envID, lastDate, item.txAmt);
+              await set_or_update_budget_item(trx, userId, item.envelopeID, lastDate, item.txAmt);
             }
             
             console.log('Added missing budget for:', lastDate.format('YYYY-MM-DD'));
