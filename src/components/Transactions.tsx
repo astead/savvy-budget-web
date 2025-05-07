@@ -28,6 +28,8 @@ import ClearIcon from '@mui/icons-material/Clear';
   - better way to pass in parameters?
   - better default parameter values (vs using -1, etc)
   - consolidate tx filter local storage
+  - BUG: sometimes when changing a category, the drop down color doesn't change
+  - Add button to toggle refreshing of table
 */
 
 export const Transactions: React.FC = () => {

@@ -11,7 +11,9 @@ import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import { EnvelopeRow } from './EnvelopeRow.tsx';
 
 /*
-  TODO: Set the width of this page so it is the same for each month.
+  TODO:
+  - Set the width of this page so it is the same for each month.
+  - BUG: Sometimes after about a second on the page all the values get reset to 0.
  */
 
 export const Envelopes: React.FC = () => {
