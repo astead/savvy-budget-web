@@ -4562,6 +4562,9 @@ async function set_past_transactions_to_realized(userId) {
 
     const find_date = dayjs(new Date()).format('YYYY-MM-DD');
     
+    // count number of transactions we've updated
+    let count = 0;
+
     await db.transaction(async (trx) => {
       // Set the current_user_id
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
@@ -4571,7 +4574,7 @@ async function set_past_transactions_to_realized(userId) {
         .where({ user_id: userId })
         .where({ realized: false })
         .whereRaw(`?::date - "txDate" > 0`, [find_date]);
-            
+      
       for (let tx of past_unrealized) {
         // Need to set this to realized
         await trx('transaction').update({ realized: true }).where({ user_id: userId, id: tx.id });
@@ -4580,10 +4583,12 @@ async function set_past_transactions_to_realized(userId) {
         if (tx.envelopeID !== -1) {
           await adjust_balance(trx, userId, tx.id, 'add');
         }
+        count++;
       }
 
     });
-    
+    console.log('Updated ' + count + ' transactions to realized');
+    console.log('set_past_transactions_to_realized EXIT');
   } catch (err) {
     console.error('Error setting unrealized past transactions to realized: ', err);
   }
