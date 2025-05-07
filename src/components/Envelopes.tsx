@@ -333,13 +333,15 @@ export const Envelopes: React.FC = () => {
 
       const enrichedData = data.map((item) => ({ ...item, ...defaultValues })) as BudgetNodeData[];
       const sortedData = enrichedData.sort(compare);
-      setLoadedEnvelopes(true);
       setBudgetData(sortedData);
+      setLoadedEnvelopes(true);
     }
   }
 
   const loadData = async () => {
     try {
+      setLoaded(false); // Set loading state to false before fetching data
+
       // Fetch all data in parallel
       const [currBudgetData, prevBudgetData, currBalanceData, currActualData, monthlyAvgData, prevActualData] = 
       await Promise.all([
@@ -375,6 +377,7 @@ export const Envelopes: React.FC = () => {
 
   useEffect(() => {
     if (gotMonthData) {
+      setLoaded(false);
       setLoadedEnvelopes(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,19 +387,17 @@ export const Envelopes: React.FC = () => {
     // Once we have the main table data, we can go get
     // the details and fill it in.
     if (loadedEnvelopes && budgetData?.length > 0) {      
-        loadData();
-    } else if (!loadedEnvelopes) {
+      loadData();
+    } else if (!loadedEnvelopes && budgetData?.length > 0) {
       // We must be re-setting due to a month selection change.
       // Lets wipe this out and force it to start over.
-      setLoaded(false);
       setBudgetData([]);
-      
-      // TODO: I wonder if there is a race condition here
-      // as above we are setting budgetData and inside
+    } else if (!loadedEnvelopes && budgetData?.length === 0) {
+      // There is still a problem here when coming to the page fresh.
+      // race condition:
+      // above we are setting budgetData and inside
       // load_initialEnvelopes we are also going to set
-      // budgetData. I wonder if we should take the same
-      // approach as with getting each column of data and
-      // pass in our starting data set?
+      // budgetData.
       load_initialEnvelopes();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -412,10 +413,8 @@ export const Envelopes: React.FC = () => {
       }
     }
     setGotMonthData(true);
-
+    
     load_envelope_list();
-    load_initialEnvelopes();
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
