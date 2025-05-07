@@ -12,6 +12,12 @@ import Tab from '@mui/material/Tab';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 
+/*
+  TODO: Add database configuration back in with:
+    - export all data and SQL tables to a file
+    - sqlite3 database file option?
+*/
+
 export const Configure = () => {
 
   interface TabPanelProps {
