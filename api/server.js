@@ -1426,7 +1426,11 @@ async function get_transactions(id, userId, sessionId) {
       await basic_remove_transaction_node({ trx, userId, account_id: r.account_id, refNumber: r.transaction_id });
 
       cur_record++;
-      progressStatuses[sessionId] = (cur_record * 100) / total_records;
+      let cur_progress = (cur_record * 100) / total_records;
+      if (cur_progress >= 100) {
+        cur_progress = 99; // Cap at 99%
+      }
+      progressStatuses[sessionId] = cur_progress;
     }
     console.log('Done processing removed transactions.');
 
@@ -1562,7 +1566,11 @@ async function apply_added_transactions({ trx, id, acc, added, removed, userId, 
     }
 
     cur_record++;
-    progressStatuses[sessionId] = (cur_record * 100) / total_records;
+    let cur_progress = (cur_record * 100) / total_records;
+    if (cur_progress >= 100) {
+      cur_progress = 99; // Cap at 99%
+    }
+    progressStatuses[sessionId] = cur_progress;
   }
   return 0;
 }
@@ -1592,7 +1600,11 @@ async function apply_modified_transactions({ trx, id, acc, modified, userId, cur
     });
 
     cur_record++;
-    progressStatuses[sessionId] = (cur_record * 100) / total_records;
+    let cur_progress = (cur_record * 100) / total_records;
+    if (cur_progress >= 100) {
+      cur_progress = 99; // Cap at 99%
+    }
+    progressStatuses[sessionId] = cur_progress;
   }
   return 0;
 }
