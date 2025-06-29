@@ -477,6 +477,8 @@ div.envelopeDataDiffItemCurr {
 
 .TxTable {
   margin-bottom:10px;
+  width: 100%;
+  overflow-x: auto;
 }
 
 .THR {
