@@ -331,20 +331,21 @@ export const TransactionTable = ({data, envList, callback}) => {
 
       <tbody>
         { dataReady &&
-        //for (const [index, item] of txData.entries()) {
-          txData.map((item, index) => (
-            index < (pagingCurPage * pagingPerPage) &&
-            index >= ((pagingCurPage-1) * pagingPerPage) &&
-            <TransactionTableRow
-              key={"tx-" + item.txID}  
-              index={index}
-              item={item}
-              envList={envList}
-              onRowUpdate={handleRowUpdate}
-              callback={callback}
-            />
-          ))
-        //}
+          txData
+            .filter((_, index) =>
+              index >= ((pagingCurPage-1) * pagingPerPage) &&
+              index < (pagingCurPage * pagingPerPage)
+            )
+            .map((item, index) => (
+              <TransactionTableRow
+                key={"tx-" + item.txID}
+                index={index}
+                item={item}
+                envList={envList}
+                onRowUpdate={handleRowUpdate}
+                callback={callback}
+              />
+            ))
         }
       </tbody>
       <tfoot>
