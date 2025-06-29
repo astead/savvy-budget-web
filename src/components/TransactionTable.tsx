@@ -210,11 +210,11 @@ export const TransactionTable = ({data, envList, callback}) => {
   };
 
   useEffect(() => {
-    const updatedData = txData.map(item => ({ ...item, isChecked: false }));
+    const updatedData = data.map(item => ({ ...item, isChecked: false }));
     setTxData(updatedData);
     setIsAllChecked(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagingCurPage, pagingPerPage, pagingTotalRecords]);
+  }, [pagingCurPage, pagingPerPage, pagingTotalRecords, data]);
 
   useEffect(() => {
     const oldNumPer = Math.ceil(pagingTotalRecords / pagingNumPages);
