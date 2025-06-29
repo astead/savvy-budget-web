@@ -211,6 +211,14 @@ export const TransactionTable = ({data, envList, callback}) => {
 
   useEffect(() => {
     const updatedData = data.map(item => ({ ...item, isChecked: false }));
+
+    // When data, page, or records per page changes, ensure we have
+    // a clean data set by reapplying the unique filter
+    //const updatedData = Array.from(
+    //  new Map(data.map(item => [item.txID, { ...item, isChecked: false }]))
+    //  .values()
+    //) as TransactionNodeData[];
+
     setTxData(updatedData);
     setIsAllChecked(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -236,6 +244,13 @@ export const TransactionTable = ({data, envList, callback}) => {
     
     const tmpData = [...data];
     setTxData(tmpData);
+
+    // With this code that ensures unique txIDs:
+    //const uniqueData = Array.from(
+    //  new Map(data.map(item => [item.txID, { ...item, isChecked: false }]))
+    //  .values()
+    //) as TransactionNodeData[];
+    //setTxData(uniqueData);
     
     // If our number of records changed, we likely have new data,
     // so reset our current page to the first one.
