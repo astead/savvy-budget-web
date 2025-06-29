@@ -2568,27 +2568,25 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_TX_DATA, async (req, res)
           this.on('plaid_account.id', '=', 'transaction.accountID')
           .andOn('plaid_account.user_id', '=', trx.raw(`?`, [userId]))
         })
-        .leftJoin('keyword', function () {
-          //this.on('keyword.description', '=', 'transaction.description');
-          /*
-          TODO: This is pulling in multiple instances on multiple keyword matches
-          Right now that could happen on a keyword rename.
-          Keyword insert is disabled if a keyword already matches.
-          Might be able to add a group by for what should be unique values
-          and get only the first keyword match.
-          */
-          this.on(
-            'transaction.description',
-            'like',
-            'keyword.description'
+        .leftJoin(
+          trx.raw(
+            `LATERAL (
+              SELECT keyword."envelopeID"
+              FROM keyword
+              WHERE
+                transaction.description LIKE keyword.description
+                AND keyword.user_id = ?
+                AND (
+                  keyword.account = 'All'
+                  OR keyword.account = plaid_account.common_name
+                )
+              ORDER BY
+                CASE WHEN keyword.account = 'All' THEN 1 ELSE 0 END,
+                LENGTH(keyword.description) DESC
+              LIMIT 1
+            ) as keyword ON true`, [userId]
           )
-          .andOn(function () {
-            this
-              .onVal('keyword.account', '=', 'All')
-              .orOn('keyword.account','plaid_account.common_name');
-          })
-          .andOn('keyword.user_id', '=', trx.raw(`?`, [userId]))
-        })
+        )
         .where({ isBudget: 0, 'transaction.user_id': userId })
         .orderBy('transaction.txDate', 'desc')
         .orderBy('transaction.description')
