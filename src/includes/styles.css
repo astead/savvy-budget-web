@@ -355,6 +355,7 @@ button.trash {
 button.trash:hover {
   color: #F8FAFC;
   background-color: #EF4444;
+  cursor: pointer;
 }
 
 button.textButton {
