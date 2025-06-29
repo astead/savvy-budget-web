@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faRefresh } from "@fortawesome/free-solid-svg-icons";
 import MenuItem from '@mui/material/MenuItem';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import Pagination from '@mui/material/Pagination';
@@ -260,6 +260,13 @@ export const TransactionTable = ({data, envList, callback}) => {
 
   return (
     <>
+    <div className="Right">
+      <button
+        className='refresh'
+        onClick={() => callback()}>
+          <FontAwesomeIcon icon={faRefresh} />
+      </button>
+    </div>
     <table className="Table TxTable" cellSpacing={0} cellPadding={0}>
       <thead>
         <tr className="Table THR">
