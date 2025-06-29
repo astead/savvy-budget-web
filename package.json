@@ -3,10 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "A simple budgeting app",
-  "author": {
-    "name": "Alan Stead",
-    "email": "alan.stead@gmail.com"
-  },
+  "author": "Alan Stead <alan.stead@gmail.com>",
   "main": "api/server.js",
   "dependencies": {
     "@auth0/auth0-react": "^2.2.4",
@@ -71,7 +68,7 @@
       "last 1 safari version"
     ]
   },
-  "_moduleAliases": {
-    "@shared": "src/shared"
-  }
+  "devDependencies": {},
+  "keywords": [],
+  "license": "ISC"
 }
