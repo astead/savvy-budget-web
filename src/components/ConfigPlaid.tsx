@@ -146,7 +146,7 @@ export const ConfigPlaid = () => {
       if (!config) return;
       const response = await axios.post(baseUrl + channels.PLAID_GET_ACCOUNTS, null, config );
       // Receive the data
-      console.log('Received data from: ', baseUrl + channels.PLAID_GET_ACCOUNTS);
+      //console.log('Received data from: ', baseUrl + channels.PLAID_GET_ACCOUNTS);
       const myAccounts = response.data as PLAIDAccount[];
   
       setPLAIDAccounts(myAccounts);
@@ -466,7 +466,7 @@ export const ConfigPlaid = () => {
       setAccountsLoaded(true);
     }
     
-    console.log(baseUrl + channels.PLAID_GET_ACCOUNTS);
+    //console.log(baseUrl + channels.PLAID_GET_ACCOUNTS);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
