@@ -338,72 +338,82 @@ export const Envelopes: React.FC = () => {
     }
   }
 
-  const loadData = async () => {
-    try {
-      setLoaded(false); // Set loading state to false before fetching data
-
-      // Fetch all data in parallel
-      const [currBudgetData, prevBudgetData, currBalanceData, currActualData, monthlyAvgData, prevActualData] = 
-      await Promise.all([
-        load_CurrBudget(budgetData),
-        load_PrevBudget(budgetData),
-        load_CurrBalance(budgetData),
-        load_CurrActual(budgetData),
-        load_MonthlyAvg(budgetData),
-        load_PrevActual(budgetData),
-      ]);
-
-      // Combine the results
-      const combinedData = budgetData.map((item, index) => ({
-        ...item,
-        ...currBudgetData[index],
-        ...prevBudgetData[index],
-        ...currBalanceData[index],
-        ...currActualData[index],
-        ...monthlyAvgData[index],
-        ...prevActualData[index],
-      }));
-
-      // Update the state once with the combined data
-      setBudgetData(combinedData);
-
-      setLoaded(true);
-
-      get_totals(combinedData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
-  };
-
   useEffect(() => {
     if (gotMonthData) {
-      setLoaded(false);
-      setLoadedEnvelopes(false);
+      // Create a single function to handle the loading sequence
+      const loadEnvelopeData = async () => {
+        try {
+          // Clear existing data and set loading state
+          setLoaded(false);
+          
+          // Step 1: Load the initial envelope structure
+          if (!config) return;
+          const response = await axios.post(baseUrl + channels.GET_BUDGET_ENV, null, config);
+          
+          // Initialize with default values
+          if (response.data?.length) {
+            const defaultValues = {
+              prevBudget: 0,
+              prevActual: 0,
+              currBalance: 0,
+              currBudget: 0,
+              monthlyAvg: 0,
+              currActual: 0,
+            };
+
+            const enrichedData = response.data.map((item) => ({ 
+              ...item, 
+              ...defaultValues 
+            })) as BudgetNodeData[];
+            const sortedData = enrichedData.sort(compare);
+            
+            // Step 2: Load all the detailed data in parallel
+            const [
+              currBudgetData, 
+              prevBudgetData, 
+              currBalanceData, 
+              currActualData, 
+              monthlyAvgData, 
+              prevActualData
+            ] = await Promise.all([
+              load_CurrBudget(sortedData),
+              load_PrevBudget(sortedData),
+              load_CurrBalance(sortedData),
+              load_CurrActual(sortedData),
+              load_MonthlyAvg(sortedData),
+              load_PrevActual(sortedData),
+            ]);
+
+            // Step 3: Combine all data in one update
+            const combinedData = sortedData.map((item, index) => ({
+              ...item,
+              ...currBudgetData[index],
+              ...prevBudgetData[index],
+              ...currBalanceData[index],
+              ...currActualData[index],
+              ...monthlyAvgData[index],
+              ...prevActualData[index],
+            }));
+
+            // Final state update - do this once with all data
+            setBudgetData(combinedData);
+            get_totals(combinedData);
+            setLoadedEnvelopes(true);
+            setLoaded(true);
+          }
+        } catch (error) {
+          console.error('Error in envelope data loading sequence:', error);
+        }
+      };
+
+      loadEnvelopeData();
     }
+    // Only depend on month changes and initial load
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [curMonth]);  
+  }, [curMonth, gotMonthData, config]);
 
   useEffect(() => {
-    // Once we have the main table data, we can go get
-    // the details and fill it in.
-    if (loadedEnvelopes && budgetData?.length > 0) {      
-      loadData();
-    } else if (!loadedEnvelopes && budgetData?.length > 0) {
-      // We must be re-setting due to a month selection change.
-      // Lets wipe this out and force it to start over.
-      setBudgetData([]);
-    } else if (!loadedEnvelopes && budgetData?.length === 0) {
-      // There is still a problem here when coming to the page fresh.
-      // race condition:
-      // above we are setting budgetData and inside
-      // load_initialEnvelopes we are also going to set
-      // budgetData.
-      load_initialEnvelopes();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadedEnvelopes, budgetData.length]);
 
-  useEffect(() => {
     // which month were we
     const my_monthData_str = localStorage.getItem('envelopes-month-data');
     if (my_monthData_str?.length) {
