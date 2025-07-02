@@ -67,7 +67,6 @@ export const EnvelopesMobile: React.FC = () => {
   
   const [budgetData, setBudgetData] = useState<BudgetNodeData[]>([]);
   const [loaded, setLoaded] = useState(false);  
-  const [loadedEnvelopes, setLoadedEnvelopes] = useState(false);
   const [favorites, setFavorites] = useState<any[]>([]);
   
   const load_CurrBalance = async (currentData) => {
@@ -121,57 +120,6 @@ export const EnvelopesMobile: React.FC = () => {
     });
 
     return updatedData;
-  };
-  
-  const load_initialEnvelopes = async () => {
-    // Signal we want to get data
-    if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_BUDGET_ENV, null, config);
-  
-    // Receive the data
-    let data = response.data;
-    if (data?.length) {
-      const defaultValues = {
-        prevBudget: 0,
-        prevActual: 0,
-        currBalance: 0,
-        currBudget: 0,
-        monthlyAvg: 0,
-        currActual: 0,
-      };
-
-      const enrichedData = data.map((item) => ({ ...item, ...defaultValues })) as BudgetNodeData[];
-      const sortedData = enrichedData.sort(compare);
-      setLoadedEnvelopes(true);
-      setBudgetData(sortedData);
-    }
-  }
-
-  const loadData = async () => {
-    try {
-      // Fetch all data in parallel
-      const [currBudgetData, prevBudgetData, currBalanceData] = 
-      await Promise.all([
-        load_CurrBudget(budgetData),
-        load_CurrBalance(budgetData),
-        load_CurrActual(budgetData),
-      ]);
-
-      // Combine the results
-      const combinedData = budgetData.map((item, index) => ({
-        ...item,
-        ...currBudgetData[index],
-        ...prevBudgetData[index],
-        ...currBalanceData[index],
-      }));
-
-      // Update the state once with the combined data
-      setBudgetData(combinedData);
-
-      setLoaded(true);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
   };
 
   const handleFavoriteClick = (item) => {
@@ -238,7 +186,6 @@ export const EnvelopesMobile: React.FC = () => {
 
           // Final state update - do this once with all data
           setBudgetData(combinedData);
-          setLoadedEnvelopes(true);
           setLoaded(true);
         }
       } catch (error) {
