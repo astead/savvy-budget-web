@@ -104,7 +104,6 @@ export const Envelopes: React.FC = () => {
   const [budgetData, setBudgetData] = useState<BudgetNodeData[]>([]);
   const [loaded, setLoaded] = useState(false);  
   const [haveCurrBudget, setHaveCurrBudget] = useState(false);
-  const [loadedEnvelopes, setLoadedEnvelopes] = useState(false);
   const [curTotalBudgetIncome, setCurTotalBudgetIncome] = useState(0);
   const [curTotalBudgetSpending, setCurTotalBudgetSpending] = useState(0);
   const [curTotalActualUndefined, setCurTotalActualUndefined] = useState(0);
@@ -313,30 +312,6 @@ export const Envelopes: React.FC = () => {
     setCurTotalBudgetIncome(myTotalBudgetIncome);
     setCurTotalBudgetSpending(myTotalBudgetSpending);
   }
-  
-  const load_initialEnvelopes = async () => {
-    // Signal we want to get data
-    if (!config) return;
-    const response = await axios.post(baseUrl + channels.GET_BUDGET_ENV, null, config);
-  
-    // Receive the data
-    let data = response.data;
-    if (data?.length) {
-      const defaultValues = {
-        prevBudget: 0,
-        prevActual: 0,
-        currBalance: 0,
-        currBudget: 0,
-        monthlyAvg: 0,
-        currActual: 0,
-      };
-
-      const enrichedData = data.map((item) => ({ ...item, ...defaultValues })) as BudgetNodeData[];
-      const sortedData = enrichedData.sort(compare);
-      setBudgetData(sortedData);
-      setLoadedEnvelopes(true);
-    }
-  }
 
   useEffect(() => {
     if (gotMonthData) {
@@ -398,7 +373,6 @@ export const Envelopes: React.FC = () => {
             // Final state update - do this once with all data
             setBudgetData(combinedData);
             get_totals(combinedData);
-            setLoadedEnvelopes(true);
             setLoaded(true);
           }
         } catch (error) {
