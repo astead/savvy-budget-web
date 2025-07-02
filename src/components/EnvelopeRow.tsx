@@ -11,6 +11,14 @@ const red_color = '#dd8888';
 export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRowUpdate, onBalanceTransfer }) => {
   const { config } = useAuthToken();
 
+  // Add local state to track the item's values
+  const [localItem, setLocalItem] = useState(item);
+
+  // Update local state when prop changes
+  useEffect(() => {
+    setLocalItem(item);
+  }, [item]);
+
   const [cellColors, setCellColors] = useState({
     currBalanceColor: 'transparent',
     currBudgetColor: 'transparent',
@@ -18,14 +26,14 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
   });
 
   useEffect(() => {
-    // Update cell colors based on rowData
+    // Update cell colors based on localItem instead of item
     const newColors = {
-      currBalanceColor: item.currBalance < 0 ? red_color : 'transparent',
-      currBudgetColor: -1*item.monthlyAvg > item.currBudget ? red_color : 'transparent',
-      currActualColor: -1*item.currActual > item.currBudget ? red_color : 'transparent',
+      currBalanceColor: localItem.currBalance < 0 ? red_color : 'transparent',
+      currBudgetColor: -1*localItem.monthlyAvg > localItem.currBudget ? red_color : 'transparent',
+      currActualColor: -1*localItem.currActual > localItem.currBudget ? red_color : 'transparent',
     };
     setCellColors(newColors);
-  }, [item.currBalance, item.currBudget, item.currActual, item.monthlyAvg]);
+  }, [localItem.currBalance, localItem.currBudget, localItem.currActual, localItem.monthlyAvg]);
 
   function formatCurrency(currencyNumber:number) {
     if (currencyNumber) {
@@ -42,43 +50,59 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
     await axios.post(baseUrl + channels.UPDATE_BUDGET, 
       { newEnvelopeID: id, newtxDate: date, newtxAmt: value }, config);
     
-    const oldValue = item.currBudget;
-    item.currBudget = parseFloat(value);
-    item.currBalance += value - oldValue;
-
-    onRowUpdate(item);
+    const oldValue = localItem.currBudget;
+    // Create a new object for the updated item
+    const updatedItem = {
+      ...localItem,
+      currBudget: parseFloat(value),
+      currBalance: localItem.currBalance + (parseFloat(value) - oldValue)
+    };
+    
+    // Update local state with the new object
+    setLocalItem(updatedItem);
+    
+    // Notify parent of the update
+    onRowUpdate(updatedItem);
   };
 
   const handleBalanceChange = async ({ newAmt }) => {
-    item.currBalance = parseFloat(newAmt);
-    onRowUpdate(item);
+    const updatedItem = {
+      ...localItem,
+      currBalance: parseFloat(newAmt)
+    };
+    setLocalItem(updatedItem);
+    onRowUpdate(updatedItem);
   };
 
   const handleBalanceTransfer = async ({ transferAmt, toID }) => {
-    item.currBalance -= parseFloat(transferAmt);
-    onBalanceTransfer({ updatedRow: item, transferAmt, toID });
+    const updatedItem = {
+      ...localItem,
+      currBalance: localItem.currBalance - parseFloat(transferAmt)
+    };
+    setLocalItem(updatedItem);
+    onBalanceTransfer({ updatedRow: updatedItem, transferAmt, toID });
   };
 
   return (
-    <tr key={item.envID} className="TR">
-      <td className="Table TC Left">{item.envelope}</td>
-      <td className="Table TC Right">{formatCurrency(item.prevBudget)}</td>
+    <tr key={localItem.envID} className="TR">
+      <td className="Table TC Left">{localItem.envelope}</td>
+      <td className="Table TC Right">{formatCurrency(localItem.prevBudget)}</td>
       <td className="Table TC Right">
         <Link to={
           "/Transactions" +
-          "/-1/" + item.envID + 
+          "/-1/" + localItem.envID + 
           "/1/" + new Date(year, month-1).getFullYear() + 
           "/" + new Date(year, month-1).getMonth()}>
-          {formatCurrency(item.prevActual)}
+          {formatCurrency(localItem.prevActual)}
         </Link>
       </td>
       <td className="Table Right TCInput"
         style={{ backgroundColor: cellColors.currBalanceColor }}>
         <BudgetBalanceModal 
-          balanceAmt={item.currBalance}
-          category={item.category}
-          envelope={item.envelope}
-          envID={item.envID}
+          balanceAmt={localItem.currBalance}
+          category={localItem.category}
+          envelope={localItem.envelope}
+          envID={localItem.envID}
           transferEnvList={transferEnvList}
           callback_transfer={handleBalanceTransfer}
           callback_change={handleBalanceChange}
@@ -86,8 +110,8 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
       </td>
       <td className="Table Right">
         <InputText
-          in_ID={item.envID}
-          in_value={item.currBudget}
+          in_ID={localItem.envID}
+          in_value={localItem.currBudget}
           callback={(id, value) => {
             handleUpdateBudget({ id, date: curMonth, value });
           }}
@@ -99,13 +123,13 @@ export const EnvelopeRow = ({ item, year, month, curMonth, transferEnvList, onRo
       </td>
       <td className="Table TC Right"
         style={{ backgroundColor: cellColors.currActualColor }}>
-        <Link to={"/Transactions/-1/" + item.envID + "/1/" + year + "/" + month}>
-          {formatCurrency(item.currActual)}
+        <Link to={"/Transactions/-1/" + localItem.envID + "/1/" + year + "/" + month}>
+          {formatCurrency(localItem.currActual)}
         </Link>
       </td>
       <td className="Table TC Right">
-        <Link to={"/Charts/env" + item.envID}>
-          {formatCurrency(item.monthlyAvg)}
+        <Link to={"/Charts/env" + localItem.envID}>
+          {formatCurrency(localItem.monthlyAvg)}
         </Link>
       </td>
     </tr>
