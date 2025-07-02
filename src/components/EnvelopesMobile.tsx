@@ -193,39 +193,64 @@ export const EnvelopesMobile: React.FC = () => {
   };
 
   useEffect(() => {
-    setLoadedEnvelopes(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [curMonth]);  
+    const loadAllData = async () => {
+      try {
+        setLoaded(false);
+        
+        // Load favorites first - this doesn't depend on API calls
+        load_favorites();
+        
+        // Step 1: Load the initial envelope structure
+        if (!config) return;
+        const response = await axios.post(baseUrl + channels.GET_BUDGET_ENV, null, config);
+        
+        // Process envelope data with default values
+        if (response.data?.length) {
+          const defaultValues = {
+            prevBudget: 0,
+            prevActual: 0,
+            currBalance: 0,
+            currBudget: 0,
+            monthlyAvg: 0,
+            currActual: 0,
+          };
 
-  useEffect(() => {
-    // Once we have the main table data, we can go get
-    // the details and fill it in.
-    if (loadedEnvelopes && budgetData?.length > 0) {      
-        loadData();
-    } else if (!loadedEnvelopes) {
-      // We must be re-setting due to a month selection change.
-      // Lets wipe this out and force it to start over.
-      setLoaded(false);
-      setBudgetData([]);
-      
-      // TODO: I wonder if there is a race condition here
-      // as above we are setting budgetData and inside
-      // load_initialEnvelopes we are also going to set
-      // budgetData. I wonder if we should take the same
-      // approach as with getting each column of data and
-      // pass in our starting data set?
-      load_initialEnvelopes();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadedEnvelopes, budgetData.length]);
+          const enrichedData = response.data.map((item) => ({ 
+            ...item, 
+            ...defaultValues 
+          })) as BudgetNodeData[];
+          const sortedData = enrichedData.sort(compare);
+          
+          // Step 2: Load all the detailed data in parallel
+          const [currBudgetData, currBalanceData, currActualData] = await Promise.all([
+            load_CurrBudget(sortedData),
+            load_CurrBalance(sortedData),
+            load_CurrActual(sortedData),
+          ]);
 
-  useEffect(() => {
-       
-    load_favorites();
-    load_initialEnvelopes();
+          // Step 3: Combine all data in one update
+          const combinedData = sortedData.map((item, index) => ({
+            ...item,
+            ...currBudgetData[index],
+            ...currBalanceData[index],
+            ...currActualData[index],
+          }));
 
+          // Final state update - do this once with all data
+          setBudgetData(combinedData);
+          setLoadedEnvelopes(true);
+          setLoaded(true);
+        }
+      } catch (error) {
+        console.error('Error loading mobile budget data:', error);
+      }
+    };
+
+    loadAllData();
+    
+    // Only depend on month changes and config
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [curMonth, config]);
 
   return (
     <>
