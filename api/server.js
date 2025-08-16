@@ -1840,6 +1840,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.SPLIT_TX, async (req, res) =>
           'id',
           'envelopeID',
           'txAmt',
+          'txDate',
           'accountID',
           'refNumber',
           'origTxID',
@@ -1851,23 +1852,28 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.SPLIT_TX, async (req, res) =>
         .andWhere({ user_id: userId });
 
       if (data?.length) {
+        const currentDate = dayjs().format('YYYY-MM-DD');
+        const oldFormattedDate = dayjs(data[0].txDate).format('YYYY-MM-DD');
+        const wasFutureDate = dayjs(oldFormattedDate).isAfter(currentDate);
+
         // Delete the original
         await trx('transaction')
           .delete()
           .where({ id: txID })
           .andWhere({'user_id': userId});
           
-        // Update the original budget
-        await trx('envelope')
-          .where({ id: data[0].envelopeID, user_id: userId })
-          .update({
-            balance: trx.raw('balance - ?', [data[0].txAmt])
-          });
+        if (!wasFutureDate) {
+          // Update the original budget
+          await trx('envelope')
+            .where({ id: data[0].envelopeID, user_id: userId })
+            .update({
+              balance: trx.raw('balance - ?', [data[0].txAmt])
+            });
+        }
 
         // Loop through each new split
         for (let item of split_tx_list) {
           
-          const currentDate = dayjs().format('YYYY-MM-DD');
           const formattedDate = dayjs(item.txDate).format('YYYY-MM-DD');
           const isFutureDate = dayjs(formattedDate).isAfter(currentDate);
           
