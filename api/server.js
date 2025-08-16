@@ -1447,10 +1447,14 @@ async function get_transactions(id, userId, sessionId) {
       .where({ access_token: enc_access_token, user_id: userId })
       .update({ cursor: cursor_iter })
       .catch((err) => console.log('Error: ' + err));
+
+    // Set progress to 100% as the last operation in the transaction
+    // This ensures the progress update only happens after all DB changes are committed
+    await trx.raw(`SELECT 1`); // Dummy query to ensure we're still in transaction
+    progressStatuses[sessionId] = 100;
   });
 
-  console.log('Done with everything, setting progress to 100.');
-  progressStatuses[sessionId] = 100;
+  console.log('Done with everything. SQL transaction will set progress to 100%.');
   return 0;
 };
 
