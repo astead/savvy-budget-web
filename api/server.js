@@ -1296,8 +1296,9 @@ async function remove_plaid_account(trx, userId, account_id) {
       .first()})
     .delete();
   
-  // If we have transactions under this account,
-  // set it to an unlinked and inactive account.
+  // Remove PLAID linking information and set account to unlinked status.
+  // This preserves the account record and any associated transactions
+  // while disconnecting it from PLAID services.
   await trx('plaid_account')
     .update({
       verification_status: null,
