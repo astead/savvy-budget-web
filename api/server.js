@@ -1223,47 +1223,61 @@ async function remove_plaid_login(trx, userId, id) {
     .first();
 
   if (data !== undefined) {
-    const enc_access_token = data.access_token;
-    const iv = data.iv;
-    const tag = data.tag;
+    // Check if this is the ONLY account left for this item_id
+    const accountsWithSameItem = await trx('plaid_account')
+      .select('id')
+      .where({ item_id: data.item_id, user_id: userId, isLinked: true })
+      .whereNot({ id: id });
 
-    if (iv) {
-      access_token = decrypt(enc_access_token, iv, tag);
-    } else {
-      access_token = enc_access_token;
-    }
+    if (accountsWithSameItem.length === 0) {
+      // This is the last account - remove the entire PLAID item
+      const enc_access_token = data.access_token;
+      const iv = data.iv;
+      const tag = data.tag;
 
-    let response = null;
-    try {
-      if (access_token) {
-        /* PLAID Documentation: https://plaid.com/docs/api/items/#itemremove */
-        response = await client.itemRemove({
-          access_token: access_token,
-        });
-        if (response.data.request_id) {
-            // Pull the list of accounts using that item id
-            // Item ID is what PLAID uses for a login or connected account
-            const accts_to_delete = await trx('plaid_account')
-              .select('id')
-              .where({ item_id: data.item_id, user_id: userId });
-
-            // Go through and remove those accounts using the
-            // same item id
-            for (const item of accts_to_delete) {
-              // Remove the PLAID Account from the database
-              await remove_plaid_account(trx, userId, item.id);
-            }
-            return 0;
-        } else {
-          return -1;
-        }
+      if (iv) {
+        access_token = decrypt(enc_access_token, iv, tag);
       } else {
-        return 0;
+        access_token = enc_access_token;
       }
-    } catch (e) {
-      console.log('Error: ', e.response.data.error_code);
-      console.log('Error: ', e.response.data.error_message);
-      return -1;
+
+      let response = null;
+      try {
+        if (access_token) {
+          /* PLAID Documentation: https://plaid.com/docs/api/items/#itemremove */
+          response = await client.itemRemove({
+            access_token: access_token,
+          });
+          if (response.data.request_id) {
+              // Pull the list of accounts using that item id
+              // Item ID is what PLAID uses for a login or connected account
+              const accts_to_delete = await trx('plaid_account')
+                .select('id')
+                .where({ item_id: data.item_id, user_id: userId });
+
+              // Go through and remove those accounts using the
+              // same item id
+              for (const item of accts_to_delete) {
+                // Remove the PLAID Account from the database
+                await remove_plaid_account(trx, userId, item.id);
+              }
+              return 0;
+          } else {
+            return -1;
+          }
+        } else {
+          return 0;
+        }
+      } catch (e) {
+        console.log('Error: ', e.response.data.error_code);
+        console.log('Error: ', e.response.data.error_message);
+        return -1;
+      }
+    } else {
+      // There are other accounts using this item - just unlink this one account
+      console.log('Other accounts exist for this item - only unlinking this account');
+      await remove_plaid_account(trx, userId, id);
+      return 0;
     }
   } else {
     console.log('Error: Existing account info appears to be missing.');
