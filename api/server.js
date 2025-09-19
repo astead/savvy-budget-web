@@ -1287,17 +1287,14 @@ async function remove_plaid_login(trx, userId, id) {
 
 async function remove_plaid_account(trx, userId, account_id) {
 
-  // Check if there are any keywords. If so, set them to 'All'
-  // The other option is to delete the keyword.
-  // TODO: This could leave a situation where multiple keywords
-  //       match a description.
+  // Check if there are any keywords. If so, delete them.
   await trx('keyword')
     .where({ user_id: userId })
     .where({ account: trx('plaid_account')
       .select('common_name')
       .where({ id: account_id, user_id: userId })
       .first()})
-    .update({ account: 'All' });
+    .delete();
   
   // If we have transactions under this account,
   // set it to an unlinked and inactive account.
