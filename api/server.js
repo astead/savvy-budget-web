@@ -849,7 +849,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_GET_TOKEN, async (req, 
 });
 
 app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async (req, res) => {
-  console.log('Try getting plaid access token');
+  console.log('PLAID_SET_ACCESS_TOKEN: Starting account processing');
 
   const { public_token, metadata } = req.body;
   const auth0Id = req.auth0Id; // Extracted Auth0 ID
@@ -870,6 +870,13 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
     //console.log('itemPublicTokenExchange return:', response.data);
     //console.log('metadata:', metadata);
 
+    console.log('PLAID_SET_ACCESS_TOKEN: Metadata received:', {
+      institution: metadata.institution.name,
+      accountCount: metadata.accounts.length,
+      accountIds: metadata.accounts.map(a => a.id),
+      itemId: itemID
+    });
+
     // Need to run this as it's own transaction because
     // we want to ensure we capture this account info
     // otherwise we can have some lost account connections
@@ -878,7 +885,8 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
       for (let p_account of metadata.accounts) {
-
+        console.log(`PLAID_SET_ACCESS_TOKEN: Processing account ${p_account.id} (${p_account.name})`);
+        
         // Does this account exist already?
         // Let's try and update it
         const query = trx('plaid_account')
@@ -906,7 +914,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
         const updates = await query;
         
         if (updates?.length === 0) {
-          console.log('Linked account did not exist, adding new.');
+          console.log(`PLAID_SET_ACCESS_TOKEN: Linked account did not exist, creating new account ${p_account.id}`);
 
           // We didn't update any rows, which means this account
           // did not exist.  Let's insert a new account.
@@ -933,6 +941,8 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
               isActive: true,
               isLinked: true,
             });
+        } else {
+          console.log(`PLAID_SET_ACCESS_TOKEN: Updated existing account ${p_account.id}`);
         }
       }
     });
@@ -942,6 +952,14 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
     // Separate this part into a new transaction so we don't 
     // jeapordize the above calls to record the tokens.
     await db.transaction(async (trx) => {
+      console.log('PLAID_SET_ACCESS_TOKEN: Checking for orphaned accounts...');
+      console.log('PLAID_SET_ACCESS_TOKEN: Search criteria:', {
+        userId,
+        institution_id: metadata.institution.institution_id,
+        item_id: itemID,
+        excludeAccountIds: metadata.accounts.map(a => a.id)
+      });
+
       // Set the current_user_id
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
@@ -960,6 +978,9 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_SET_ACCESS_TOKEN, async
         })
         .whereNotIn('account_id', metadata.accounts.map(a => a.id) );
       
+      console.log(`PLAID_SET_ACCESS_TOKEN: Found ${lookup_orphaned.length} orphaned accounts:`, 
+        lookup_orphaned.map(acc => ({ id: acc.id, account_id: acc.account_id })));
+
       if (lookup_orphaned.length) {
         acc_to_unlink.push(...(await lookup_orphaned));
       }
@@ -1213,7 +1234,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.PLAID_REMOVE_LOGIN, async (re
 });
 
 async function remove_plaid_login(trx, userId, id) {
-  console.log('remove_plaid_login ENTER');
+  console.log(`remove_plaid_login: Starting removal for account ID ${id}`);
   let access_token = null;
 
   // Get the access token to remove the account
@@ -1223,14 +1244,24 @@ async function remove_plaid_login(trx, userId, id) {
     .first();
 
   if (data !== undefined) {
+    console.log(`remove_plaid_login: Account details:`, {
+      id,
+      item_id: data.item_id,
+      hasAccessToken: !!data.access_token
+    });
+
     // Check if this is the ONLY account left for this item_id
     const accountsWithSameItem = await trx('plaid_account')
       .select('id')
       .where({ item_id: data.item_id, user_id: userId, isLinked: true })
       .whereNot({ id: id });
 
+    console.log(`remove_plaid_login: Found ${accountsWithSameItem.length} other accounts with same item_id`);
+
     if (accountsWithSameItem.length === 0) {
       // This is the last account - remove the entire PLAID item
+      console.log(`remove_plaid_login: This is the last account - removing entire PLAID item`);
+      
       const enc_access_token = data.access_token;
       const iv = data.iv;
       const tag = data.tag;
@@ -1275,7 +1306,7 @@ async function remove_plaid_login(trx, userId, id) {
       }
     } else {
       // There are other accounts using this item - just unlink this one account
-      console.log('Other accounts exist for this item - only unlinking this account');
+      console.log(`remove_plaid_login: Other accounts exist - only unlinking this account`);
       await remove_plaid_account(trx, userId, id);
       return 0;
     }
