@@ -4658,77 +4658,136 @@ async function check_for_missing_budget(userId) {
 
     // Get current day's budget date
     const currentDate = dayjs(new Date()).format('YYYY-MM-DD');
-    console.log('current date: ', currentDate);
+    console.log('check_for_missing_budget: current date: ', currentDate);
     
     // Step 1: Query the latest budget date in a single transaction
     let lastBudgetDate = null;
+    console.log('check_for_missing_budget: Starting database transaction to get last budget date');
     await db.transaction(async (trx) => {
+      console.log('check_for_missing_budget: Inside first transaction, setting user_id');
       // Set the current_user_id
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
+      console.log('check_for_missing_budget: User ID set, querying for last budget');
 
       // Get the latest budget data's date
       const [lastBudgetRecord] = await trx('transaction')
         .max({ lastBudget: 'txDate' })
         .where({ user_id: userId, isBudget: 1 });
 
+      console.log('check_for_missing_budget: Query result:', lastBudgetRecord);
+
       if (lastBudgetRecord?.lastBudget) {
         lastBudgetDate = dayjs(lastBudgetRecord.lastBudget).format('YYYY-MM-DD');
-        console.log('last budget: ', lastBudgetDate);
+        console.log('check_for_missing_budget: Found last budget date:', lastBudgetDate);
       } else {
-        console.log('No last budget');
+        console.log('check_for_missing_budget: No last budget found : lastBudgetRecord:', lastBudgetRecord);
       }
     });
 
+    console.log('check_for_missing_budget: First transaction completed, lastBudgetDate:', lastBudgetDate);
+
     // If no previous budget exists, exit early
     if (!lastBudgetDate) {
+      console.log('check_for_missing_budget: No previous budget exists, exiting early');
       return;
     }
 
     // Step 2: Compare the last budget date to the current month
     let lastDate = dayjs(lastBudgetDate);
+    console.log('check_for_missing_budget: Comparing dates - lastDate:', lastDate.format(), 'currentDate:', currentDate);
+    console.log('check_for_missing_budget: lastDate.isBefore(currentDate, month):', lastDate.isBefore(currentDate, 'month'));
     if (!lastDate.isBefore(currentDate, 'month')) {
-      console.log('Budget is up to date');
+      console.log('check_for_missing_budget: Budget is up to date, no action needed');
       return;
     }
 
+    console.log('check_for_missing_budget: Budget needs updating, proceeding to retrieve last budget data');
+
     // Step 3: Retrieve the last budget data
     let lastBudgetData = [];
+    console.log('check_for_missing_budget: Starting transaction to retrieve budget data for date:', lastBudgetDate);
+    
     await db.transaction(async (trx) => {
+      console.log('check_for_missing_budget: Inside second transaction, setting user_id');
       // Set the current_user_id
       await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
       lastBudgetData = await trx('transaction')
         .select('envelopeID', 'txAmt')
         .where({ user_id: userId, txDate: lastBudgetDate, isBudget: 1 });
+
+      console.log('check_for_missing_budget: Retrieved budget data, count:', lastBudgetData.length);
+      if (lastBudgetData.length > 0) {
+        console.log('check_for_missing_budget: Sample budget items:', lastBudgetData.slice(0, 3));
+      }
     });
 
+    console.log('check_for_missing_budget: Second transaction completed');
+
+    if (lastBudgetData.length === 0) {
+      console.log('check_for_missing_budget: No budget data found for last budget date, exiting');
+      return;
+    }
+
     // Step 4: Copy the budget to subsequent months
+    console.log('check_for_missing_budget: Starting budget copying process');
+    let monthsProcessed = 0;
+
     while (lastDate.isBefore(currentDate, 'month')) {
       // Move to the next month
       lastDate = lastDate.add(1, 'month').startOf('month');
       const newBudgetDate = lastDate.format('YYYY-MM-DD');
 
+      console.log(`check_for_missing_budget: Processing month ${monthsProcessed + 1}, newBudgetDate: ${newBudgetDate}`);
+
       try {
         // Insert the budget for the new month in a separate transaction
+        console.log('check_for_missing_budget: Starting transaction for new budget month');
+        
         await db.transaction(async (trx) => {
+          console.log('check_for_missing_budget: Inside budget creation transaction, setting user_id');
           // Set the current_user_id
           await trx.raw(`SET myapp.current_user_id = ${userId}`);
 
-          for (let item of lastBudgetData) {
-            await set_or_update_budget_item(trx, userId, item.envelopeID, newBudgetDate, item.txAmt);
+          console.log(`check_for_missing_budget: Processing ${lastBudgetData.length} budget items`);
+          
+          for (let i = 0; i < lastBudgetData.length; i++) {
+            const item = lastBudgetData[i];
+            console.log(`check_for_missing_budget: Processing item ${i + 1}/${lastBudgetData.length} - envelopeID: ${item.envelopeID}, amount: ${item.txAmt}`);
+            
+            try {
+              await set_or_update_budget_item(trx, userId, item.envelopeID, newBudgetDate, item.txAmt);
+              console.log(`check_for_missing_budget: Successfully processed item ${i + 1}`);
+            } catch (itemError) {
+              console.error(`check_for_missing_budget: Error processing item ${i + 1}:`, itemError);
+              throw itemError; // Re-throw to fail the transaction
+            }
           }
+          
+          console.log('check_for_missing_budget: All budget items processed successfully');
         });
 
-        console.log('Added missing budget for:', newBudgetDate);
+        monthsProcessed++;
+        console.log(`check_for_missing_budget: Successfully added missing budget for: ${newBudgetDate} (month ${monthsProcessed})`);
+        
       } catch (err) {
-        console.error('Error adding budget for:', newBudgetDate, err);
+        console.error('check_for_missing_budget: Error adding budget for:', newBudgetDate, err);
+        console.error('check_for_missing_budget: Error stack:', err.stack);
         break; // Stop processing further months if an error occurs
       }
     }
     
-    console.log('check_for_missing_budget EXIT');
+    console.log(`check_for_missing_budget: Budget copying process completed. Processed ${monthsProcessed} months.`);
+    console.log('check_for_missing_budget: EXIT - Success');
+    
   } catch (err) {
-    console.error('Error checking for missing budget: ', err);
+    console.error('check_for_missing_budget: Top-level error:', err);
+    console.error('check_for_missing_budget: Error stack:', err.stack);
+    console.error('check_for_missing_budget: Error details:', {
+      message: err.message,
+      code: err.code,
+      name: err.name
+    });
   }
 }
 
