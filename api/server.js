@@ -4741,30 +4741,14 @@ async function check_for_missing_budget(userId) {
       console.log(`check_for_missing_budget: Processing month ${monthsProcessed + 1}, newBudgetDate: ${newBudgetDate}`);
 
       try {
-        // Insert the budget for the new month in a separate transaction
         console.log('check_for_missing_budget: Starting transaction for new budget month');
         
         await db.transaction(async (trx) => {
           console.log('check_for_missing_budget: Inside budget creation transaction, setting user_id');
-          // Set the current_user_id
           await trx.raw(`SET myapp.current_user_id = ${userId}`);
-
-          console.log(`check_for_missing_budget: Processing ${lastBudgetData.length} budget items`);
           
-          for (let i = 0; i < lastBudgetData.length; i++) {
-            const item = lastBudgetData[i];
-            console.log(`check_for_missing_budget: Processing item ${i + 1}/${lastBudgetData.length} - envelopeID: ${item.envelopeID}, amount: ${item.txAmt}`);
-            
-            try {
-              await set_or_update_budget_item(trx, userId, item.envelopeID, newBudgetDate, item.txAmt);
-              console.log(`check_for_missing_budget: Successfully processed item ${i + 1}`);
-            } catch (itemError) {
-              console.error(`check_for_missing_budget: Error processing item ${i + 1}:`, itemError);
-              throw itemError; // Re-throw to fail the transaction
-            }
-          }
-          
-          console.log('check_for_missing_budget: All budget items processed successfully');
+          // Process all items in one batch operation
+          await set_or_update_budget_items_batch(trx, userId, lastBudgetData, newBudgetDate);
         });
 
         monthsProcessed++;
@@ -4773,7 +4757,7 @@ async function check_for_missing_budget(userId) {
       } catch (err) {
         console.error('check_for_missing_budget: Error adding budget for:', newBudgetDate, err);
         console.error('check_for_missing_budget: Error stack:', err.stack);
-        break; // Stop processing further months if an error occurs
+        break;
       }
     }
     
@@ -4788,6 +4772,101 @@ async function check_for_missing_budget(userId) {
       code: err.code,
       name: err.name
     });
+  }
+}
+
+async function set_or_update_budget_items_batch(trx, userId, budgetItems, newtxDate) {
+  console.log(`set_or_update_budget_items_batch: Processing ${budgetItems.length} items for date: ${newtxDate}`);
+  
+  try {
+    // Step 1: Get all existing budget items for this date in one query
+    const existingBudgets = await trx('transaction')
+      .select('envelopeID', 'id', 'txAmt')
+      .where({ user_id: userId, txDate: newtxDate, isBudget: 1 });
+
+    console.log(`set_or_update_budget_items_batch: Found ${existingBudgets.length} existing budget items`);
+
+    const existingMap = new Map();
+    existingBudgets.forEach(item => {
+      existingMap.set(item.envelopeID.toString(), item);
+    });
+
+    const itemsToInsert = [];
+    const itemsToUpdate = [];
+    const envelopeBalanceUpdates = [];
+
+    // Step 2: Categorize items for batch operations
+    for (const item of budgetItems) {
+      const envelopeIdStr = item.envelopeID.toString();
+      const existing = existingMap.get(envelopeIdStr);
+
+      if (existing) {
+        // Item exists - prepare for update
+        const amountDiff = item.txAmt - existing.txAmt;
+        if (amountDiff !== 0) {
+          itemsToUpdate.push({
+            id: existing.id,
+            txAmt: item.txAmt
+          });
+          envelopeBalanceUpdates.push({
+            envelopeID: item.envelopeID,
+            amount: amountDiff
+          });
+        }
+      } else {
+        // New item - prepare for insert
+        itemsToInsert.push({
+          envelopeID: item.envelopeID,
+          txDate: newtxDate,
+          isBudget: 1,
+          txAmt: item.txAmt,
+          isDuplicate: 0,
+          isVisible: true,
+          user_id: userId,
+        });
+        envelopeBalanceUpdates.push({
+          envelopeID: item.envelopeID,
+          amount: item.txAmt
+        });
+      }
+    }
+
+    console.log(`set_or_update_budget_items_batch: ${itemsToInsert.length} items to insert, ${itemsToUpdate.length} items to update`);
+
+    // Step 3: Batch insert new budget items
+    if (itemsToInsert.length > 0) {
+      await trx('transaction').insert(itemsToInsert);
+      console.log(`set_or_update_budget_items_batch: Inserted ${itemsToInsert.length} new budget items`);
+    }
+
+    // Step 4: Batch update existing budget items
+    for (const update of itemsToUpdate) {
+      await trx('transaction')
+        .where({ id: update.id, user_id: userId })
+        .update({ txAmt: update.txAmt });
+    }
+
+    if (itemsToUpdate.length > 0) {
+      console.log(`set_or_update_budget_items_batch: Updated ${itemsToUpdate.length} existing budget items`);
+    }
+
+    // Step 5: Batch update envelope balances
+    for (const balanceUpdate of envelopeBalanceUpdates) {
+      if (balanceUpdate.amount !== 0) {
+        await trx('envelope')
+          .where({ id: balanceUpdate.envelopeID, user_id: userId })
+          .update({
+            balance: trx.raw('balance + ?', [balanceUpdate.amount])
+          });
+      }
+    }
+
+    console.log(`set_or_update_budget_items_batch: Updated ${envelopeBalanceUpdates.length} envelope balances`);
+    console.log('set_or_update_budget_items_batch: Batch operation completed successfully');
+
+  } catch (err) {
+    console.error('set_or_update_budget_items_batch: Error in batch operation:', err);
+    throw err;
   }
 }
 
