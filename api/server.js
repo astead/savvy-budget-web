@@ -4880,13 +4880,27 @@ async function set_or_update_budget_items_batch(trx, userId, budgetItems, newtxD
     }
 
     // Step 5: Batch update envelope balances
+    console.log(`set_or_update_budget_items_batch: Starting envelope balance updates for ${envelopeBalanceUpdates.length} envelopes`);
+    
+    let balanceUpdateCount = 0;
     for (const balanceUpdate of envelopeBalanceUpdates) {
       if (balanceUpdate.amount !== 0) {
-        await trx('envelope')
-          .where({ id: balanceUpdate.envelopeID, user_id: userId })
-          .update({
-            balance: trx.raw('balance + ?', [balanceUpdate.amount])
-          });
+        try {
+          console.log(`set_or_update_budget_items_batch: Updating envelope ${balanceUpdate.envelopeID} with amount ${balanceUpdate.amount}`);
+          
+          const updateResult = await trx('envelope')
+            .where({ id: balanceUpdate.envelopeID, user_id: userId })
+            .update({
+              balance: trx.raw('balance + ?', [balanceUpdate.amount])
+            });
+          
+          console.log(`set_or_update_budget_items_batch: Envelope update result:`, updateResult);
+          balanceUpdateCount++;
+          
+        } catch (balanceError) {
+          console.error(`set_or_update_budget_items_batch: Error updating envelope ${balanceUpdate.envelopeID}:`, balanceError);
+          throw balanceError; // Re-throw to fail the transaction
+        }
       }
     }
 
