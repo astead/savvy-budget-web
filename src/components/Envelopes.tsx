@@ -183,25 +183,17 @@ export const Envelopes: React.FC = () => {
     let rows = response.data;
   
     // Go through the data and store it into our table array
+    // Use null for missing budget items, to distinguish from 0 budget items
     const updatedData = currentData.map((item) => {
       const match = rows.find((d) => d.envelopeID === item.envID);
-      return match ? { envID: item.envID, currBudget: match.txAmt } : { envID: item.envID };
+      return match ? { envID: item.envID, currBudget: match.txAmt } : { envID: item.envID, currBudget: null };
     });
 
     // Check if we have budget data for ALL envelopes
-    // A complete budget means we have a budget entry for every envelope (regardless of amount)
-    const totalEnvelopes = currentData.length;
-    const budgetedEnvelopes = rows.length;
-    const hasCompleteBudget = budgetedEnvelopes === totalEnvelopes;
+    // A complete budget means none of the items have null budget values
+    const hasCompleteBudget = updatedData.every(item => item.currBudget !== null);
     
-    // We could also check for partial budget
-    const hasPartialBudget = budgetedEnvelopes > 0 && budgetedEnvelopes < totalEnvelopes;
-
-    if (hasCompleteBudget) {
-      setHaveCurrBudget(true);
-    } else {
-      setHaveCurrBudget(false);
-    }
+    setHaveCurrBudget(hasCompleteBudget);
     
     return updatedData;
   };
@@ -267,20 +259,63 @@ export const Envelopes: React.FC = () => {
   };
 
   const forward_copy_budget = async () => {
-    const prev_budget_values = budgetData.map((item) => {
-      return {envID: item.envID, value: item.prevBudget};
-    });
+    // Filter to only items that are missing budgets (currBudget === null)
+    // Items with currBudget === 0 already have a budget set to zero
+    const missing_budget_values = budgetData
+      .filter((item) => item.currBudget === null)
+      .map((item) => ({
+        envelopeID: item.envID,
+        txAmt: item.prevBudget || 0
+      }));
+
+    if (missing_budget_values.length === 0) {
+      console.log('No missing budget items to copy');
+      return;
+    }
 
     if (!config) return;
-    await axios.post(baseUrl + channels.COPY_BUDGET, 
-      { newtxDate: dayjs(new Date(year, month)).format('YYYY-MM-DD'),
-        budget_values: prev_budget_values }, config
-    );
     
-    let combinedData = budgetData;
-    combinedData = await load_CurrBudget(combinedData);
-    combinedData = await load_CurrBalance(combinedData);
-    setBudgetData(combinedData);
+    // Process in batches to avoid timeout
+    const chunkSize = 15; // Process 15 items at a time to stay under 10s limit
+    const newtxDate = dayjs(new Date(year, month)).format('YYYY-MM-DD');
+    
+    try {
+      for (let i = 0; i < missing_budget_values.length; i += chunkSize) {
+        const chunk = missing_budget_values.slice(i, i + chunkSize);
+        
+        await axios.post(baseUrl + channels.COPY_BUDGET, 
+          { newtxDate, budget_values: chunk }, config
+        );
+        
+        // Optional: Show progress to user
+        const progress = Math.min(100, Math.round(((i + chunk.length) / missing_budget_values.length) * 100));
+        console.log(`Budget copy progress: ${progress}%`);
+      }
+      
+      // Reload only the updated budget and balance data, preserving all other fields
+      const updatedBudgets = await load_CurrBudget(budgetData);
+      const updatedBalances = await load_CurrBalance(budgetData);
+      
+      // Merge the updates back into the existing budgetData
+      const combinedData = budgetData.map((item, index) => ({
+        ...item,
+        currBudget: updatedBudgets[index].currBudget,
+        currBalance: updatedBalances[index].currBalance,
+      }));
+      
+      setBudgetData(combinedData);
+      
+      // Recalculate totals and check if all budgets are now complete
+      get_totals(combinedData);
+      
+      // Check if we now have a complete budget (this updates haveCurrBudget state)
+      // which will hide the copy button if all items are budgeted
+      const budgetedCount = combinedData.filter(item => item.currBudget !== null).length;
+      setHaveCurrBudget(budgetedCount === combinedData.length);
+      
+    } catch (error) {
+      console.error('Error copying budget:', error);
+    }
   }
 
   const handleBalanceTransfer = async ({ updatedRow, transferAmt, toID }) => {
@@ -427,11 +462,13 @@ export const Envelopes: React.FC = () => {
                 <thead>
                   <tr className="Table THR">
                     <th className="Table THR THRC">{' \nEnvelope'}</th>
+                    <th className="Table THR THRC Small">{ dayjs(new Date(year, month)).subtract(1,'month').format("MMM 'YY") + '\nBudget' }</th>
+                    <th className="Table THR THRC Small">
+                      { dayjs(new Date(year, month)).subtract(1,'month').format("MMM 'YY") + '\nActual' }
+                    </th>
+                    <th className="Table THR THRC Small">{ 'Curr\nBalance' }</th>
                     <th className="Table THR THRC Small">
                       <div className="PrevTHRC">
-                        <div className="PrevHRCLabel">
-                          { dayjs(new Date(year, month)).subtract(1,'month').format("MMM 'YY") + '\nBudget' }
-                        </div>
                         {!haveCurrBudget &&
                           <div
                             onClick={() => {
@@ -441,13 +478,11 @@ export const Envelopes: React.FC = () => {
                             <FontAwesomeIcon icon={faChevronRight} />
                           </div>
                         }
+                        <div className="PrevHRCLabel">
+                          { dayjs(new Date(year, month)).format("MMM 'YY") + '\nBudget' }
+                        </div>
                       </div>
                     </th>
-                    <th className="Table THR THRC Small">
-                      { dayjs(new Date(year, month)).subtract(1,'month').format("MMM 'YY") + '\nActual' }
-                    </th>
-                    <th className="Table THR THRC Small">{ 'Curr\nBalance' }</th>
-                    <th className="Table THR THRC Small">{ dayjs(new Date(year, month)).format("MMM 'YY") + '\nBudget' }</th>
                     <th className="Table THR THRC Small">{ dayjs(new Date(year, month)).format("MMM 'YY")+ '\nActual' }</th>
                     <th className="Table THR THRC Small">{ 'TTM\nAvg' }</th>
                   </tr>

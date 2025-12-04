@@ -515,6 +515,23 @@ div.PrevHRCLabel {
   width:100%;
 }
 
+div.right-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: 1px solid #18181B;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  margin-left: 0px;
+}
+
+div.right-button:hover {
+  background-color: #e0e0e0;
+  border-color: #000;
+}
+
 tr.TR:hover {
   background-color: rgb(222, 222, 222);
 }

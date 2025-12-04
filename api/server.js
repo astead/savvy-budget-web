@@ -2187,21 +2187,28 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.MOV_ENVELOPE, async (req, res
 });
 
 app.post(process.env.API_SERVER_BASE_PATH+channels.COPY_BUDGET, async (req, res) => {
-  console.log(channels.COPY_BUDGET);
+  console.log('copy_budget');
 
   const { newtxDate, budget_values } = req.body;
   const userId = req.user_id; // Looked up user_id from middleware
 
-  await db.transaction(async (trx) => {
-    // Set the current_user_id
-    await trx.raw(`SET myapp.current_user_id = ${userId}`);
-    
-    for (let item of budget_values) {
-      await set_or_update_budget_item(trx, userId, item.envID, newtxDate, item.value);
-    }
-  });
+  try {
+    await db.transaction(async (trx) => {
+      // Set the current_user_id
+      await trx.raw(`SET myapp.current_user_id = ${userId}`);
+      
+      // Use optimized batch processing
+      await set_or_update_budget_items_batch(trx, userId, budget_values, newtxDate);
+    });
 
-  res.status(200).send('Copied budget successfully');
+    res.status(200).json({ 
+      message: 'Copied budget successfully',
+      itemsProcessed: budget_values.length 
+    });
+  } catch (err) {
+    console.error('Error in copy budget:', err);
+    res.status(500).send('Internal Server Error');
+  }
 });
 
 app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_BUDGET, async (req, res) => {
