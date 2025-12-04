@@ -188,9 +188,16 @@ export const Envelopes: React.FC = () => {
       return match ? { envID: item.envID, currBudget: match.txAmt } : { envID: item.envID };
     });
 
-    const haveValues = rows.some((row) => row.txAmt !== 0);
+    // Check if we have budget data for ALL envelopes
+    // A complete budget means we have a budget entry for every envelope (regardless of amount)
+    const totalEnvelopes = currentData.length;
+    const budgetedEnvelopes = rows.length;
+    const hasCompleteBudget = budgetedEnvelopes === totalEnvelopes;
+    
+    // We could also check for partial budget
+    const hasPartialBudget = budgetedEnvelopes > 0 && budgetedEnvelopes < totalEnvelopes;
 
-    if (haveValues) {
+    if (hasCompleteBudget) {
       setHaveCurrBudget(true);
     } else {
       setHaveCurrBudget(false);
