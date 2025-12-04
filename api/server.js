@@ -232,7 +232,7 @@ const set_db = async () => {
     console.log('Setting knex DB connection to PG Supabase to: ', process.env.SUPABASE_CONN_HOST);
     db = knex({
       client: 'pg',
-      debug: true,
+      debug: false, // Turn off debug in production
       log: {
         warn(message) {},
         error(message) {},
@@ -250,6 +250,16 @@ const set_db = async () => {
             ca: process.env.SUPABASE_CONN_CERT } : 
           false,
       },
+      pool: {
+        min: 0,  // Minimum connections in pool
+        max: 2,  // Maximum connections per serverless instance
+        createTimeoutMillis: 15000,
+        acquireTimeoutMillis: 15000,
+        idleTimeoutMillis: 30000,
+        reapIntervalMillis: 1000,
+        createRetryIntervalMillis: 100,
+      },
+      acquireConnectionTimeout: 15000,
       useNullAsDefault: true,
     });
 
@@ -4654,7 +4664,15 @@ async function set_past_transactions_to_realized(userId) {
 
 async function check_for_missing_budget(userId) {
   console.log('check_for_missing_budget ENTER');
+
+  let connectionCount = 0;
+
   try {
+    // Check current connection pool status
+    if (db && db.client && db.client.pool) {
+      connectionCount = db.client.pool.numUsed();
+      console.log(`check_for_missing_budget: Current pool connections in use: ${connectionCount}`);
+    }
 
     // Get current day's budget date
     const currentDate = dayjs(new Date()).format('YYYY-MM-DD');
@@ -4766,12 +4784,23 @@ async function check_for_missing_budget(userId) {
     
   } catch (err) {
     console.error('check_for_missing_budget: Top-level error:', err);
-    console.error('check_for_missing_budget: Error stack:', err.stack);
-    console.error('check_for_missing_budget: Error details:', {
-      message: err.message,
-      code: err.code,
-      name: err.name
-    });
+    
+    // Force cleanup on error
+    if (db && db.client && db.client.pool) {
+      console.log('check_for_missing_budget: Attempting to destroy connections due to error');
+      try {
+        await db.destroy();
+        db = null;
+        await set_db(); // Recreate the connection
+      } catch (destroyError) {
+        console.error('check_for_missing_budget: Error destroying connections:', destroyError);
+      }
+    }
+  } finally {
+    // Log final connection status
+    if (db && db.client && db.client.pool) {
+      console.log(`check_for_missing_budget: Final pool connections: ${db.client.pool.numUsed()}`);
+    }
   }
 }
 
