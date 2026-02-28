@@ -215,9 +215,12 @@ export const Envelopes: React.FC = () => {
       return match ? { envID: item.envID, currActual: match.totalAmt ?? 0 } : { envID: item.envID };
     });
 
-    // Sum the totalAmt values from rows where no match is found in budgetData
+    // Sum the totalAmt values from rows where no match is found in currentData.
+    // Must use currentData (the passed-in snapshot), NOT the budgetData state,
+    // because this function runs in parallel with the other loaders before
+    // setBudgetData has ever been called — budgetData is still [] at this point.
     rows.forEach((row) => {
-      const match = budgetData.find((item) => item.envID === row.envelopeID);
+      const match = currentData.find((item) => item.envID === row.envelopeID);
       if (!match) {
         myTotalCurr += row.totalAmt ?? 0;
       }
