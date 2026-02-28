@@ -18,6 +18,8 @@ import { Callback } from './components/Callback.tsx';
 import { AuthTokenProvider } from './context/AuthTokenContext.tsx';
 import { isMobile } from'./detectMobile.js';
 import PrivateRoute from './components/PrivateRoute.tsx';
+import AdminRoute from './components/AdminRoute.tsx';
+import { Admin } from './components/Admin.tsx';
 import useAxiosInterceptor from './useAxiosInterceptor.tsx';
 
 export const App: React.FC = () => {
@@ -80,6 +82,7 @@ export const App: React.FC = () => {
           <Route path="/Transactions/:in_catID/:in_envID/:in_force_date/:in_year/:in_month" element={<PrivateRoute element={Transactions} />} />
           <Route path="/Envelopes" element={<PrivateRoute element={Envelopes} />} />
           <Route path="/Configure" element={<PrivateRoute element={Configure} />} />
+          <Route path="/Admin" element={<AdminRoute element={Admin} />} />
         </Routes>
       </AuthTokenProvider>
     

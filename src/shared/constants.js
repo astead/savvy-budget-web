@@ -88,6 +88,10 @@ module.exports = {
     GET_PROFILE: 'get_profile',
     UPDATE_SUBSCRIPTION: 'update_subscription',
 
+    ADMIN_GET_USERS: 'admin_get_users',
+    ADMIN_GET_PLAID_ACCOUNTS: 'admin_get_plaid_accounts',
+    ADMIN_REMOVE_PLAID_ACCOUNT: 'admin_remove_plaid_account',
+
     PROGRESS: 'progress',
   },
 };

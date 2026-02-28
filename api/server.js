@@ -714,8 +714,9 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.UPDATE_SUBSCRIPTION, async (r
 });
 
 const SubscriptionLevels = {
-  FREE: 0,                  // 0000
-  LINKED_BANK_ACCOUNTS: 1,  // 0001
+  FREE: 0,                  // 0000 0000
+  LINKED_BANK_ACCOUNTS: 1,  // 0000 0001
+  ADMIN: 128,               // 1000 0000
 };
 
 function hasSubscription(level, flag) {
@@ -741,6 +742,112 @@ const getSubscriptionLevel = async (userId) => {
     return -2;
   }
 }
+
+// Admin middleware — must come after SubscriptionLevels, hasSubscription, getSubscriptionLevel
+const requireAdmin = async (req, res, next) => {
+  const level = await getSubscriptionLevel(req.user_id);
+  if (!hasSubscription(level, SubscriptionLevels.ADMIN)) {
+    return res.status(403).send('Forbidden');
+  }
+  next();
+};
+
+// ── Admin endpoints ──────────────────────────────────────────────────────────
+// These do NOT set myapp.current_user_id so they bypass per-user RLS and can
+// query across all users.
+
+app.post(process.env.API_SERVER_BASE_PATH + channels.ADMIN_GET_USERS, requireAdmin, async (req, res) => {
+  console.log('ADMIN_GET_USERS ENTER');
+  try {
+    const rows = await db('users')
+      .select(
+        'users.id',
+        'users.email',
+        'users.name',
+        'users.subscriptionLevel',
+        db.raw('COUNT(pa.id) AS "plaidAccountCount"'),
+        db.raw('COUNT(CASE WHEN pa."isLinked" = true THEN 1 END) AS "linkedPlaidCount"'),
+        db.raw('COUNT(CASE WHEN pa.access_token IS NOT NULL THEN 1 END) AS "activeTokenCount"')
+      )
+      .leftJoin('plaid_account as pa', 'pa.user_id', 'users.id')
+      .groupBy('users.id', 'users.email', 'users.name', 'users.subscriptionLevel')
+      .orderBy('users.id');
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+app.post(process.env.API_SERVER_BASE_PATH + channels.ADMIN_GET_PLAID_ACCOUNTS, requireAdmin, async (req, res) => {
+  console.log('ADMIN_GET_PLAID_ACCOUNTS ENTER');
+  try {
+    const rows = await db('plaid_account')
+      .select(
+        'plaid_account.id',
+        'plaid_account.user_id',
+        'users.email as user_email',
+        'plaid_account.institution_name',
+        'plaid_account.full_account_name',
+        'plaid_account.item_id',
+        'plaid_account.isActive',
+        'plaid_account.isLinked',
+        db.raw('(plaid_account.access_token IS NOT NULL) AS "hasAccessToken"'),
+        db.raw('(plaid_account."isLinked" = false AND plaid_account.access_token IS NOT NULL) AS "isOrphaned"')
+      )
+      .join('users', 'users.id', 'plaid_account.user_id')
+      .orderByRaw('users.email, plaid_account.institution_name, plaid_account.full_account_name');
+    res.status(200).json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+app.post(process.env.API_SERVER_BASE_PATH + channels.ADMIN_REMOVE_PLAID_ACCOUNT, requireAdmin, async (req, res) => {
+  console.log('ADMIN_REMOVE_PLAID_ACCOUNT ENTER');
+
+  const { userId, accountId } = req.body;
+  const adminUserId = req.user_id;
+
+  const parsedUserId = parseInt(userId, 10);
+  const parsedAccountId = parseInt(accountId, 10);
+  if (isNaN(parsedUserId) || isNaN(parsedAccountId)) {
+    return res.status(400).send('Invalid userId or accountId');
+  }
+
+  try {
+    let result = -1;
+    await db.transaction(async (trx) => {
+      // Verify the account belongs to the stated user before removing
+      const account = await trx('plaid_account')
+        .select('id', 'full_account_name')
+        .where({ id: parsedAccountId, user_id: parsedUserId })
+        .first();
+
+      if (!account) {
+        res.status(404).send('Account not found for that user');
+        return;
+      }
+
+      console.log(`ADMIN_REMOVE_PLAID_ACCOUNT: admin ${adminUserId} removing account ${
+        parsedAccountId} (${account.full_account_name}) for user ${parsedUserId}`);
+
+      result = await remove_plaid_login(trx, parsedUserId, parsedAccountId);
+    });
+
+    if (result === 0) {
+      res.status(200).send('Removed plaid account successfully');
+    } else if (!res.headersSent) {
+      res.status(500).send('Error removing plaid account');
+    }
+  } catch (err) {
+    console.error(err);
+    if (!res.headersSent) res.status(500).send('Internal Server Error');
+  }
+});
+
+// ── End Admin endpoints ───────────────────────────────────────────────────────
 
 // PLAID stuff
 const {
