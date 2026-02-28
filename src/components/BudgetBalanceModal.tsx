@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -37,6 +37,16 @@ export const BudgetBalanceModal = ({
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
 
+  // Reset all fields to current prop values each time the modal opens.
+  // This prevents stale amounts from a prior session being silently submitted.
+  useEffect(() => {
+    if (open) {
+      setNewAmt(balanceAmt.toFixed(2));
+      setTransferAmt(balanceAmt.toFixed(2));
+      setTransferEnvID(envID);
+    }
+  }, [open, balanceAmt, envID]);
+
   const handleSaveNewValue = async () => {
     // Request we update the DB
     if (!config) return;
@@ -46,8 +56,14 @@ export const BudgetBalanceModal = ({
   };
 
   const handleSaveTransfer = async () => {
+    // Transferring an envelope to itself is a no-op; skip DB call and callback
+    // to avoid the client balance going out of sync with the server.
+    if (envID === transferEnvID) {
+      setOpen(false);
+      return;
+    }
+
     // Request we update the DB
-    
     if (!config) return;
     await axios.post(baseUrl + channels.MOVE_BALANCE, { transferAmt: transferAmt, fromID: envID, toID: transferEnvID }, config);
     setOpen(false);
@@ -73,7 +89,7 @@ export const BudgetBalanceModal = ({
           Adjust it: 
           <input
             name={'adjust-balance-'+envID}
-            defaultValue={balanceAmt.toFixed(2)}
+            value={newAmt}
             onChange={(e) => setNewAmt(e.target.value)}
             className="Curr BalTransfer"
           />
@@ -85,8 +101,8 @@ export const BudgetBalanceModal = ({
           <br/>
           Move 
           <input
-            name={'adjust-balance-' + envID}
-            defaultValue={balanceAmt.toFixed(2)}
+            name={'move-balance-' + envID}
+            value={transferAmt}
             onChange={(e) => setTransferAmt(e.target.value)}
             className="Curr BalTransfer"
           />

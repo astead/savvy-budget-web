@@ -319,6 +319,10 @@ export const Envelopes: React.FC = () => {
   }
 
   const handleBalanceTransfer = async ({ updatedRow, transferAmt, toID }) => {
+    // Guard: if the source and destination are the same envelope the server
+    // makes no net change, so do not alter client state either.
+    if (updatedRow.envID === toID) return;
+
     let updatedData = budgetData.map((row) => {
       if (row.envID === updatedRow.envID) {
         return updatedRow;
