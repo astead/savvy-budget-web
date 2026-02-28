@@ -319,14 +319,18 @@ export const Envelopes: React.FC = () => {
   }
 
   const handleBalanceTransfer = async ({ updatedRow, transferAmt, toID }) => {
+    // Normalise toID to a number so comparisons against envID (a DB integer)
+    // are reliable regardless of whether a string came through.
+    const toIDNum = typeof toID === 'string' ? parseInt(toID, 10) : toID;
+
     // Guard: if the source and destination are the same envelope the server
     // makes no net change, so do not alter client state either.
-    if (updatedRow.envID === toID) return;
+    if (updatedRow.envID === toIDNum) return;
 
     let updatedData = budgetData.map((row) => {
       if (row.envID === updatedRow.envID) {
         return updatedRow;
-      } else if (row.envID === toID) {
+      } else if (row.envID === toIDNum) {
         const newBalance = row.currBalance + parseFloat(transferAmt);
         return { ...row, currBalance: newBalance };
       } else {

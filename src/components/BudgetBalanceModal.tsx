@@ -71,7 +71,10 @@ export const BudgetBalanceModal = ({
   };
 
   const handleFilterEnvChange = ({id, new_value, new_text}) => {
-    setTransferEnvID(new_value);
+    // Parse to number so it stays the same type as envID (a DB integer).
+    // Without this, strict equality checks against envID (number) would
+    // silently fail because e.target.value is always a string.
+    setTransferEnvID(parseInt(new_value, 10));
   };
 
   return (
@@ -109,7 +112,7 @@ export const BudgetBalanceModal = ({
           to&nbsp;
           <DropDown 
             id={'transfer-from-' + envID}
-            selectedID={envID}
+            selectedID={transferEnvID}
             optionData={transferEnvList}
             changeCallback={handleFilterEnvChange}
             className=""
