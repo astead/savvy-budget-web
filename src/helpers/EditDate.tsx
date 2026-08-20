@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import * as dayjs from 'dayjs'
+import dayjs from "dayjs";
 
 export const EditDate = ({ in_ID, in_value, callback}) => {
   const [value, setValue] = useState(in_value);

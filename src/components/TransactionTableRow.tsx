@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { KeywordSave } from '../helpers/KeywordSave.tsx';
-import * as dayjs from 'dayjs';
+import dayjs from 'dayjs';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCopy, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import SplitTransactionModal from './SplitTransactionModal.tsx';

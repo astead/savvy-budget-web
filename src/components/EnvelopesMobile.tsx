@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { baseUrl, channels } from '../shared/constants.js'
-import * as dayjs from 'dayjs';
+import dayjs from 'dayjs';
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import { FooterMobile } from './FooterMobile.tsx';

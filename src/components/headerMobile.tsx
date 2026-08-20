@@ -1,8 +1,8 @@
 // header.js
 import React from 'react';
 import { Link } from 'react-router-dom';
-import LoginButton from '../helpers/login.js';
-import LogoutButton from '../helpers/logout.js';
+import LoginButton from '../helpers/login.jsx';
+import LogoutButton from '../helpers/logout.jsx';
 import { useAuth0 } from '@auth0/auth0-react';
 
 export const HeaderMobile = ({currTab}) => {

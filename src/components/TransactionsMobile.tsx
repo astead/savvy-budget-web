@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
-import * as dayjs from 'dayjs'
+import dayjs from "dayjs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 import { Dayjs } from 'dayjs';

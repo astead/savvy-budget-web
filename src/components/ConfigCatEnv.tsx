@@ -3,7 +3,7 @@ import { baseUrl, channels } from '../shared/constants.js';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
 import { faTrash, faEyeSlash } from "@fortawesome/free-solid-svg-icons"
 import { DragDropContext, Draggable } from "react-beautiful-dnd"
-import { StrictModeDroppable as Droppable } from '../helpers/StrictModeDroppable.js';
+import { StrictModeDroppable as Droppable } from '../helpers/StrictModeDroppable.jsx';
 import NewCategory from '../helpers/NewCategory.tsx';
 import { EditText } from 'react-edit-text';
 import NewEnvelope from '../helpers/NewEnvelope.tsx';

@@ -19,14 +19,16 @@
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
-    "apexcharts": "^3.53.0",
+    "ajv": "^6.15.0",
+    "ajv-keywords": "^3.5.2",
+    "apexcharts": "^6.10.0",
     "axios": "^1.7.7",
     "base64url": "^3.0.1",
-    "concurrently": "^9.0.1",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dayjs": "^1.11.13",
     "dotenv": "^16.4.5",
+    "express": "^5.2.1",
     "express-oauth2-jwt-bearer": "^1.6.0",
     "express-session": "^1.18.0",
     "jsonwebtoken": "^9.0.2",
@@ -35,20 +37,19 @@
     "pg": "^8.13.0",
     "plaid": "^28.0.0",
     "react": "^18.3.1",
-    "react-apexcharts": "^1.4.1",
+    "react-apexcharts": "^2.1.1",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.3.1",
     "react-edit-text": "^5.1.1",
     "react-plaid-link": "^3.6.0",
     "react-router-dom": "^6.26.2",
-    "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "concurrently \"react-scripts start\" \"node api/server.js\"",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node api/server.js"
   },
   "eslintConfig": {
     "extends": [
@@ -71,6 +72,10 @@
   "keywords": [],
   "license": "ISC",
   "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.21.11"
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@vitejs/plugin-react": "^6.0.5",
+    "concurrently": "^9.2.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1"
   }
 }

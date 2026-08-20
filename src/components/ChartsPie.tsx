@@ -5,7 +5,7 @@ import Chart from "react-apexcharts";
 import axios from 'axios';
 import { useAuthToken } from '../context/AuthTokenContext.tsx';
 import { MonthSelector } from '../helpers/MonthSelector.tsx';
-import * as dayjs from 'dayjs';
+import dayjs from 'dayjs';
 
 export const ChartsPie: React.FC = () => {
   const { config } = useAuthToken();

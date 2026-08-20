@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { baseUrl, channels } from '../shared/constants.js';
-import * as dayjs from 'dayjs';
+import dayjs from 'dayjs';
 import { Button, Box, Typography, Paper } from '@mui/material';
 import Modal from '@mui/material/Modal';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';

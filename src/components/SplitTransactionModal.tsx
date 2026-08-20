@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Box, Modal } from '@mui/material';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShareNodes, faPlus, faMinus } from "@fortawesome/free-solid-svg-icons";
-import * as dayjs from 'dayjs'
+import dayjs from "dayjs";
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
 import { InputText } from '../helpers/InputText.tsx';

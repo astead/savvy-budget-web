@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Header } from './header.tsx';
 import { baseUrl, channels } from '../shared/constants.js';
 import { DropDown } from '../helpers/DropDown.tsx';
-import * as dayjs from 'dayjs'
+import dayjs from "dayjs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileImport, faChevronDown, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import { useParams } from 'react-router';

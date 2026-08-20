@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Header } from './header.tsx';
 import { baseUrl, channels } from '../shared/constants.js'
 import { MonthSelector } from '../helpers/MonthSelector.tsx';
-import * as dayjs from 'dayjs';
+import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
