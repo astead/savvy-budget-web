@@ -1,13 +1,23 @@
+const isServer = typeof process !== "undefined" && process.env;
+
 export const auth0data = {
   domain: 'dev-uzuzwxmdtzhadla7.us.auth0.com',
   clientId: 'OhD9wIJL5VTPQLLN8mINVJgzjfE2BKtt',
-  origin: import.meta.env.VITE_APP_AUTH0_ORIGIN,
-  audience: import.meta.env.VITE_APP_AUTH0_AUDIENCE,
+  origin: isServer
+    ? process.env.VITE_APP_AUTH0_ORIGIN
+    : import.meta.env.VITE_APP_AUTH0_ORIGIN,
+  audience: isServer
+    ? process.env.VITE_APP_AUTH0_AUDIENCE
+    : import.meta.env.VITE_APP_AUTH0_AUDIENCE,
   issuerBaseURL: 'https://dev-uzuzwxmdtzhadla7.us.auth0.com/',
   tokenSigningAlg: 'RS256',
-  redirectURL: import.meta.env.VITE_APP_AUTH0_REDIRECT_URL,
+  redirectURL: isServer
+    ? process.env.VITE_APP_AUTH0_REDIRECT_URL
+    : import.meta.env.VITE_APP_AUTH0_REDIRECT_URL,
 };
-export const baseUrl = import.meta.env.VITE_API_BASE_URL;
+export const baseUrl = isServer
+  ? process.env.VITE_API_BASE_URL
+  : import.meta.env.VITE_API_BASE_URL;
 export const channels = {
   GET_CAT_ENV: 'get_categories_and_envelopes', // if a category has no envelopes, this will include it
   GET_ENV_CAT: 'get_envelopes_and_categories', // if a category has no envelopes, this will not include it
