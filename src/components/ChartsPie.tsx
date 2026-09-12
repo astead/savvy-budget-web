@@ -134,8 +134,15 @@ export const ChartsPie: React.FC = () => {
   async function load_chart() {
     // Signal we want to get data
     if (!config) return;
+    var tmpFilterEnvName = filterEnvName;
+
+    // if in budget mode, we can't have a envelope filter
+    if (mode === "budget" && filterEnvName != null) {
+      tmpFilterEnvName = null;
+      setFilterEnvName(null);
+    }
     const response = await axios.post(baseUrl + channels.GET_ENV_PIE_CHART_DATA,
-      {filterCatID, filterEnvName, find_date: curMonth, mode }, config);
+      {filterCatID, filterEnvName: tmpFilterEnvName, find_date: curMonth, mode }, config);
 
     // Receive the data
     const myChartData = response.data;
@@ -208,28 +215,45 @@ export const ChartsPie: React.FC = () => {
             dataPointSelection: (event, chartContext, config) => {
               const clickedLabel = config.w.config.labels[config.dataPointIndex];
               
-              // Find the category in the dropdown list
-              const cat = filterEnvList.find((i) => i.text === clickedLabel);
-              if (!cat) return;
-              
-              // Immediately disable pointer events so hover state is cleared
-              document.querySelector('.chartContainer')?.classList.add('chart-updating');
-              
-              // Let ApexCharts finish its internal animation/hover handling
-              requestAnimationFrame(() => {
+              // If we are at All Categories, clicking a slice should set the category (drill to envelopes)
+              if (filterCatID === -2) {
+                // Find the category in the dropdown list
+                const cat = filterEnvList.find((i) => i.text === clickedLabel);
+                if (!cat) return;
+                
+                // Immediately disable pointer events so hover state is cleared
+                document.querySelector('.chartContainer')?.classList.add('chart-updating');
+                
+                // Let ApexCharts finish its internal animation/hover handling
                 requestAnimationFrame(() => {
-                  // small extra delay to be safe
-                  setTimeout(() => {
-                    handleFilterEnvChange({
-                      id: null,
-                      new_value: cat.id,
-                      new_text: cat.text
-                    });
-                    // remove pointer-events lock after state change
-                    document.querySelector('.chartContainer')?.classList.remove('chart-updating');
-                  }, 60); // 40-120ms is usually enough
+                  requestAnimationFrame(() => {
+                    // small extra delay to be safe
+                    setTimeout(() => {
+                      handleFilterEnvChange({
+                        id: null,
+                        new_value: cat.id,
+                        new_text: cat.text
+                      });
+                      // remove pointer-events lock after state change
+                      document.querySelector('.chartContainer')?.classList.remove('chart-updating');
+                    }, 60); // 40-120ms is usually enough
+                  });
                 });
-              });
+              } else if (filterCatID >= 0 && !filterEnvName && mode === "actual") {
+                // Let ApexCharts finish its internal animation/hover handling
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    // small extra delay to be safe
+                    setTimeout(() => {
+                      // If we are at a specific category (filterCatID >= 0) and not yet filtered by envelope,
+                      // clicking a slice should set the envelope name (drill into that envelope)
+                      setFilterEnvName(clickedLabel);
+                      // remove pointer-events lock after state change
+                      document.querySelector('.chartContainer')?.classList.remove('chart-updating');
+                    }, 60); // 40-120ms is usually enough
+                  });
+                });
+              }
             },
           },
         },
@@ -340,7 +364,7 @@ export const ChartsPie: React.FC = () => {
       { filterEnvListLoaded &&
         <>
         <div className="chart-filter-container">
-          <label className="chart-filter-label">Envelope:</label>
+          <label className="chart-filter-label">Category:</label>
           <DropDown 
             id={-1}
             selectedID={filterCatID}
