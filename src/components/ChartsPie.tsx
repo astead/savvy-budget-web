@@ -82,6 +82,10 @@ export const ChartsPie: React.FC = () => {
     // Receive the data
     let groupedItems = [
     {
+      id: -3,
+      text: "Budget",
+    },
+    {
       id: -2,
       text: "All Spending",
     }];
@@ -122,8 +126,10 @@ export const ChartsPie: React.FC = () => {
     const yActual = myChartData.map((i) => {
       if (filterCatName === 'Income' && i.totalAmt > 0) {
         return parseFloat((i.totalAmt).toFixed(2));
-      } else if (filterCatName !== 'Income' && i.totalAmt < 0) {
+      } else if (filterCatID !== -3 && filterCatName !== 'Income' && i.totalAmt < 0) {
         return -1*parseFloat((i.totalAmt).toFixed(2));
+      } else if (filterCatID === -3 ) {
+        return parseFloat((i.totalAmt).toFixed(2));
       } else {
         return 0;
       }
