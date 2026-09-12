@@ -210,13 +210,26 @@ export const ChartsPie: React.FC = () => {
               
               // Find the category in the dropdown list
               const cat = filterEnvList.find((i) => i.text === clickedLabel);
-              if (cat) {
-                handleFilterEnvChange({
-                  id: null,
-                  new_value: cat.id,
-                  new_text: cat.text,
+              if (!cat) return;
+              
+              // Immediately disable pointer events so hover state is cleared
+              document.querySelector('.chartContainer')?.classList.add('chart-updating');
+              
+              // Let ApexCharts finish its internal animation/hover handling
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  // small extra delay to be safe
+                  setTimeout(() => {
+                    handleFilterEnvChange({
+                      id: null,
+                      new_value: cat.id,
+                      new_text: cat.text
+                    });
+                    // remove pointer-events lock after state change
+                    document.querySelector('.chartContainer')?.classList.remove('chart-updating');
+                  }, 60); // 40-120ms is usually enough
                 });
-              }
+              });
             },
           },
         },
@@ -245,6 +258,11 @@ export const ChartsPie: React.FC = () => {
             formatter: function (val) {
               return val ? val.toLocaleString('en-EN', {style: 'currency', currency: 'USD'}) : 'N/A';
             }
+          }
+        },
+        plotOptions: {
+          pie: {
+            expandOnClick: false
           }
         },
         // Adding legend formatter to handle undefined values
@@ -322,7 +340,7 @@ export const ChartsPie: React.FC = () => {
       { filterEnvListLoaded &&
         <>
         <div className="chart-filter-container">
-            <label className="chart-filter-label">Envelope:</label>
+          <label className="chart-filter-label">Envelope:</label>
           <DropDown 
             id={-1}
             selectedID={filterCatID}
