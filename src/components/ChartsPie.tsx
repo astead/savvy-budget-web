@@ -83,7 +83,7 @@ export const ChartsPie: React.FC = () => {
     let groupedItems = [
     {
       id: -3,
-      text: "Budget",
+      text: "All Budget",
     },
     {
       id: -2,
@@ -237,28 +237,38 @@ export const ChartsPie: React.FC = () => {
   const crumbs: JSX.Element[] = [];
 
   function renderBreadCrumbTitle() {
-    if (filterCatName !== 'Income') {
-      crumbs.push(
-        <span className="bread-crumb" 
+    if (filterCatID !== -3) {
+      if (filterCatName !== 'Income') {
+        crumbs.push(
+          <span key="all-spending" className="bread-crumb" 
+            onClick={() => {
+              handleFilterEnvChange({ id: null, new_value: -2, new_text: "All Spending" })
+            }}
+          >All Spending</span>
+        );
+      } else {
+        crumbs.push(<span key="all-income" className="bread-crumb">All Income</span>);
+      }
+      if (filterCatID !== -2 && filterCatName !== 'Income') {
+        crumbs.push(<span key="spacer-1" className="bread-crumb-spacer">{'>'}</span>);
+        crumbs.push(<span key={`cat-${filterCatID}`} className="bread-crumb" 
           onClick={() => {
-            handleFilterEnvChange({ id: null, new_value: -2, new_text: "All Spending" })
+            handleFilterEnvChange({id: null, new_value: filterCatID, new_text: filterCatName});
           }}
-        >All Spending</span>
-      );
+        >{filterCatName}</span>);
+      }
     } else {
-      crumbs.push(<span className="bread-crumb">All Income</span>);
-    }
-    if (filterCatID !== -2 && filterCatName !== 'Income') {
-      crumbs.push(<span className="bread-crumb-spacer">{'>'}</span>);
-      crumbs.push(<span className="bread-crumb" 
-        onClick={() => {
-          handleFilterEnvChange({id: null, new_value: filterCatID, new_text: filterCatName});
-        }}
-      >{filterCatName}</span>);
+      crumbs.push(
+        <span key="budget" className="bread-crumb" 
+          onClick={() => {
+            handleFilterEnvChange({ id: null, new_value: -3, new_text: "All Budget" })
+          }}
+        >All Budget</span>
+      );
     }
     if (filterEnvName) {
-      crumbs.push(<span className="bread-crumb-spacer">{'>'}</span>);
-      crumbs.push(<span className="bread-crumb">{filterEnvName}</span>);
+      crumbs.push(<span key="spacer-2" className="bread-crumb-spacer">{'>'}</span>);
+      crumbs.push(<span key={`env-${filterEnvName}`} className="bread-crumb">{filterEnvName}</span>);
     }
     return crumbs;
   }
