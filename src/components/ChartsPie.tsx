@@ -121,22 +121,62 @@ export const ChartsPie: React.FC = () => {
     
     setChartData(myChartData as ChartData[]);
     
-    const labels = myChartData.map((item) => item.label);
-    
-    const yActual = myChartData.map((i) => {
-      if (filterCatName === 'Income' && i.totalAmt > 0) {
-        return parseFloat((i.totalAmt).toFixed(2));
-      } else if (filterCatID !== -3 && filterCatName !== 'Income' && i.totalAmt < 0) {
-        return -1*parseFloat((i.totalAmt).toFixed(2));
-      } else if (filterCatID === -3 ) {
-        return parseFloat((i.totalAmt).toFixed(2));
+    // Step 1: Build combined array
+    const combined = myChartData.map((item) => {
+      const amt = parseFloat(item.totalAmt.toFixed(2));
+
+      let value;
+      if (filterCatName === 'Income' && amt > 0) {
+        value = amt;
+      } else if (filterCatID !== -3 && filterCatName !== 'Income' && amt < 0) {
+        value = Math.abs(amt);
+      } else if (filterCatID === -3) {
+        value = Math.abs(amt);
       } else {
-        return 0;
+        value = 0;
       }
+
+      return { label: item.label, value };
     });
+
+    // Step 2: Sort largest → smallest
+    combined.sort((a, b) => b.value - a.value);
+
+    // Step 3: Extract sorted labels + series
+    const labels = combined.map((i) => i.label);
+    const series = combined.map((i) => i.value);
+
+    const customColors = [
+      "#1f77b4", // strong blue
+      "#ff7f0e", // vivid orange
+      "#2ca02c", // strong green
+      "#d62728", // bold red
+      "#9467bd", // purple
+      "#8c564b", // brown
+      "#e377c2", // pink
+      "#7f7f7f", // gray
+      "#bcbd22", // olive
+      "#17becf", // cyan
+
+      "#4e79a7", // steel blue
+      "#f28e2b", // orange-yellow
+      "#e15759", // coral red
+      "#76b7b2", // teal
+      "#59a14f", // medium green
+      "#edc948", // gold
+      "#b07aa1", // lavender
+      "#ff9da7", // rose
+      "#9c755f", // warm brown
+      "#bab0ac", // soft gray
+
+      "#003f5c", // deep navy
+      "#58508d", // indigo
+      "#bc5090", // magenta
+      "#ffa600"  // bright amber
+    ];
      
     setChartState({
-      series: yActual,
+      series: series,
       options: {
         chart: {
           width: 800,
@@ -153,6 +193,7 @@ export const ChartsPie: React.FC = () => {
           },
         },
         labels: labels,
+        colors: customColors,
         responsive: [{
           breakpoint: 480,
           options: {
