@@ -714,6 +714,39 @@ select.envelopeDropDown-undefined {
 }
 
 
+
+.mode-toggle-chip {
+  display: inline-flex;
+  gap: 8px;
+  margin-right: 12px;
+}
+
+.chip {
+  border: none;
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  background-color: #e0e0e0;
+  color: #333;
+  transition: all 0.2s ease;
+}
+
+.chip.active.actual {
+  background-color: #007bff;
+  color: white;
+}
+
+.chip.active.budget {
+  background-color: #28a745;
+  color: white;
+}
+
+.chip:hover {
+  opacity: 0.85;
+}
+
+
  
 div.mobile-App {
   align-content:center;
@@ -794,3 +827,4 @@ div.mobile-tx-date {
   width: 100%;
   text-align: left; /* Default alignment */
 }
+

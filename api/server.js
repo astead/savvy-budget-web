@@ -3551,7 +3551,7 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_CHART_DATA, async (re
 app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async (req, res) => {
   console.log(channels.GET_ENV_PIE_CHART_DATA);
 
-  const { filterCatID, filterEnvName, find_date } = req.body;
+  const { filterCatID, filterEnvName, find_date, mode } = req.body;
   const userId = req.user_id; // Looked up user_id from middleware
   
   try {
@@ -3585,25 +3585,16 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async
         });
       
       if (!filterEnvName) {
-        if (filterID === -3) {
-          // Get budget categories
+        if (filterID === -2) {
+          // Get all categories
           query = query
             .andWhereNot({ category: 'Income' })
-            .andWhere({ isBudget: 1 })
-            .select('category as label')
-            .groupBy('category');
-        } else if (filterID === -2) {
-          // Get all spending categories
-          query = query
-            .andWhereNot({ category: 'Income' })
-            .andWhere({ isBudget: 0 })
             .select('category as label')
             .groupBy('category');
         } else {
           // filter on specific categories
           query = query
             .andWhere({ categoryID: filterID })
-            .andWhere({ isBudget: 0 })
             .select('envelope as label')
             .groupBy('envelope');
         }
@@ -3612,9 +3603,13 @@ app.post(process.env.API_SERVER_BASE_PATH+channels.GET_ENV_PIE_CHART_DATA, async
         query = query
           .andWhere({ envelope: filterEnvName })
           .andWhere({ categoryID: filterID })
-          .andWhere({ isBudget: 0 })
           .select('description as label')
           .groupBy('description');
+      }
+      if (mode === "budget") {
+        query = query.andWhere({ isBudget: 1 });
+      } else {
+        query = query.andWhere({ isBudget: 0 });
       }
 
       const data = await query;

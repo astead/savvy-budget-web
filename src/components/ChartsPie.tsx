@@ -19,11 +19,17 @@ export const ChartsPie: React.FC = () => {
     [key: string]: string | number | Date;
   }
 
+  interface ModeToggleChipProps {
+    mode: "actual" | "budget";
+    onChange: (newMode: "actual" | "budget") => void;
+  }
+
   const [filterEnvList, setFilterEnvList] = useState<FilterList[]>([]);
   const [filterEnvListLoaded, setFilterEnvListLoaded] = useState(false);
   const [filterCatID, setFilterCatID] = useState(-2);
   const [filterCatName, setFilterCatName] = useState(null as any);
   const [filterEnvName, setFilterEnvName] = useState(null as any);
+  const [mode, setMode] = useState<"actual" | "budget">("actual");
 
   /* Month Selector code -------------------------------------------*/
   const [year, setYear] = useState((new Date()).getFullYear());
@@ -62,6 +68,25 @@ export const ChartsPie: React.FC = () => {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [chartState, setChartState] = useState(null as any);
   
+  const ModeToggleChip: React.FC<ModeToggleChipProps> = ({ mode, onChange }) => {
+    return (
+      <div className="mode-toggle-chip">
+        <button
+          className={`chip ${mode === "actual" ? "active actual" : ""}`}
+          onClick={() => onChange("actual")}
+        >
+          Actual
+        </button>
+        <button
+          className={`chip ${mode === "budget" ? "active budget" : ""}`}
+          onClick={() => onChange("budget")}
+        >
+          Budget
+        </button>
+      </div>
+    );
+  };
+
   const handleFilterEnvChange = ({id, new_value, new_text}) => {
     if (filterCatID !== parseInt(new_value) || 
         filterCatName !== new_text ||
@@ -82,12 +107,8 @@ export const ChartsPie: React.FC = () => {
     // Receive the data
     let groupedItems = [
     {
-      id: -3,
-      text: "All Budget",
-    },
-    {
       id: -2,
-      text: "All Spending",
+      text: "All Categories",
     }];
 
     // Step 1: Extract and rename catID and category
@@ -114,7 +135,7 @@ export const ChartsPie: React.FC = () => {
     // Signal we want to get data
     if (!config) return;
     const response = await axios.post(baseUrl + channels.GET_ENV_PIE_CHART_DATA,
-      {filterCatID, filterEnvName, find_date: curMonth }, config);
+      {filterCatID, filterEnvName, find_date: curMonth, mode }, config);
 
     // Receive the data
     const myChartData = response.data;
@@ -126,12 +147,14 @@ export const ChartsPie: React.FC = () => {
       const amt = parseFloat(item.totalAmt.toFixed(2));
 
       let value;
-      if (filterCatName === 'Income' && amt > 0) {
+      if (mode === "actual" && filterCatName === 'Income' && amt > 0) {
         value = amt;
-      } else if (filterCatID !== -3 && filterCatName !== 'Income' && amt < 0) {
+      } else if (mode === "budget" && filterCatName === 'Income' && amt < 0) {
         value = Math.abs(amt);
-      } else if (filterCatID === -3) {
+      } else if (mode === "actual" && filterCatName !== 'Income' && amt < 0) {
         value = Math.abs(amt);
+      } else if (mode === "budget" && filterCatName !== 'Income' && amt > 0) {
+        value = amt;
       } else {
         value = 0;
       }
@@ -183,11 +206,16 @@ export const ChartsPie: React.FC = () => {
           type: 'pie',
           events:{
             dataPointSelection: (event, chartContext, config) => {
-              if (filterCatID === -2) {
-                // update our filter
-                setFilterCatName(config.w.config.labels[config.dataPointIndex]);
-              } else {
-                setFilterEnvName(config.w.config.labels[config.dataPointIndex]);
+              const clickedLabel = config.w.config.labels[config.dataPointIndex];
+              
+              // Find the category in the dropdown list
+              const cat = filterEnvList.find((i) => i.text === clickedLabel);
+              if (cat) {
+                handleFilterEnvChange({
+                  id: null,
+                  new_value: cat.id,
+                  new_text: cat.text,
+                });
               }
             },
           },
@@ -237,34 +265,24 @@ export const ChartsPie: React.FC = () => {
   const crumbs: JSX.Element[] = [];
 
   function renderBreadCrumbTitle() {
-    if (filterCatID !== -3) {
-      if (filterCatName !== 'Income') {
-        crumbs.push(
-          <span key="all-spending" className="bread-crumb" 
-            onClick={() => {
-              handleFilterEnvChange({ id: null, new_value: -2, new_text: "All Spending" })
-            }}
-          >All Spending</span>
-        );
-      } else {
-        crumbs.push(<span key="all-income" className="bread-crumb">All Income</span>);
-      }
-      if (filterCatID !== -2 && filterCatName !== 'Income') {
-        crumbs.push(<span key="spacer-1" className="bread-crumb-spacer">{'>'}</span>);
-        crumbs.push(<span key={`cat-${filterCatID}`} className="bread-crumb" 
-          onClick={() => {
-            handleFilterEnvChange({id: null, new_value: filterCatID, new_text: filterCatName});
-          }}
-        >{filterCatName}</span>);
-      }
-    } else {
+    if (filterCatName !== 'Income') {
       crumbs.push(
-        <span key="budget" className="bread-crumb" 
+        <span key="all-categories" className="bread-crumb" 
           onClick={() => {
-            handleFilterEnvChange({ id: null, new_value: -3, new_text: "All Budget" })
+            handleFilterEnvChange({ id: null, new_value: -2, new_text: "All Categories" })
           }}
-        >All Budget</span>
+        >All Categories</span>
       );
+    } else {
+      crumbs.push(<span key="all-income" className="bread-crumb">All Income</span>);
+    }
+    if (filterCatID !== -2 && filterCatName !== 'Income') {
+      crumbs.push(<span key="spacer-1" className="bread-crumb-spacer">{'>'}</span>);
+      crumbs.push(<span key={`cat-${filterCatID}`} className="bread-crumb" 
+        onClick={() => {
+          handleFilterEnvChange({id: null, new_value: filterCatID, new_text: filterCatName});
+        }}
+      >{filterCatName}</span>);
     }
     if (filterEnvName) {
       crumbs.push(<span key="spacer-2" className="bread-crumb-spacer">{'>'}</span>);
@@ -272,27 +290,16 @@ export const ChartsPie: React.FC = () => {
     }
     return crumbs;
   }
-  
-  useEffect(() => {
-    if (filterEnvListLoaded) {
-      const tmpEnv = filterEnvList.find((i) => {return (i.text === filterCatName)});
-      if (tmpEnv && tmpEnv.id !== filterCatID) {
-        handleFilterEnvChange({id: null, new_value: tmpEnv.id, new_text: filterCatName});
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEnvListLoaded, filterEnvList, filterCatID, filterCatName]);
 
   
   useEffect(() => {
     if (filterEnvListLoaded) {
       if (filterCatName) {
-        renderBreadCrumbTitle();
         load_chart();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterEnvListLoaded, filterCatID, filterCatName, filterEnvName]);
+  }, [filterEnvListLoaded, filterCatID, filterCatName, filterEnvName, mode]);
 
 
   useEffect(() => {
@@ -332,7 +339,8 @@ export const ChartsPie: React.FC = () => {
       {haveChartData &&
         <div className="chartContainer">
           <br/>
-          <div className="chartTitle">
+          <div className="chartTitle" style={{ backgroundColor: mode === "budget" ? "#e8f5e9" : "#e3f2fd" }}>
+            <ModeToggleChip mode={mode} onChange={setMode} />
             { renderBreadCrumbTitle() }
           </div>
           <Chart
