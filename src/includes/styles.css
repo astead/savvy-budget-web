@@ -714,6 +714,14 @@ select.envelopeDropDown-undefined {
 }
 
 
+/* Container: left aligned, inline layout */
+.chartTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start; /* left align */
+  padding: 6px 0;
+}
 
 .mode-toggle-chip {
   display: inline-flex;

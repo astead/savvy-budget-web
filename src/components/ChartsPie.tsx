@@ -357,7 +357,7 @@ export const ChartsPie: React.FC = () => {
       {haveChartData &&
         <div className="chartContainer">
           <br/>
-          <div className="chartTitle" style={{ backgroundColor: mode === "budget" ? "#e8f5e9" : "#e3f2fd" }}>
+          <div className="chartTitle">
             <ModeToggleChip mode={mode} onChange={setMode} />
             { renderBreadCrumbTitle() }
           </div>
